@@ -87,6 +87,10 @@ class MitraResource extends Resource
                     ->limit(40)
                     ->default('-'),
             ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
             ->filters([])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();

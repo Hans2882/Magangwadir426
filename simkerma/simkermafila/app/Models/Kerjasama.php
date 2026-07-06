@@ -26,8 +26,8 @@ class Kerjasama extends Model
     ];
 
     protected $casts = [
-        'tanggal_awal' => \App\Casts\IndonesianDateCast::class,
-        'tanggal_akhir' => \App\Casts\IndonesianDateCast::class,
+        'tanggal_awal' => 'date',
+        'tanggal_akhir' => 'date',
     ];
 
     public function mitra(): BelongsTo
@@ -38,6 +38,16 @@ class Kerjasama extends Model
     public function jenisDokumen(): BelongsTo
     {
         return $this->belongsTo(JenisDokumen::class, 'jenis_dokumen_id');
+    }
+
+    public function bidang(): BelongsTo
+    {
+        return $this->belongsTo(MasterKegiatan::class, 'bidang_id');
+    }
+
+    public function prodis(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(MasterProgramStudi::class, 'kerjasama_prodi', 'kerjasama_id', 'prodi_id');
     }
 
     // Accessor to mimic the old status field based on dates

@@ -48,6 +48,12 @@ class IaResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required(),
+            Forms\Components\Select::make('prodis')
+                ->label('Program Studi')
+                ->relationship('prodis', 'nama_prodi')
+                ->multiple()
+                ->preload()
+                ->searchable(),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(4),
             Forms\Components\Select::make('jenis')
                 ->label('Cakupan (DN/LN)')
@@ -82,6 +88,11 @@ class IaResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->default('-'),
+                Tables\Columns\TextColumn::make('prodis.nama_prodi')
+                    ->label('Program Studi')
+                    ->badge()
+                    ->searchable()
+                    ->default('-'),
                 Tables\Columns\TextColumn::make('nomor_dokumen')
                     ->label('Nomor Dokumen')
                     ->searchable()
@@ -108,6 +119,14 @@ class IaResource extends Resource
                         'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
                     ]),
             ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('prodis')
+                    ->label('Program Studi')
+                    ->relationship('prodis', 'nama_prodi')
+                    ->multiple()
+                    ->searchable()
+                    ->preload(),
+            ])
             ->defaultSort('created_at', 'desc')
             ->striped();
     }
@@ -117,9 +136,27 @@ class IaResource extends Resource
         return $infolist->schema([
             Infolists\Components\Section::make('Detail IA')
                 ->schema([
-                    Infolists\Components\TextEntry::make('jenis')->label('Cakupan (DN/LN)')->default('-'),
+                    Infolists\Components\TextEntry::make('jenis')
+                        ->label('Cakupan (DN/LN)')
+                        ->default('-')
+                        ->badge()
+                        ->color(fn (?string $state): string => match ($state) {
+                            'Dalam Negeri' => 'success',
+                            'Luar Negeri' => 'warning',
+                            default => 'gray',
+                        })
+                        ->icon(fn (?string $state): string => match ($state) {
+                            'Dalam Negeri' => 'heroicon-o-building-office-2',
+                            'Luar Negeri' => 'heroicon-o-globe-americas',
+                            default => 'heroicon-o-question-mark-circle',
+                        }),
                     Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    Infolists\Components\TextEntry::make('prodis.nama_prodi')
+                        ->label('Program Studi')
+                        ->badge()
+                        ->default('-')
+                        ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
                     Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
                     Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),

@@ -41,7 +41,7 @@ class MouResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255),
+            Forms\Components\TextInput::make('judul')->label('Judul MoU')->maxLength(255)->required(),
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
                 ->relationship('mitra', 'nama_mitra')
@@ -57,13 +57,50 @@ class MouResource extends Resource
                 ])
                 ->required()
                 ->default('Dalam Negeri'),
-            Forms\Components\TextInput::make('nomor_dokumen')->label('Nomor Dokumen')->maxLength(200),
-            Forms\Components\TextInput::make('tahun')->label('Tahun')->maxLength(10),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Awal'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir'),
-            Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
-            Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),
-            Forms\Components\TextInput::make('link_dokumen')->label('Link Dokumen')->url()->maxLength(500),
+            Forms\Components\TextInput::make('nomor_dokumen_polinema')
+                ->label('Nomor Mou Polinema')
+                ->maxLength(100)
+                ->dehydrated(false)
+                ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+                    if ($record && $record->nomor_dokumen) {
+                        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                            $parts = explode(" ", $record->nomor_dokumen, 2);
+                        }
+                        $component->state(trim($parts[0] ?? ''));
+                    }
+                }),
+            Forms\Components\TextInput::make('nomor_dokumen_mitra')
+                ->label('Nomor Mou Mitra')
+                ->maxLength(100)
+                ->dehydrated(false)
+                ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+                    if ($record && $record->nomor_dokumen) {
+                        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                            $parts = explode(" ", $record->nomor_dokumen, 2);
+                        }
+                        $component->state(trim($parts[1] ?? ''));
+                    }
+                }),
+            Forms\Components\Hidden::make('nomor_dokumen')
+                ->dehydrateStateUsing(function (Forms\Get $get) {
+                    $pol = trim($get('nomor_dokumen_polinema') ?? '');
+                    $mit = trim($get('nomor_dokumen_mitra') ?? '');
+                    if (empty($pol) && empty($mit)) return null;
+                    if (empty($pol)) return $mit;
+                    if (empty($mit)) return $pol;
+                    return $pol . "\n" . $mit;
+                }),
+            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku'),
+            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir'),
+            Forms\Components\Select::make('bidang_id')
+                ->label('Bidang Kerjasama')
+                ->relationship('bidang', 'bidang_kerjasama')
+                ->searchable()
+                ->preload()
+                ->required(),
+            Forms\Components\TextInput::make('link_dokumen')->label('Berkas Mou (Google Drive)')->url()->maxLength(500)->columnSpanFull(),
         ]);
     }
 
@@ -108,6 +145,10 @@ class MouResource extends Resource
                         'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
                     ]),
             ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
             ->defaultSort('created_at', 'desc')
             ->striped();
     }
@@ -117,7 +158,20 @@ class MouResource extends Resource
         return $infolist->schema([
             Infolists\Components\Section::make('Detail MoU')
                 ->schema([
-                    Infolists\Components\TextEntry::make('jenis')->label('Cakupan (DN/LN)')->default('-'),
+                    Infolists\Components\TextEntry::make('jenis')
+                        ->label('Cakupan (DN/LN)')
+                        ->default('-')
+                        ->badge()
+                        ->color(fn (?string $state): string => match ($state) {
+                            'Dalam Negeri' => 'success',
+                            'Luar Negeri' => 'warning',
+                            default => 'gray',
+                        })
+                        ->icon(fn (?string $state): string => match ($state) {
+                            'Dalam Negeri' => 'heroicon-o-building-office-2',
+                            'Luar Negeri' => 'heroicon-o-globe-americas',
+                            default => 'heroicon-o-question-mark-circle',
+                        }),
                     Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
                     Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),

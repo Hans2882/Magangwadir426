@@ -75,6 +75,10 @@ class ListMitras extends ListRecords
                     ->default('-')
                     ->visible(fn ($livewire) => $livewire->activeTab !== 'luar_negeri'),
             ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
             ->filters([
                 Tables\Filters\SelectFilter::make('negara')
                     ->label('Negara')

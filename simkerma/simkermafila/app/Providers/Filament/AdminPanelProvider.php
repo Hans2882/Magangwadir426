@@ -27,7 +27,14 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->sidebarCollapsibleOnDesktop()
+            ->databaseNotifications()
             ->brandName('SIMKERMA')
+            ->brandLogo(fn () => new \Illuminate\Support\HtmlString('<div></div>'))
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::TOPBAR_START,
+                fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.logo")')
+            )
             ->colors([
                 'primary' => Color::hex('#113261'),
             ])

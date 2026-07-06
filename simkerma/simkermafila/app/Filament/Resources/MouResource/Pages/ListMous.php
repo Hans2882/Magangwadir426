@@ -15,10 +15,12 @@ class ListMous extends ListRecords
     {
         return [
             'Dalam Negeri' => Tab::make()
+                ->icon('heroicon-o-building-office-2')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('jenis', 'Dalam Negeri')),
             'Luar Negeri' => Tab::make()
+                ->icon('heroicon-o-globe-americas')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('jenis', 'Luar Negeri')),
-            'All' => Tab::make(),
+            'All' => Tab::make()->icon('heroicon-o-list-bullet'),
         ];
     }
 }

@@ -50,6 +50,12 @@ class PksSpkResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required(),
+            Forms\Components\Select::make('prodis')
+                ->label('Program Studi')
+                ->relationship('prodis', 'nama_prodi')
+                ->multiple()
+                ->preload()
+                ->searchable(),
             Forms\Components\Hidden::make('jenis')->default('Dalam Negeri'),
             Forms\Components\Select::make('jenis_dokumen_id')
                 ->label('Jenis Dokumen')
@@ -89,6 +95,11 @@ class PksSpkResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->default('-'),
+                Tables\Columns\TextColumn::make('prodis.nama_prodi')
+                    ->label('Program Studi')
+                    ->badge()
+                    ->searchable()
+                    ->default('-'),
                 Tables\Columns\TextColumn::make('nomor_dokumen')
                     ->label('Nomor Dokumen')
                     ->searchable()
@@ -119,6 +130,12 @@ class PksSpkResource extends Resource
                 Tables\Filters\SelectFilter::make('jenis_dokumen_id')
                     ->label('Jenis Dokumen')
                     ->options([3 => 'PKS', 5 => 'SPK']),
+                Tables\Filters\SelectFilter::make('prodis')
+                    ->label('Program Studi')
+                    ->relationship('prodis', 'nama_prodi')
+                    ->multiple()
+                    ->searchable()
+                    ->preload(),
             ])
             ->defaultSort('created_at', 'desc')
             ->striped();
@@ -137,6 +154,11 @@ class PksSpkResource extends Resource
                         }),
                     Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    Infolists\Components\TextEntry::make('prodis.nama_prodi')
+                        ->label('Program Studi')
+                        ->badge()
+                        ->default('-')
+                        ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
                     Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
                     Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
