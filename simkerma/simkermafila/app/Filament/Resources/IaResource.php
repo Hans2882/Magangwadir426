@@ -35,6 +35,7 @@ class IaResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with(['mitra', 'prodis'])
             ->where('jenis_dokumen_id', 4); // 4 = IA
     }
 

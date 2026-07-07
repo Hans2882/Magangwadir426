@@ -36,6 +36,7 @@ class PksSpkResource extends Resource
     {
         // 3 = PKS, 5 = SPK
         return parent::getEloquentQuery()
+            ->with(['mitra'])
             ->where('jenis', 'Dalam Negeri')
             ->whereIn('jenis_dokumen_id', [3, 5]);
     }

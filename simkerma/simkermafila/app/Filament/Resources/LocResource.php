@@ -35,6 +35,7 @@ class LocResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with(['mitra'])
             ->where('jenis', 'Luar Negeri')
             ->where('jenis_dokumen_id', 6);
     }

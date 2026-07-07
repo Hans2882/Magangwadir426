@@ -35,6 +35,7 @@ class MouResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with(['mitra'])
             ->where('jenis_dokumen_id', 1); // 1 = MoU
     }
 
