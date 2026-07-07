@@ -91,6 +91,8 @@ class IaResource extends Resource
                     ->label('Nama Mitra')
                     ->searchable()
                     ->sortable()
+                    ->limit(40)
+                    ->tooltip(fn ($record) => $record->mitra?->nama_mitra)
                     ->default('-'),
                 Tables\Columns\TextColumn::make('prodis.nama_prodi')
                     ->label('Program Studi')

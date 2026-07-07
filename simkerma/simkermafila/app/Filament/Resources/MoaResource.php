@@ -79,6 +79,8 @@ class MoaResource extends Resource
                     ->label('Nama Mitra')
                     ->searchable()
                     ->sortable()
+                    ->limit(40)
+                    ->tooltip(fn ($record) => $record->mitra?->nama_mitra)
                     ->default('-'),
                 Tables\Columns\TextColumn::make('nomor_dokumen')
                     ->label('Nomor Dokumen')
