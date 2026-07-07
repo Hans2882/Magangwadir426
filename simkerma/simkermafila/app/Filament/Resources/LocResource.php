@@ -72,6 +72,15 @@ class LocResource extends Resource
                     ->sortable()
                     ->limit(50)
                     ->tooltip(fn ($record) => $record->judul),
+                Tables\Columns\TextColumn::make('link_dokumen')
+                    ->label('Dokumen')
+                    ->default('-')
+                    ->formatStateUsing(fn ($state) => $state && $state !== '-' ? 'Dokumen' : '-')
+                    ->url(fn (Model $record) => $record->link_dokumen && $record->link_dokumen !== '-' ? $record->link_dokumen : null)
+                    ->openUrlInNewTab()
+                    ->badge()
+                    ->color(fn ($state) => $state && $state !== '-' ? 'primary' : 'gray')
+                    ->icon(fn ($state) => $state && $state !== '-' ? 'heroicon-o-link' : null),
                 Tables\Columns\TextColumn::make('mitra.nama_mitra')
                     ->label('Nama Mitra')
                     ->searchable()
