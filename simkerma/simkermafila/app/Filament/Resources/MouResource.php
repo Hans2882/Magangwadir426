@@ -208,7 +208,9 @@ class MouResource extends Resource
     {
         return [
             'index' => Pages\ListMous::route('/'),
+            'create' => Pages\CreateMou::route('/create'),
             'view'  => Pages\ViewMou::route('/{record}'),
+            'edit'  => Pages\EditMou::route('/{record}/edit'),
         ];
     }
 }

@@ -11,6 +11,6 @@ class ListLois extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return parent::getHeaderActions();
     }
 }

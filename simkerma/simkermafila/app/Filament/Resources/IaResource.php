@@ -133,6 +133,11 @@ class IaResource extends Resource
                     ->searchable()
                     ->preload(),
             ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
             ->defaultSort('created_at', 'desc')
             ->striped();
     }
@@ -191,7 +196,9 @@ class IaResource extends Resource
     {
         return [
             'index' => Pages\ListIas::route('/'),
+            'create' => Pages\CreateIa::route('/create'),
             'view'  => Pages\ViewIa::route('/{record}'),
+            'edit'  => Pages\EditIa::route('/{record}/edit'),
         ];
     }
 }

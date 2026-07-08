@@ -147,7 +147,9 @@ class LocResource extends Resource
     {
         return [
             'index' => Pages\ListLocs::route('/'),
+            'create' => Pages\CreateLoc::route('/create'),
             'view'  => Pages\ViewLoc::route('/{record}'),
+            'edit'  => Pages\EditLoc::route('/{record}/edit'),
         ];
     }
 }
