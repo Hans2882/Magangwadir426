@@ -4,12 +4,12 @@ namespace App\Filament\Resources\MitraResource\Pages;
 
 use App\Filament\Resources\MitraResource;
 use App\Models\Mitra;
+use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Pages\ListRecords\Tab;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 
 class ListMitras extends ListRecords
 {
@@ -17,7 +17,11 @@ class ListMitras extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Actions\CreateAction::make()
+                ->label('Create New Mitra')
+                ->icon('heroicon-o-plus'),
+        ];
     }
 
     public function getTabs(): array
@@ -25,10 +29,18 @@ class ListMitras extends ListRecords
         return [
             'dalam_negeri' => Tab::make('Dalam Negeri')
                 ->icon('heroicon-o-building-office-2')
-                ->badge(Mitra::whereNull('negara_id')->orWhere('negara_id', '<', 1)->count()),
+                ->badge(
+                    Mitra::whereNull('negara_id')
+                        ->orWhere('negara_id', '<', 1)
+                        ->count()
+                ),
+
             'luar_negeri' => Tab::make('Luar Negeri')
                 ->icon('heroicon-o-globe-alt')
-                ->badge(Mitra::where('negara_id', '>=', 1)->count()),
+                ->badge(
+                    Mitra::where('negara_id', '>=', 1)
+                        ->count()
+                ),
         ];
     }
 
@@ -42,8 +54,10 @@ class ListMitras extends ListRecords
         if ($this->activeTab === 'luar_negeri') {
             return Mitra::query()->where('negara_id', '>=', 1);
         }
+
         return Mitra::query()->where(function ($query) {
-            $query->whereNull('negara_id')->orWhere('negara_id', '<', 1);
+            $query->whereNull('negara_id')
+                  ->orWhere('negara_id', '<', 1);
         });
     }
 
@@ -55,20 +69,24 @@ class ListMitras extends ListRecords
                     ->label('Nama Mitra')
                     ->searchable()
                     ->sortable(),
+
                 Tables\Columns\TextColumn::make('negara.nama_negara')
                     ->label('Negara')
                     ->searchable()
                     ->sortable()
                     ->default('-')
                     ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
+
                 Tables\Columns\TextColumn::make('telepon')
                     ->label('No. Telepon')
                     ->default('-')
                     ->visible(fn ($livewire) => $livewire->activeTab !== 'luar_negeri'),
+
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
                     ->default('-')
                     ->visible(fn ($livewire) => $livewire->activeTab !== 'luar_negeri'),
+
                 Tables\Columns\TextColumn::make('alamat')
                     ->label('Alamat')
                     ->limit(40)

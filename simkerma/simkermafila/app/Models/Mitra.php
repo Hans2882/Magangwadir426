@@ -9,6 +9,8 @@ class Mitra extends Model
 {
     protected $table = 'mitra';
 
+    public $timestamps = false;
+
     protected $fillable = [
         'nama_mitra',
         'kategori_id',

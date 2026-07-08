@@ -188,7 +188,9 @@ class PksSpkResource extends Resource
     {
         return [
             'index' => Pages\ListPksSpks::route('/'),
+            'create' => Pages\CreatePksSpk::route('/create'),
             'view'  => Pages\ViewPksSpk::route('/{record}'),
+            'edit'  => Pages\EditPksSpk::route('/{record}/edit'),
         ];
     }
 }

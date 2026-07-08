@@ -75,62 +75,74 @@ class IaResource extends Resource
     }
 
     public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('judul')
-                    ->label('Judul')
-                    ->searchable()
-                    ->sortable()
-                    ->limit(50)
-                    ->tooltip(fn ($record) => $record->judul),
-                Tables\Columns\TextColumn::make('mitra.nama_mitra')
-                    ->label('Nama Mitra')
-                    ->searchable()
-                    ->sortable()
-                    ->default('-'),
-                Tables\Columns\TextColumn::make('prodis.nama_prodi')
-                    ->label('Program Studi')
-                    ->badge()
-                    ->searchable()
-                    ->default('-'),
-                Tables\Columns\TextColumn::make('nomor_dokumen')
-                    ->label('Nomor Dokumen')
-                    ->searchable()
-                    ->default('-'),
-                Tables\Columns\TextColumn::make('tahun')
-                    ->label('Tahun')
-                    ->sortable()
-                    ->default('-')
-                    ->alignCenter(),
-                Tables\Columns\TextColumn::make('tanggal_awal')
-                    ->label('Tgl. Awal')
-                    ->date('d/m/Y')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('tanggal_akhir')
-                    ->label('Tgl. Akhir')
-                    ->date('d/m/Y')
-                    ->sortable(),
-                Tables\Columns\BadgeColumn::make('status')
-                    ->label('Status')
-                    ->getStateUsing(fn (Model $record) => $record->status)
-                    ->colors([
-                        'success' => 'AKTIF',
-                        'danger'  => 'HABIS',
-                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
-                    ]),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('prodis')
-                    ->label('Program Studi')
-                    ->relationship('prodis', 'nama_prodi')
-                    ->multiple()
-                    ->searchable()
-                    ->preload(),
-            ])
-            ->defaultSort('created_at', 'desc')
-            ->striped();
-    }
+{
+    return $table
+        ->columns([
+            Tables\Columns\TextColumn::make('judul')
+                ->label('Judul')
+                ->searchable()
+                ->sortable()
+                ->limit(50)
+                ->tooltip(fn ($record) => $record->judul),
+
+            Tables\Columns\TextColumn::make('mitra.nama_mitra')
+                ->label('Nama Mitra')
+                ->searchable()
+                ->sortable()
+                ->default('-'),
+
+            Tables\Columns\TextColumn::make('prodis.nama_prodi')
+                ->label('Program Studi')
+                ->badge()
+                ->searchable()
+                ->default('-'),
+
+            Tables\Columns\TextColumn::make('nomor_dokumen')
+                ->label('Nomor Dokumen')
+                ->searchable()
+                ->default('-'),
+
+            Tables\Columns\TextColumn::make('tahun')
+                ->label('Tahun')
+                ->sortable()
+                ->default('-')
+                ->alignCenter(),
+
+            Tables\Columns\TextColumn::make('tanggal_awal')
+                ->label('Tgl. Awal')
+                ->date('d/m/Y')
+                ->sortable(),
+
+            Tables\Columns\TextColumn::make('tanggal_akhir')
+                ->label('Tgl. Akhir')
+                ->date('d/m/Y')
+                ->sortable(),
+
+            Tables\Columns\BadgeColumn::make('status')
+                ->label('Status')
+                ->getStateUsing(fn (Model $record) => $record->status)
+                ->colors([
+                    'success' => 'AKTIF',
+                    'danger'  => 'HABIS',
+                    'warning' => fn ($state) => ! in_array($state, ['AKTIF', 'HABIS']),
+                ]),
+        ])
+        ->filters([
+            Tables\Filters\SelectFilter::make('prodis')
+                ->label('Program Studi')
+                ->relationship('prodis', 'nama_prodi')
+                ->multiple()
+                ->searchable()
+                ->preload(),
+        ])
+        ->actions([
+            Tables\Actions\ViewAction::make(),
+            Tables\Actions\EditAction::make(),
+            Tables\Actions\DeleteAction::make(),
+        ])
+        ->defaultSort('created_at', 'desc')
+        ->striped();
+}
 
     public static function infolist(Infolist $infolist): Infolist
     {
@@ -186,7 +198,9 @@ class IaResource extends Resource
     {
         return [
             'index' => Pages\ListIas::route('/'),
+            'create' => Pages\CreateIa::route('/create'),
             'view'  => Pages\ViewIa::route('/{record}'),
+            'edit'  => Pages\EditIa::route('/{record}/edit'),
         ];
     }
 }
