@@ -64,6 +64,8 @@ class ListMitras extends ListRecords
     public function table(Table $table): Table
     {
         return $table
+            ->recordAction(null)
+            ->recordUrl(fn ($record) => \App\Filament\Resources\MitraResource\Pages\ViewMitra::getUrl([$record->id]))
             ->columns([
                 Tables\Columns\TextColumn::make('nama_mitra')
                     ->label('Nama Mitra')

@@ -66,6 +66,8 @@ class MitraResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordAction(null)
+            ->recordUrl(fn ($record) => Pages\ViewMitra::getUrl([$record->id]))
             ->columns([
                 Tables\Columns\TextColumn::make('nama_mitra')
                     ->label('Nama Mitra')

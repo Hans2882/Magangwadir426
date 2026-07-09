@@ -65,6 +65,8 @@ class MoaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordAction(null)
+            ->recordUrl(fn ($record) => Pages\ViewMoa::getUrl([$record->id]))
             ->columns([
                 Tables\Columns\TextColumn::make('judul')
                     ->label('Judul')
