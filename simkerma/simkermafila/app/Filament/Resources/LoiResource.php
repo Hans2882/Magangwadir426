@@ -142,7 +142,9 @@ class LoiResource extends Resource
     {
         return [
             'index' => Pages\ListLois::route('/'),
+            'create' => Pages\CreateLoi::route('/create'),
             'view'  => Pages\ViewLoi::route('/{record}'),
+            'edit'  => Pages\EditLoi::route('/{record}/edit'),
         ];
     }
 }

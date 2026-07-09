@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\MoaResource\Pages;
 
 use App\Filament\Resources\MoaResource;
+use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListMoas extends ListRecords
@@ -11,6 +12,10 @@ class ListMoas extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Actions\CreateAction::make()
+                ->label('Create New MoA')
+                ->icon('heroicon-o-plus'),
+        ];
     }
 }

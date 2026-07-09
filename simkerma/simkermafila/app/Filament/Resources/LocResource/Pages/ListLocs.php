@@ -11,6 +11,6 @@ class ListLocs extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return parent::getHeaderActions();
     }
 }
