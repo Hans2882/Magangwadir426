@@ -16,7 +16,7 @@ class ListIas extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Create New IA')
+                ->label('Tambah IA')
                 ->icon('heroicon-o-plus'),
         ];
     }
