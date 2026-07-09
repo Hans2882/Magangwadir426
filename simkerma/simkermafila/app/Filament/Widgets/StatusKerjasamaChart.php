@@ -15,9 +15,22 @@ class StatusKerjasamaChart extends ChartWidget
 
     protected function getData(): array
     {
-        $aktif = Kerjasama::whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '>=', now())->count();
-        $habis = Kerjasama::whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '<', now())->count();
-        $lainnya = Kerjasama::whereNull('tanggal_akhir')->count();
+        $aktif = Kerjasama::query()
+            ->whereIn('jenis_dokumen_id', [1, 3])
+            ->whereNotNull('tanggal_akhir')
+            ->whereDate('tanggal_akhir', '>=', now())
+            ->count();
+
+        $habis = Kerjasama::query()
+            ->whereIn('jenis_dokumen_id', [1, 3])
+            ->whereNotNull('tanggal_akhir')
+            ->whereDate('tanggal_akhir', '<', now())
+            ->count();
+
+        $lainnya = Kerjasama::query()
+            ->whereIn('jenis_dokumen_id', [1, 3])
+            ->whereNull('tanggal_akhir')
+            ->count();
 
         $total = $aktif + $habis + $lainnya ?: 1;
 

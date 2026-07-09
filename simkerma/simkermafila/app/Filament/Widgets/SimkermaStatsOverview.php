@@ -41,7 +41,11 @@ class SimkermaStatsOverview extends BaseWidget
                 ->color('success'),
 
             Stat::make('Berakhir', (function () {
-                return number_format(Kerjasama::whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '<', now())->count());
+                return number_format(Kerjasama::query()
+                    ->whereIn('jenis_dokumen_id', [1, 3])
+                    ->whereNotNull('tanggal_akhir')
+                    ->whereDate('tanggal_akhir', '<', now())
+                    ->count());
             })())
                 ->description('Kerjasama sudah berakhir')
                 ->descriptionIcon('heroicon-m-x-circle')
