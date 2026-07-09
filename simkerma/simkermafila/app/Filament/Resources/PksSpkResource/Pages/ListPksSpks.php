@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PksSpkResource\Pages;
 
 use App\Filament\Resources\PksSpkResource;
+use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListPksSpks extends ListRecords
@@ -11,6 +12,10 @@ class ListPksSpks extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return parent::getHeaderActions();
+        return [
+            Actions\CreateAction::make()
+                ->label('Tambah PKS / SPK')
+                ->icon('heroicon-o-plus'),
+        ];
     }
 }
