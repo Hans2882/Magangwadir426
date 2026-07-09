@@ -18,11 +18,11 @@ yarn-error.log
 .vscode/
 .zed/
 
-bootstrap/cache/
-storage/framework/
-storage/logs/
-storage/app/
-database.sqlite
-database.sqlite-journal
+**/bootstrap/cache/
+**/storage/framework/
+**/storage/logs/
+**/storage/app/
+**/database.sqlite
+**/database.sqlite-journal
 *.log
 *.sqlite
