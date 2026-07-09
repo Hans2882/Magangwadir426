@@ -64,6 +64,8 @@ class ListMitras extends ListRecords
     public function table(Table $table): Table
     {
         return $table
+            ->recordAction(null)
+            ->recordUrl(fn ($record) => MitraResource::getUrl('view', ['record' => $record]))
             ->columns([
                 Tables\Columns\TextColumn::make('nama_mitra')
                     ->label('Nama Mitra')
@@ -94,6 +96,7 @@ class ListMitras extends ListRecords
                     ->visible(fn ($livewire) => $livewire->activeTab !== 'luar_negeri'),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

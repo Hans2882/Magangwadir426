@@ -66,6 +66,8 @@ class MitraResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordAction(null)
+            ->recordUrl(fn ($record) => static::getUrl('view', ['record' => $record]))
             ->columns([
                 Tables\Columns\TextColumn::make('nama_mitra')
                     ->label('Nama Mitra')
@@ -88,6 +90,7 @@ class MitraResource extends Resource
                     ->default('-'),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

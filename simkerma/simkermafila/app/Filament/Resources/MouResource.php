@@ -108,6 +108,8 @@ class MouResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordAction(null)
+            ->recordUrl(fn ($record) => static::getUrl('view', ['record' => $record]))
             ->columns([
                 Tables\Columns\TextColumn::make('judul')
                     ->label('Judul')
