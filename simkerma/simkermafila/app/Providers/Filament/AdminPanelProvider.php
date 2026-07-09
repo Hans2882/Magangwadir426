@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use Filament\Navigation\MenuItem;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -50,6 +51,13 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([])
+            ->userMenuItems([
+    'privilege' => MenuItem::make()
+        ->label(fn () => auth()->user()->userPrivilege?->privilege?->nama ?? '-'),
+
+    'prodi' => MenuItem::make()
+        ->label(fn () => auth()->user()->userProgramStudi?->programStudi?->nama_prodi ?? '-'),
+])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

@@ -96,10 +96,15 @@ class IaResource extends Resource
                     ->limit(40)
                     ->tooltip(fn ($record) => $record->mitra?->nama_mitra)
                     ->default('-'),
-                Tables\Columns\TextColumn::make('prodis.nama_prodi')
+                Tables\Columns\TextColumn::make('prodis')
                     ->label('Program Studi')
                     ->badge()
-                    ->searchable()
+                    ->getStateUsing(function ($record) {
+                        return $record->prodis
+                            ->pluck('nama_prodi')
+                            ->unique()
+                            ->implode(', ');
+                    })
                     ->default('-'),
                 Tables\Columns\TextColumn::make('nomor_dokumen')
                     ->label('Nomor Dokumen')
@@ -165,11 +170,17 @@ class IaResource extends Resource
                         }),
                     Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
-                    Infolists\Components\TextEntry::make('prodis.nama_prodi')
-                        ->label('Program Studi')
-                        ->badge()
-                        ->default('-')
-                        ->columnSpanFull(),
+                    Infolists\Components\TextEntry::make('prodis')
+    ->label('Program Studi')
+    ->badge()
+    ->getStateUsing(function ($record) {
+        return $record->prodis
+            ->pluck('nama_prodi')
+            ->unique()
+            ->implode(', ');
+    })
+    ->default('-')
+    ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
                     Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
                     Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
