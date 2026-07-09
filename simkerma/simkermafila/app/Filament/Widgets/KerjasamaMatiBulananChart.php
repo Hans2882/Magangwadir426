@@ -3,17 +3,18 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Kerjasama;
+use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
 
-class KerjasamaBulananChart extends ChartWidget
+class KerjasamaMatiBulananChart extends ChartWidget
 {
-    protected static ?string $heading = 'Perkembangan Kerjasama per Bulan';
+    protected static ?string $heading = 'Jumlah Kerjasama Mati per Bulan';
 
-    protected static ?string $description = 'Data bulanan untuk MoU, PKS, dan IA';
+    protected static ?string $description = 'MoU, PKS, dan IA yang berakhir per bulan (termasuk proyeksi 1 tahun ke depan untuk MoU)';
 
-    protected static ?int $sort = 4;
+    protected static ?int $sort = 6;
 
-    protected static ?string $maxHeight = '380px';
+    protected static ?string $maxHeight = '340px';
 
     protected int | string | array $columnSpan = 2;
 
@@ -30,48 +31,57 @@ class KerjasamaBulananChart extends ChartWidget
 
     protected function getData(): array
     {
-        $range = $this->resolveFilterRange($this->filter ?? $this->getDefaultYear());
+        $range = $this->resolveFilterRange($this->filter ?? now()->year);
         $startYear = $range[0];
         $endYear = $range[1];
 
+        $datasets = [];
+        $documentTypes = [
+            1 => ['label' => 'MoU mati', 'color' => '#dc2626'],
+            3 => ['label' => 'PKS mati', 'color' => '#7c3aed'],
+            4 => ['label' => 'IA mati', 'color' => '#ea580c'],
+        ];
+
+        $periodStart = Carbon::create($startYear, 1, 1)->startOfMonth();
+        $periodEnd = Carbon::create($endYear, 12, 1)->endOfMonth();
+
+        if ($startYear <= now()->year && $endYear >= now()->year) {
+            $projectionEnd = now()->copy()->addYear()->endOfMonth();
+            if ($periodEnd->lt($projectionEnd)) {
+                $periodEnd = $projectionEnd;
+            }
+        }
+
         $labels = [];
         $monthPoints = [];
-        $current = \Carbon\Carbon::create($startYear, 1, 1)->startOfMonth();
-        $end = \Carbon\Carbon::create($endYear, 12, 1)->endOfMonth();
-
-        while ($current->lte($end)) {
+        $current = $periodStart->copy();
+        while ($current->lte($periodEnd)) {
             $labels[] = $this->monthLabel($current->month) . ' ' . $current->year;
             $monthPoints[] = ['year' => $current->year, 'month' => $current->month];
             $current->addMonth();
         }
 
-        $datasets = [];
-        $documentTypes = [
-            1 => ['label' => 'MoU', 'color' => '#2563eb'],
-            3 => ['label' => 'PKS', 'color' => '#16a34a'],
-            4 => ['label' => 'IA', 'color' => '#f59e0b'],
-        ];
-
         foreach ($documentTypes as $documentTypeId => $config) {
-            $data = [];
+            $monthlyData = [];
 
             foreach ($monthPoints as $point) {
-                $data[] = Kerjasama::query()
+                $monthlyData[] = Kerjasama::query()
                     ->where('jenis_dokumen_id', $documentTypeId)
-                    ->whereYear('tanggal_awal', $point['year'])
-                    ->whereMonth('tanggal_awal', $point['month'])
+                    ->whereNotNull('tanggal_akhir')
+                    ->whereYear('tanggal_akhir', $point['year'])
+                    ->whereMonth('tanggal_akhir', $point['month'])
                     ->count();
             }
 
             $datasets[] = [
                 'label' => $config['label'],
-                'data' => $data,
+                'data' => $monthlyData,
                 'borderColor' => $config['color'],
                 'backgroundColor' => $this->hexToRgba($config['color'], 0.16),
                 'pointBackgroundColor' => $config['color'],
                 'pointBorderColor' => '#ffffff',
-                'pointRadius' => 4,
-                'pointHoverRadius' => 6,
+                'pointRadius' => 3,
+                'pointHoverRadius' => 5,
                 'fill' => false,
                 'tension' => 0.3,
             ];
@@ -95,6 +105,7 @@ class KerjasamaBulananChart extends ChartWidget
         }
 
         $year = (int) $filter;
+
         return [$year, $year];
     }
 
@@ -114,6 +125,20 @@ class KerjasamaBulananChart extends ChartWidget
             11 => 'Nov',
             default => 'Des',
         };
+    }
+
+    protected function hexToRgba(string $hex, float $opacity): string
+    {
+        $hex = ltrim($hex, '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+
+        return "rgba($r, $g, $b, $opacity)";
     }
 
     protected function getFilters(): ?array
@@ -142,26 +167,6 @@ class KerjasamaBulananChart extends ChartWidget
         return $options;
     }
 
-    protected function getDefaultYear(): string
-    {
-        return (string) now()->year;
-    }
-
-    protected function hexToRgba(string $hex, float $opacity): string
-    {
-        $hex = ltrim($hex, '#');
-
-        if (strlen($hex) === 3) {
-            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
-        }
-
-        $r = hexdec(substr($hex, 0, 2));
-        $g = hexdec(substr($hex, 2, 2));
-        $b = hexdec(substr($hex, 4, 2));
-
-        return "rgba($r, $g, $b, $opacity)";
-    }
-
     protected function getType(): string
     {
         return 'line';
@@ -174,36 +179,14 @@ class KerjasamaBulananChart extends ChartWidget
                 'legend' => [
                     'display' => true,
                     'position' => 'bottom',
-                    'labels' => [
-                        'padding' => 14,
-                        'font' => [
-                            'size' => 12,
-                            'weight' => '600',
-                        ],
-                    ],
                 ],
             ],
             'maintainAspectRatio' => false,
             'scales' => [
-                'x' => [
-                    'grid' => [
-                        'display' => false,
-                    ],
-                    'ticks' => [
-                        'color' => '#64748b',
-                        'font' => [
-                            'weight' => '500',
-                        ],
-                    ],
-                ],
                 'y' => [
                     'beginAtZero' => true,
                     'ticks' => [
                         'stepSize' => 1,
-                        'color' => '#64748b',
-                    ],
-                    'grid' => [
-                        'color' => 'rgba(15, 23, 42, 0.08)',
                     ],
                 ],
             ],
