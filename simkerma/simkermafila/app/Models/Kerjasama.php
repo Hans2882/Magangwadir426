@@ -50,6 +50,24 @@ class Kerjasama extends Model
         return $this->belongsToMany(MasterProgramStudi::class, 'kerjasama_prodi', 'kerjasama_id', 'prodi_id');
     }
 
+    public function getProdiDisplayNameAttribute(): string
+    {
+        $prodis = $this->relationLoaded('prodis')
+            ? $this->prodis
+            : $this->prodis()->get();
+
+        if ($prodis->isEmpty()) {
+            return '-';
+        }
+
+        $names = $prodis->pluck('nama_prodi')
+            ->filter(fn ($name) => !empty($name))
+            ->unique()
+            ->values();
+
+        return $names->isEmpty() ? '-' : $names->first();
+    }
+
     // Accessor to mimic the old status field based on dates
     public function getStatusAttribute(): string
     {
