@@ -21,13 +21,10 @@ class DashboardFilterWidget extends Widget implements HasForms
 
     protected int | string | array $columnSpan = 'full';
 
-    #[Url]
     public ?string $preset = 'this_year';
     
-    #[Url]
     public ?string $startYear = null;
 
-    #[Url]
     public ?string $endYear = null;
 
     public function mount(): void
