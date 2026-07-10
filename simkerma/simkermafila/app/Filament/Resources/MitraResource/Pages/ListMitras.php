@@ -19,7 +19,7 @@ class ListMitras extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Create New Mitra')
+                ->label('Tambah Mitra')
                 ->icon('heroicon-o-plus'),
         ];
     }

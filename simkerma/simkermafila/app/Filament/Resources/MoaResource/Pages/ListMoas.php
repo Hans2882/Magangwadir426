@@ -14,7 +14,7 @@ class ListMoas extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Create New MoA')
+                ->label('Tambah MoA')
                 ->icon('heroicon-o-plus'),
         ];
     }

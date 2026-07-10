@@ -16,7 +16,7 @@ class ListMous extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Create New Kerja Sama')
+                ->label('Tambah Kerja Sama')
                 ->icon('heroicon-o-plus'),
         ];
     }
