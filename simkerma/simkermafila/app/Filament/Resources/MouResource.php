@@ -101,7 +101,13 @@ class MouResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required(),
-            Forms\Components\TextInput::make('link_dokumen')->label('Berkas Mou (Google Drive)')->url()->maxLength(500)->columnSpanFull(),
+            Forms\Components\FileUpload::make('link_dokumen')
+                ->label('Berkas MoU')
+                ->disk('google')
+                ->directory('MoU')
+                ->acceptedFileTypes(['application/pdf'])
+                ->preserveFilenames()
+                ->columnSpanFull(),
         ]);
     }
 
@@ -120,7 +126,20 @@ class MouResource extends Resource
                 Tables\Columns\TextColumn::make('mitra.nama_mitra')
                     ->label('Nama Mitra')
                     ->searchable()
-                    ->sortable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('link_dokumen')
+                    ->label('Dokumen')
+                    ->formatStateUsing(fn ($state) => $state && $state !== '-' ? 'Lihat' : '-')
+                    ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
+                    ->openUrlInNewTab()
+                    ->badge()
+                    ->icon(fn ($state) => $state && $state !== '-' ? 'heroicon-o-eye' : null)
+                    ->color(fn ($state) => $state && $state !== '-' ? 'primary' : 'gray')
+                    ->extraAttributes(fn ($state) => $state && $state !== '-' ? [
+                        'style' => 'cursor: pointer; transition: opacity 0.2s;',
+                        'onmouseover' => "this.style.opacity='0.6'",
+                        'onmouseout' => "this.style.opacity='1'",
+                    ] : [])
                     ->default('-'),
                 Tables\Columns\TextColumn::make('nomor_dokumen')
                     ->label('Nomor Dokumen')
@@ -188,7 +207,12 @@ class MouResource extends Resource
                             'HABIS' => 'danger',
                             default => 'warning',
                         }),
-                    Infolists\Components\TextEntry::make('link_dokumen')->label('Link Dokumen')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                    Infolists\Components\TextEntry::make('link_dokumen')
+                        ->label('Link Dokumen')
+                        ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
+                        ->openUrlInNewTab()
+                        ->default('-')
+                        ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                 ])
