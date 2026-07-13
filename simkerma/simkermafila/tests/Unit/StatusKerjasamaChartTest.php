@@ -2,18 +2,18 @@
 
 namespace Tests\Unit;
 
-use App\Filament\Widgets\JenisKerjasamaChart;
+use App\Filament\Widgets\StatusKerjasamaChart;
 use PHPUnit\Framework\Attributes\Test;
 
-class JenisKerjasamaChartTest extends \Tests\TestCase
+class StatusKerjasamaChartTest extends \Tests\TestCase
 {
     #[Test]
-    public function it_exposes_year_and_range_filters_for_the_pie_chart(): void
+    public function it_exposes_year_and_range_filters_for_the_status_pie_chart(): void
     {
-        $widget = new JenisKerjasamaChart();
+        $widget = new StatusKerjasamaChart();
         $widget->mount();
 
-        $reflection = new \ReflectionMethod(JenisKerjasamaChart::class, 'getFilters');
+        $reflection = new \ReflectionMethod(StatusKerjasamaChart::class, 'getFilters');
         $reflection->setAccessible(true);
         $filters = $reflection->invoke($widget);
 
