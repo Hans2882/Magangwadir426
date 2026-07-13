@@ -2,9 +2,12 @@
 
 namespace App\Filament\Resources\MoaResource\Pages;
 
+use App\Exports\KerjasamaExport;
 use App\Filament\Resources\MoaResource;
 use Filament\Actions;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListMoas extends ListRecords
 {
@@ -13,6 +16,16 @@ class ListMoas extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+
+            Action::make('export')
+                ->label('Export Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(fn () => Excel::download(
+                    new KerjasamaExport([2], 'Luar Negeri'),
+                    'Data_MoA.xlsx'
+                )),
+
             Actions\CreateAction::make()
                 ->label('Tambah MoA')
                 ->icon('heroicon-o-plus'),

@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\MouResource\Pages;
 
+use App\Exports\KerjasamaExport;
 use App\Filament\Resources\MouResource;
-use Filament\Resources\Pages\ListRecords;
-use Filament\Resources\Components\Tab;
 use Filament\Actions;
+use Filament\Actions\Action;
+use Filament\Resources\Components\Tab;
+use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListMous extends ListRecords
 {
@@ -15,6 +18,15 @@ class ListMous extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('export')
+                ->label('Export Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(fn () => Excel::download(
+                    new KerjasamaExport([1]),
+                    'Data_MoU.xlsx'
+                )),
+
             Actions\CreateAction::make()
                 ->label('Tambah Kerja Sama')
                 ->icon('heroicon-o-plus'),
