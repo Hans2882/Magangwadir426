@@ -183,6 +183,7 @@ class PksSpkResource extends Resource
                     Infolists\Components\TextEntry::make('prodis.nama_prodi')
                         ->label('Program Studi')
                         ->badge()
+                        ->getStateUsing(fn ($record) => $record->prodis->pluck('nama_prodi')->unique()->all())
                         ->default('-')
                         ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),

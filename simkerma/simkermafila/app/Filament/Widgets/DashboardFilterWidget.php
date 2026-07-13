@@ -39,7 +39,7 @@ class DashboardFilterWidget extends Widget implements HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
-            \Filament\Forms\Components\Section::make('Filter Data Dashboard')
+            \Filament\Forms\Components\Section::make('Filter Data')
                 ->schema([
                     Select::make('preset')
                         ->label('Rentang Waktu')

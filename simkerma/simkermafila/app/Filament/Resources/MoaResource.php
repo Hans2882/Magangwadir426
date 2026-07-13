@@ -147,6 +147,12 @@ class MoaResource extends Resource
                 ->schema([
                     Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    Infolists\Components\TextEntry::make('prodis.nama_prodi')
+                        ->label('Program Studi')
+                        ->badge()
+                        ->getStateUsing(fn ($record) => $record->prodis->pluck('nama_prodi')->unique()->all())
+                        ->default('-')
+                        ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
                     Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
                     Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
@@ -158,6 +164,7 @@ class MoaResource extends Resource
                             'HABIS' => 'danger',
                             default => 'warning',
                         }),
+
                     Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Link Dokumen')
                         ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
