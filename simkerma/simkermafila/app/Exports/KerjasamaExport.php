@@ -2,103 +2,58 @@
 
 namespace App\Exports;
 
-use App\Models\Kerjasama;
-use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
 
-class KerjasamaExport implements FromCollection, WithHeadings
+class KerjasamaExport implements FromQuery, WithHeadings, WithMapping
 {
-    protected array $jenisDokumen;
-    protected ?string $jenis;
+    use Exportable;
 
-    public function __construct(array $jenisDokumen, ?string $jenis = null)
+    protected Builder $query;
+
+    public function __construct(Builder $query)
     {
-        $this->jenisDokumen = $jenisDokumen;
-        $this->jenis = $jenis;
+        $this->query = $query;
     }
 
-    public function collection(): Collection
+    public function query(): Builder
     {
-        $query = Kerjasama::with([
-            'mitra',
-            'bidang',
-            'prodis',
-            'jenisDokumen',
-        ])->whereIn('jenis_dokumen_id', $this->jenisDokumen);
+        return $this->query;
+    }
 
-        if ($this->jenis) {
-            $query->where('jenis', $this->jenis);
-        }
-
-        return $query->get()->map(function ($item) {
-
-            return [
-
-                'Jenis Dokumen' =>
-                    $item->jenisDokumen?->nama,
-
-                'Judul' =>
-                    $item->judul,
-
-                'Nama Mitra' =>
-                    $item->mitra?->nama_mitra,
-
-                'Jenis Kerjasama' =>
-                    $item->jenis,
-
-                'Program Studi' =>
-                    $item->prodis
-                        ->pluck('nama_prodi')
-                        ->implode(', '),
-
-                'Bidang' =>
-                    $item->bidang?->bidang_kerjasama,
-
-                'Nomor Dokumen' =>
-                    $item->nomor_dokumen,
-
-                'Tahun' =>
-                    $item->tahun,
-
-                'Tanggal Awal' =>
-                    optional($item->tanggal_awal)
-                        ->format('d/m/Y'),
-
-                'Tanggal Akhir' =>
-                    optional($item->tanggal_akhir)
-                        ->format('d/m/Y'),
-
-                'Status' =>
-                    $item->status,
-            ];
-        });
+    public function map($item): array
+    {
+        return [
+            $item->jenisDokumen?->nama,
+            $item->judul,
+            $item->mitra?->nama_mitra,
+            $item->jenis,
+            $item->prodis->pluck('nama_prodi')->implode(', '),
+            $item->bidang?->bidang_kerjasama,
+            $item->nomor_dokumen,
+            $item->tahun,
+            optional($item->tanggal_awal)->format('d/m/Y'),
+            optional($item->tanggal_akhir)->format('d/m/Y'),
+            $item->status,
+        ];
     }
 
     public function headings(): array
     {
         return [
-
             'Jenis Dokumen',
-
             'Judul',
-
             'Nama Mitra',
-
             'Jenis Kerjasama',
-
             'Program Studi',
-
             'Bidang',
-
             'Nomor Dokumen',
-
             'Tahun',
-
             'Tanggal Awal',
-
             'Tanggal Akhir',
-
             'Status',
         ];
     }
