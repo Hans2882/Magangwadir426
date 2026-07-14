@@ -148,16 +148,47 @@ class PksSpkResource extends Resource
                     ]),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('jenis_dokumen_id')
-                    ->label('Jenis Dokumen')
-                    ->options([3 => 'PKS', 5 => 'SPK']),
-                Tables\Filters\SelectFilter::make('prodis')
-                    ->label('Program Studi')
-                    ->relationship('prodis', 'nama_prodi')
-                    ->multiple()
-                    ->searchable()
-                    ->preload(),
-            ])
+    Tables\Filters\SelectFilter::make('jenis_dokumen_id')
+        ->label('Jenis Dokumen')
+        ->options([
+            3 => 'PKS',
+            5 => 'SPK',
+        ]),
+
+    Tables\Filters\SelectFilter::make('prodis')
+        ->label('Program Studi')
+        ->relationship('prodis', 'nama_prodi')
+        ->multiple()
+        ->searchable()
+        ->preload(),
+
+    Tables\Filters\SelectFilter::make('status')
+        ->label('Status')
+        ->options([
+            'AKTIF' => 'Aktif',
+            'MAU HABIS' => 'Mau Habis',
+            'HABIS' => 'Habis',
+        ])
+        ->query(function (Builder $query, array $data): Builder {
+
+            return match ($data['value'] ?? null) {
+
+                'AKTIF' => $query->where(function ($q) {
+    $q->whereNull('tanggal_akhir')
+      ->orWhereDate('tanggal_akhir', '>', now()->addMonth());
+}),
+
+                'MAU HABIS' => $query
+                    ->whereDate('tanggal_akhir', '>=', now())
+                    ->whereDate('tanggal_akhir', '<=', now()->addMonth()),
+
+                'HABIS' => $query
+                    ->whereDate('tanggal_akhir', '<', now()),
+
+                default => $query,
+            };
+        }),
+])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),

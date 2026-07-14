@@ -159,13 +159,13 @@ class MouResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
                 Tables\Columns\BadgeColumn::make('status')
-                    ->label('Status')
-                    ->getStateUsing(fn (Model $record) => $record->status)
-                    ->colors([
-                        'success' => 'AKTIF',
-                        'danger'  => 'HABIS',
-                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
-                    ]),
+    ->label('Status')
+    ->getStateUsing(fn (Model $record) => $record->status)
+    ->colors([
+        'success' => 'AKTIF',
+        'warning' => 'MAU HABIS',
+        'danger'  => 'HABIS',
+    ]),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -208,11 +208,12 @@ class MouResource extends Resource
                     Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
                     Infolists\Components\TextEntry::make('status')->label('Status')->badge()
                         ->getStateUsing(fn (Model $record) => $record->status)
-                        ->color(fn ($state) => match($state) {
-                            'AKTIF' => 'success',
-                            'HABIS' => 'danger',
-                            default => 'warning',
-                        }),
+                        ->color(fn ($state) => match ($state) {
+    'AKTIF' => 'success',
+    'MAU HABIS' => 'warning',
+    'HABIS' => 'danger',
+    default => 'gray',
+}),
                     Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Link Dokumen')
                         ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)

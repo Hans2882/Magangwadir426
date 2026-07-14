@@ -69,12 +69,23 @@ class Kerjasama extends Model
     }
 
     // Accessor to mimic the old status field based on dates
-    public function getStatusAttribute(): string
-    {
-        if (!$this->tanggal_akhir) {
-            return '-';
-        }
-
-        return Carbon::now()->startOfDay()->lte($this->tanggal_akhir) ? 'AKTIF' : 'HABIS';
+    public function getStatusAttribute()
+{
+    if (!$this->tanggal_akhir) {
+        return 'AKTIF';
     }
+
+    $tanggalAkhir = Carbon::parse($this->tanggal_akhir)->startOfDay();
+    $hariIni = now()->startOfDay();
+
+    if ($tanggalAkhir->lt($hariIni)) {
+        return 'HABIS';
+    }
+
+    if ($tanggalAkhir->lte($hariIni->copy()->addMonth())) {
+        return 'MAU HABIS';
+    }
+
+    return 'AKTIF';
+}
 }
