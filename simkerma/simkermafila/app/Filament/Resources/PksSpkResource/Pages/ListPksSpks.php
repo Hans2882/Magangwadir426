@@ -17,13 +17,24 @@ class ListPksSpks extends ListRecords
     {
         return [
             Action::make('export')
-                ->label('Export Excel')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('success')
-                ->action(fn () => Excel::download(
-                    new KerjasamaExport([3, 5], 'Dalam Negeri'),
-                    'Data_PKS_SPK.xlsx'
-                )),
+    ->label('Export Excel')
+    ->icon('heroicon-o-arrow-down-tray')
+    ->color('success')
+    ->action(function () {
+
+        $query = $this->getFilteredTableQuery()
+            ->with([
+                'mitra',
+                'bidang',
+                'prodis',
+                'jenisDokumen',
+            ]);
+
+        return Excel::download(
+            new KerjasamaExport($query),
+            'Data_PKS_SPK.xlsx'
+        );
+    }),
 
             Actions\CreateAction::make()
                 ->label('Tambah PKS / SPK')
