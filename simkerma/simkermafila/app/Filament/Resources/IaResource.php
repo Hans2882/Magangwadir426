@@ -156,13 +156,40 @@ class IaResource extends Resource
                 ]),
         ])
         ->filters([
-            Tables\Filters\SelectFilter::make('prodis')
-                ->label('Program Studi')
-                ->relationship('prodis', 'nama_prodi')
-                ->multiple()
-                ->searchable()
-                ->preload(),
+    Tables\Filters\SelectFilter::make('prodis')
+        ->label('Program Studi')
+        ->relationship('prodis', 'nama_prodi')
+        ->multiple()
+        ->searchable()
+        ->preload(),
+
+    Tables\Filters\SelectFilter::make('status')
+        ->label('Status')
+        ->options([
+            'AKTIF' => 'Aktif',
+            'MAU HABIS' => 'Mau Habis',
+            'HABIS' => 'Habis',
         ])
+        ->query(function (Builder $query, array $data): Builder {
+
+            return match ($data['value'] ?? null) {
+
+                'AKTIF' => $query->where(function ($q) {
+                    $q->whereNull('tanggal_akhir')
+                      ->orWhereDate('tanggal_akhir', '>', today()->addMonth());
+                }),
+
+                'MAU HABIS' => $query
+                    ->whereDate('tanggal_akhir', '>=', today())
+                    ->whereDate('tanggal_akhir', '<=', today()->addMonth()),
+
+                'HABIS' => $query
+                    ->whereDate('tanggal_akhir', '<', today()),
+
+                default => $query,
+            };
+        }),
+])
         ->actions([
             Tables\Actions\ViewAction::make(),
             Tables\Actions\EditAction::make(),
