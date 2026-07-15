@@ -167,6 +167,35 @@ class MouResource extends Resource
         'danger'  => 'HABIS',
     ]),
             ])
+
+            ->filters([
+    Tables\Filters\SelectFilter::make('status')
+        ->label('Status')
+        ->options([
+            'AKTIF' => 'Aktif',
+            'MAU HABIS' => 'Mau Habis',
+            'HABIS' => 'Habis',
+        ])
+        ->query(function (Builder $query, array $data): Builder {
+
+            return match ($data['value'] ?? null) {
+
+                'AKTIF' => $query->where(function ($q) {
+                    $q->whereNull('tanggal_akhir')
+                        ->orWhereDate('tanggal_akhir', '>', now()->addMonth());
+                }),
+
+                'MAU HABIS' => $query
+                    ->whereDate('tanggal_akhir', '>=', now())
+                    ->whereDate('tanggal_akhir', '<=', now()->addMonth()),
+
+                'HABIS' => $query
+                    ->whereDate('tanggal_akhir', '<', now()),
+
+                default => $query,
+            };
+        }),
+])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
