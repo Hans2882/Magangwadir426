@@ -227,10 +227,9 @@ class MouResource extends Resource
                         }),
                     Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
-                    Infolists\Components\TextEntry::make('prodis.nama_prodi')
-                        ->label('Program Studi')
+                    Infolists\Components\TextEntry::make('bidang.bidang_kerjasama')
+                        ->label('Bidang Kerjasama')
                         ->badge()
-                        ->getStateUsing(fn ($record) => $record->prodis->pluck('nama_prodi')->unique()->all())
                         ->default('-')
                         ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
