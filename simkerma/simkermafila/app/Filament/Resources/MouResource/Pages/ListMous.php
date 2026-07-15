@@ -21,6 +21,7 @@ class ListMous extends ListRecords
             Action::make('export')
                 ->label('Export Excel')
                 ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
                 ->action(function () {
                     $query = $this->getFilteredTableQuery()
                         ->with([

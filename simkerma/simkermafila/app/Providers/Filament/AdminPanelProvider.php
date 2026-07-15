@@ -52,12 +52,14 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([])
             ->userMenuItems([
-    'privilege' => MenuItem::make()
-        ->label(fn () => auth()->user()->userPrivilege?->privilege?->nama ?? '-'),
+                'privilege' => MenuItem::make()
+                    ->label(fn () => auth()->user()->userPrivilege?->privilege?->nama ?? '')
+                    ->visible(fn () => auth()->user()->userPrivilege?->privilege?->nama !== null),
 
-    'prodi' => MenuItem::make()
-        ->label(fn () => auth()->user()->userProgramStudi?->programStudi?->nama_prodi ?? '-'),
-])
+                'prodi' => MenuItem::make()
+                    ->label(fn () => auth()->user()->userProgramStudi?->programStudi?->nama_prodi ?? '')
+                    ->visible(fn () => auth()->user()->userProgramStudi?->programStudi?->nama_prodi !== null),
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
