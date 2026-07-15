@@ -233,6 +233,11 @@ class PksSpkResource extends Resource
                         }),
                     Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    Infolists\Components\TextEntry::make('bidang.bidang_kerjasama')
+                        ->label('Bidang Kerjasama')
+                        ->badge()
+                        ->default('-')
+                        ->columnSpanFull(),
                     Infolists\Components\TextEntry::make('prodis.nama_prodi')
                         ->label('Program Studi')
                         ->badge()
