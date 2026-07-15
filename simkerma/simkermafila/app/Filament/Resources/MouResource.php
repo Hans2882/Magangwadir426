@@ -171,6 +171,11 @@ class MouResource extends Resource
             ])
 
             ->filters([
+    Tables\Filters\SelectFilter::make('bidang')
+        ->label('Bidang Kerjasama')
+        ->relationship('bidang', 'bidang_kerjasama')
+        ->searchable()
+        ->preload(),
     Tables\Filters\SelectFilter::make('status')
         ->label('Status')
         ->options([
