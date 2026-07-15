@@ -21,11 +21,19 @@ class ListMous extends ListRecords
             Action::make('export')
                 ->label('Export Excel')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->color('success')
-                ->action(fn () => Excel::download(
-                    new KerjasamaExport([1]),
-                    'Data_MoU.xlsx'
-                )),
+                ->action(function () {
+                    $query = $this->getFilteredTableQuery()
+                        ->with([
+                            'mitra',
+                            'bidang',
+                            'prodis',
+                            'jenisDokumen',
+                        ]);
+                    return Excel::download(
+                        new KerjasamaExport($query),
+                        'Data_MoU.xlsx'
+                    );
+                }),
 
             Actions\CreateAction::make()
                 ->label('Tambah Kerja Sama')

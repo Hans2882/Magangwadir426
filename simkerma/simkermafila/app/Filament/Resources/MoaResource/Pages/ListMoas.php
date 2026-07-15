@@ -20,11 +20,19 @@ class ListMoas extends ListRecords
             Action::make('export')
                 ->label('Export Excel')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->color('success')
-                ->action(fn () => Excel::download(
-                    new KerjasamaExport([2], 'Luar Negeri'),
-                    'Data_MoA.xlsx'
-                )),
+                ->action(function () {
+                    $query = $this->getFilteredTableQuery()
+                        ->with([
+                            'mitra',
+                            'bidang',
+                            'prodis',
+                            'jenisDokumen',
+                        ]);
+                    return Excel::download(
+                        new KerjasamaExport($query),
+                        'Data_MoA.xlsx'
+                    );
+                }),
 
             Actions\CreateAction::make()
                 ->label('Tambah MoA')
