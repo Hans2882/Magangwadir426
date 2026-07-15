@@ -72,6 +72,20 @@ class ListMitras extends ListRecords
                     ->searchable()
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('kategori.kategori')
+    ->label('Kategori IKU')
+    ->badge()
+    ->searchable()
+    ->sortable()
+    ->default('-'),
+
+Tables\Columns\TextColumn::make('negara.nama_negara')
+    ->label('Negara')
+    ->searchable()
+    ->sortable()
+    ->default('-')
+    ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
+
                 Tables\Columns\TextColumn::make('negara.nama_negara')
                     ->label('Negara')
                     ->searchable()
@@ -101,11 +115,19 @@ class ListMitras extends ListRecords
                 Tables\Actions\DeleteAction::make(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('negara')
-                    ->label('Negara')
-                    ->relationship('negara', 'nama_negara')
-                    ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
-            ])
+    Tables\Filters\SelectFilter::make('kategori_id')
+        ->label('Kategori IKU')
+        ->relationship('kategori', 'kategori')
+        ->searchable()
+        ->preload(),
+
+    Tables\Filters\SelectFilter::make('negara')
+        ->label('Negara')
+        ->relationship('negara', 'nama_negara')
+        ->searchable()
+        ->preload()
+        ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
+])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();
     }

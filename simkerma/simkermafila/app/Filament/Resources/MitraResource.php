@@ -94,7 +94,13 @@ class MitraResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
-            ->filters([])
+            ->filters([
+    Tables\Filters\SelectFilter::make('kategori_id')
+        ->label('Kategori IKU')
+        ->relationship('kategori', 'kategori')
+        ->searchable()
+        ->preload(),
+])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();
     }
