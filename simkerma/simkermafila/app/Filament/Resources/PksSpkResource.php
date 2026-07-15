@@ -30,7 +30,7 @@ class PksSpkResource extends Resource
 
     protected static ?string $slug = 'data-pks-spk';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 2;
 
     public static function getEloquentQuery(): Builder
     {
@@ -48,6 +48,27 @@ class PksSpkResource extends Resource
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
                 ->relationship('mitra', 'nama_mitra', fn (Builder $query) => $query->where(fn ($q) => $q->whereNull('negara_id')->orWhere('negara_id', '<', 1)))
+                ->searchable()
+                ->preload()
+                ->live()
+                ->required(),
+            Forms\Components\Select::make('parent_id')
+                ->label('Referensi MoU')
+                ->options(function (Forms\Get $get) {
+                    $mitraId = $get('mitra_id');
+                    if (! $mitraId) {
+                        return [];
+                    }
+                    return \App\Models\Kerjasama::where('mitra_id', $mitraId)
+                        ->where('jenis_dokumen_id', 1) // 1 is usually MoU, but we can also filter by null parent_id or just all MoUs. Let's just fetch MoUs.
+                        ->pluck('judul', 'id');
+                })
+                ->searchable()
+                ->preload()
+                ->nullable(),
+            Forms\Components\Select::make('bidang_id')
+                ->label('Bidang Kerjasama')
+                ->relationship('bidang', 'bidang_kerjasama')
                 ->searchable()
                 ->preload()
                 ->required(),
@@ -72,6 +93,7 @@ class PksSpkResource extends Resource
                 ->label('Berkas PKS/SPK')
                 ->disk('google')
                 ->directory('PKS_SPK')
+                ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
                 ->preserveFilenames()
                 ->columnSpanFull(),

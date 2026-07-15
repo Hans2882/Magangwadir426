@@ -30,7 +30,7 @@ class IaResource extends Resource
 
     protected static ?string $slug = 'data-ia';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
     public static function getEloquentQuery(): Builder
     {
@@ -42,7 +42,7 @@ class IaResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255),
+            Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255)->required(),
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
                 ->relationship('mitra', 'nama_mitra')
@@ -74,6 +74,7 @@ class IaResource extends Resource
                 ->label('Berkas IA')
                 ->disk('google')
                 ->directory('IA')
+                ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
                 ->preserveFilenames()
                 ->columnSpanFull(),

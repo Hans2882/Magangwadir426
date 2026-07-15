@@ -59,7 +59,8 @@ class MouResource extends Resource
                 ->required()
                 ->default('Dalam Negeri'),
             Forms\Components\TextInput::make('nomor_dokumen_polinema')
-                ->label('Nomor Mou Polinema')
+                ->label('Nomor MoU Polinema')
+                ->required()
                 ->maxLength(100)
                 ->dehydrated(false)
                 ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
@@ -72,7 +73,7 @@ class MouResource extends Resource
                     }
                 }),
             Forms\Components\TextInput::make('nomor_dokumen_mitra')
-                ->label('Nomor Mou Mitra')
+                ->label('Nomor MoU Mitra')
                 ->maxLength(100)
                 ->dehydrated(false)
                 ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
@@ -105,6 +106,7 @@ class MouResource extends Resource
                 ->label('Berkas MoU')
                 ->disk('google')
                 ->directory('MoU')
+                ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
                 ->preserveFilenames()
                 ->columnSpanFull(),

@@ -30,7 +30,7 @@ class MoaResource extends Resource
 
     protected static ?string $slug = 'data-moa';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public static function getEloquentQuery(): Builder
     {
@@ -62,6 +62,7 @@ class MoaResource extends Resource
                 ->label('Berkas MoA')
                 ->disk('google')
                 ->directory('MoA')
+                ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
                 ->preserveFilenames()
                 ->columnSpanFull(),

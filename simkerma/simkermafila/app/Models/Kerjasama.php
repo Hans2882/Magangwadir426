@@ -11,6 +11,7 @@ class Kerjasama extends Model
     protected $table = 'kerjasama';
 
     protected $fillable = [
+        'parent_id',
         'mitra_id',
         'jenis',
         'judul',
@@ -43,6 +44,11 @@ class Kerjasama extends Model
     public function bidang(): BelongsTo
     {
         return $this->belongsTo(MasterKegiatan::class, 'bidang_id');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Kerjasama::class, 'parent_id');
     }
 
     public function prodis(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
