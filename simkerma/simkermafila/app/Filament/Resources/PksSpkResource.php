@@ -192,6 +192,8 @@ Forms\Components\Hidden::make('nomor_dokumen')
                     ->label('Nama Mitra')
                     ->searchable()
                     ->sortable()
+                    ->limit(50)
+                    ->tooltip(fn ($record) => $record->mitra?->nama_mitra)
                     ->default('-'),
                 Tables\Columns\TextColumn::make('link_dokumen')
                     ->label('Dokumen')
@@ -212,23 +214,10 @@ Forms\Components\Hidden::make('nomor_dokumen')
                     ->badge()
                     ->searchable()
                     ->default('-'),
-                Tables\Columns\TextColumn::make('nomor_polinema')
-    ->label('Nomor Polinema')
-    ->getStateUsing(function ($record) {
-
-        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-
-        return trim($parts[0] ?? '-');
-    }),
-
-Tables\Columns\TextColumn::make('nomor_mitra')
-    ->label('Nomor Mitra')
-    ->getStateUsing(function ($record) {
-
-        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-
-        return trim($parts[1] ?? '-');
-    }),
+                Tables\Columns\TextColumn::make('nomor_dokumen')
+                    ->label('Nomor Dokumen')
+                    ->searchable()
+                    ->default('-'),
                 Tables\Columns\TextColumn::make('tahun')
                     ->label('Tahun')
                     ->sortable()

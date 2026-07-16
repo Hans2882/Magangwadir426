@@ -152,7 +152,9 @@ class MouResource extends Resource
                 Tables\Columns\TextColumn::make('mitra.nama_mitra')
                     ->label('Nama Mitra')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->limit(50)
+                    ->tooltip(fn ($record) => $record->mitra?->nama_mitra),
                 Tables\Columns\TextColumn::make('link_dokumen')
                     ->label('Dokumen')
                     ->formatStateUsing(fn ($state) => $state && $state !== '-' ? 'Lihat' : '-')
