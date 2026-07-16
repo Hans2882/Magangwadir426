@@ -70,7 +70,77 @@ class IaResource extends Resource
                 ])
                 ->required()
                 ->default('Dalam Negeri'),
-            Forms\Components\TextInput::make('nomor_dokumen')->label('Nomor Dokumen')->maxLength(200),
+            Forms\Components\TextInput::make('nomor_dokumen_polinema')
+    ->label('Nomor IA Polinema')
+    ->required()
+    ->maxLength(100)
+    ->dehydrated(false)
+    ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+        if ($record && $record->nomor_dokumen) {
+            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+
+            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                $parts = explode(' ', $record->nomor_dokumen, 2);
+            }
+
+            $component->state(trim($parts[0] ?? ''));
+        }
+    })
+    ->rule(function (?Model $record) {
+        return function ($attribute, $value, $fail) use ($record) {
+
+            $query = \App\Models\Kerjasama::where(
+                'nomor_dokumen',
+                'like',
+                $value . "\n%"
+            );
+
+            if ($record) {
+                $query->where('id', '!=', $record->id);
+            }
+
+            if ($query->exists()) {
+                $fail('Nomor IA Polinema sudah digunakan.');
+            }
+        };
+    }),
+
+Forms\Components\TextInput::make('nomor_dokumen_mitra')
+    ->label('Nomor IA Mitra')
+    ->maxLength(100)
+    ->dehydrated(false)
+    ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+        if ($record && $record->nomor_dokumen) {
+            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+
+            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                $parts = explode(' ', $record->nomor_dokumen, 2);
+            }
+
+            $component->state(trim($parts[1] ?? ''));
+        }
+    }),
+
+Forms\Components\Hidden::make('nomor_dokumen')
+    ->dehydrateStateUsing(function (Forms\Get $get) {
+
+        $pol = trim($get('nomor_dokumen_polinema') ?? '');
+        $mit = trim($get('nomor_dokumen_mitra') ?? '');
+
+        if (empty($pol) && empty($mit)) {
+            return null;
+        }
+
+        if (empty($pol)) {
+            return $mit;
+        }
+
+        if (empty($mit)) {
+            return $pol;
+        }
+
+        return $pol . "\n" . $mit;
+    }),
             Forms\Components\TextInput::make('tahun')->label('Tahun')->maxLength(10),
             Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Awal'),
             Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir'),
@@ -132,10 +202,27 @@ class IaResource extends Resource
     })
     ->default('-'),
 
-            Tables\Columns\TextColumn::make('nomor_dokumen')
-                ->label('Nomor Dokumen')
-                ->searchable()
-                ->default('-'),
+            Tables\Columns\TextColumn::make('nomor_polinema')
+    ->label('Nomor Polinema')
+    ->searchable(query: function (Builder $query, string $search) {
+        $query->where('nomor_dokumen', 'like', $search . '%');
+    })
+    ->getStateUsing(function ($record) {
+
+        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+
+        return trim($parts[0] ?? '-');
+    }),
+
+Tables\Columns\TextColumn::make('nomor_mitra')
+    ->label('Nomor Mitra')
+    ->getStateUsing(function ($record) {
+
+        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+
+        return trim($parts[1] ?? '-');
+    })
+    ->default('-'),
 
             Tables\Columns\TextColumn::make('tahun')
                 ->label('Tahun')
@@ -244,7 +331,23 @@ class IaResource extends Resource
                         ->getStateUsing(fn ($record) => $record->prodis->pluck('nama_prodi')->unique()->all())
                         ->default('-')
                         ->columnSpanFull(),
-                    Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
+                    Infolists\Components\TextEntry::make('nomor_polinema')
+    ->label('Nomor Polinema')
+    ->getStateUsing(function ($record) {
+
+        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+
+        return trim($parts[0] ?? '-');
+    }),
+
+Infolists\Components\TextEntry::make('nomor_mitra')
+    ->label('Nomor Mitra')
+    ->getStateUsing(function ($record) {
+
+        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+
+        return trim($parts[1] ?? '-');
+    }),
                     Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
                     Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
                     Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),

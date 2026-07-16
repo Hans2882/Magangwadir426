@@ -59,19 +59,34 @@ class MouResource extends Resource
                 ->required()
                 ->default('Dalam Negeri'),
             Forms\Components\TextInput::make('nomor_dokumen_polinema')
-                ->label('Nomor MoU Polinema')
-                ->required()
-                ->maxLength(100)
-                ->dehydrated(false)
-                ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
-                    if ($record && $record->nomor_dokumen) {
-                        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-                        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
-                            $parts = explode(" ", $record->nomor_dokumen, 2);
-                        }
-                        $component->state(trim($parts[0] ?? ''));
+    ->label('Nomor MoU Polinema')
+    ->required()
+    ->maxLength(100)
+    ->dehydrated(false)
+    ->rule(function (?Model $record) {
+        return function ($attribute, $value, $fail) use ($record) {
+
+            $exists = \App\Models\Kerjasama::query()
+                ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                ->get()
+                ->contains(function ($item) use ($value) {
+
+                    $nomor = str_replace("\r", "", $item->nomor_dokumen);
+                    $parts = explode("\n", $nomor);
+
+                    // Jika data lama dipisah spasi
+                    if (count($parts) === 1 && str_contains($nomor, ' ')) {
+                        $parts = explode(' ', $nomor, 2);
                     }
-                }),
+
+                    return trim($parts[0] ?? '') === trim($value);
+                });
+
+            if ($exists) {
+                $fail('Nomor MoU Polinema sudah digunakan.');
+            }
+        };
+    }),
             Forms\Components\TextInput::make('nomor_dokumen_mitra')
                 ->label('Nomor MoU Mitra')
                 ->maxLength(100)
