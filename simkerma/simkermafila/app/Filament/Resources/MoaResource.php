@@ -273,20 +273,24 @@ Tables\Columns\TextColumn::make('nomor_mitra')
                     Infolists\Components\TextEntry::make('nomor_polinema')
     ->label('Nomor Polinema')
     ->getStateUsing(function ($record) {
-
+        if (!$record->nomor_dokumen) return null;
         $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-
+        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+            $parts = explode(' ', $record->nomor_dokumen, 2);
+        }
         return trim($parts[0] ?? '-');
-    }),
+    })->default('-'),
 
 Infolists\Components\TextEntry::make('nomor_mitra')
     ->label('Nomor Mitra')
     ->getStateUsing(function ($record) {
-
+        if (!$record->nomor_dokumen) return null;
         $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-
+        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+            $parts = explode(' ', $record->nomor_dokumen, 2);
+        }
         return trim($parts[1] ?? '-');
-    }),
+    })->default('-'),
                     Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
                     Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
                     Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),

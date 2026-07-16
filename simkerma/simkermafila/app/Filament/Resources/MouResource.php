@@ -63,6 +63,15 @@ class MouResource extends Resource
     ->required()
     ->maxLength(100)
     ->dehydrated(false)
+    ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+        if ($record && $record->nomor_dokumen) {
+            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                $parts = explode(" ", $record->nomor_dokumen, 2);
+            }
+            $component->state(trim($parts[0] ?? ''));
+        }
+    })
     ->rule(function (?Model $record) {
         return function ($attribute, $value, $fail) use ($record) {
 
@@ -252,7 +261,26 @@ class MouResource extends Resource
                         ->badge()
                         ->default('-')
                         ->columnSpanFull(),
-                    Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
+                    Infolists\Components\TextEntry::make('nomor_dokumen_polinema')
+                        ->label('Nomor Polinema')
+                        ->getStateUsing(function ($record) {
+                            if (!$record->nomor_dokumen) return null;
+                            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                $parts = explode(' ', $record->nomor_dokumen, 2);
+                            }
+                            return trim($parts[0] ?? '');
+                        })->default('-'),
+                    Infolists\Components\TextEntry::make('nomor_dokumen_mitra')
+                        ->label('Nomor Mitra')
+                        ->getStateUsing(function ($record) {
+                            if (!$record->nomor_dokumen) return null;
+                            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                $parts = explode(' ', $record->nomor_dokumen, 2);
+                            }
+                            return trim($parts[1] ?? '');
+                        })->default('-'),
                     Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
                     Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
                     Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
