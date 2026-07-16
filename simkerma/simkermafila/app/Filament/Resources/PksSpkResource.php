@@ -154,8 +154,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
 
         return $pol . "\n" . $mit;
     }),
-            Forms\Components\TextInput::make('tahun')->label('Tahun')->maxLength(10),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Awal'),
+            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku'),
             Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir'),
             Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
             Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),

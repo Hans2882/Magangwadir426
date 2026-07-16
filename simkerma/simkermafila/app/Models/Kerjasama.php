@@ -10,6 +10,15 @@ class Kerjasama extends Model
 {
     protected $table = 'kerjasama';
 
+    protected static function booted()
+    {
+        static::saving(function ($model) {
+            if ($model->tanggal_awal) {
+                $model->tahun = \Carbon\Carbon::parse($model->tanggal_awal)->year;
+            }
+        });
+    }
+
     protected $fillable = [
         'parent_id',
         'mitra_id',
