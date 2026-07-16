@@ -8,4 +8,15 @@ use Filament\Resources\Pages\EditRecord;
 class EditLoi extends EditRecord
 {
     protected static string $resource = LoiResource::class;
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\DeleteAction::make(),
+        ];
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
