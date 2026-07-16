@@ -26,4 +26,12 @@ class ViewIa extends ViewRecord
             </div>
         ');
     }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\EditAction::make(),
+            \Filament\Actions\DeleteAction::make(),
+        ];
+    }
 }
