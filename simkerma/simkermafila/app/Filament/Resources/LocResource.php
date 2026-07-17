@@ -30,7 +30,7 @@ class LocResource extends Resource
 
     protected static ?string $slug = 'data-loc';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 6;
 
     public static function getEloquentQuery(): Builder
     {

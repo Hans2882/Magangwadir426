@@ -30,7 +30,7 @@ class MoaResource extends Resource
 
     protected static ?string $slug = 'data-moa';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 3;
 
     public static function getEloquentQuery(): Builder
     {
@@ -205,6 +205,13 @@ Forms\Components\Hidden::make('nomor_dokumen')
         ])
 
         ->filters([
+
+    Tables\Filters\SelectFilter::make('negara')
+        ->label('Negara')
+        ->relationship('mitra.negara', 'nama_negara')
+        ->searchable()
+        ->preload(),
+        
     Tables\Filters\SelectFilter::make('status')
         ->label('Status')
         ->options([

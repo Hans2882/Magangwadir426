@@ -202,6 +202,13 @@ class MouResource extends Resource
         ->relationship('bidang', 'bidang_kerjasama')
         ->searchable()
         ->preload(),
+
+    Tables\Filters\SelectFilter::make('negara')
+        ->label('Negara')
+        ->relationship('mitra.negara', 'nama_negara')
+        ->searchable()
+        ->preload(),
+        
     Tables\Filters\SelectFilter::make('status')
         ->label('Status')
         ->options([
