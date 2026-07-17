@@ -233,6 +233,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
                     'warning' => fn ($state) => ! in_array($state, ['AKTIF', 'HABIS']),
                 ]),
         ])
+        ->paginated([10, 25, 50, 100])
         ->filters([
     Tables\Filters\SelectFilter::make('prodis')
         ->label('Program Studi')

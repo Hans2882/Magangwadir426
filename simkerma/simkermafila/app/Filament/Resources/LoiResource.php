@@ -104,6 +104,7 @@ class LoiResource extends Resource
                         'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
                     ]),
             ])
+            ->paginated([10, 25, 50, 100])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),

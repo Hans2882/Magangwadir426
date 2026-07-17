@@ -204,6 +204,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
                 ]),
         ])
 
+        ->paginated([10, 25, 50, 100])
         ->filters([
 
     Tables\Filters\SelectFilter::make('negara')

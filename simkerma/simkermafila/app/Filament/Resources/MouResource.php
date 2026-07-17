@@ -196,6 +196,7 @@ class MouResource extends Resource
     ]),
             ])
 
+            ->paginated([10, 25, 50, 100])
             ->filters([
     Tables\Filters\SelectFilter::make('bidang')
         ->label('Bidang Kerjasama')
