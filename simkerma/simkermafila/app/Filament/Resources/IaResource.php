@@ -30,7 +30,7 @@ class IaResource extends Resource
 
     protected static ?string $slug = 'data-ia';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     public static function getEloquentQuery(): Builder
     {
@@ -244,6 +244,12 @@ Forms\Components\Hidden::make('nomor_dokumen')
     Tables\Filters\SelectFilter::make('bidang')
         ->label('Bidang Kerjasama')
         ->relationship('bidang', 'bidang_kerjasama')
+        ->searchable()
+        ->preload(),
+
+    Tables\Filters\SelectFilter::make('negara')
+        ->label('Negara')
+        ->relationship('mitra.negara', 'nama_negara')
         ->searchable()
         ->preload(),
 
