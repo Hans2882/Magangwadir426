@@ -133,7 +133,12 @@ Forms\Components\Hidden::make('nomor_dokumen')
                 ->directory('MoA')
                 ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
-                ->preserveFilenames()
+                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, ?\Illuminate\Database\Eloquent\Model $record): string {
+                    $id = $record ? $record->id : (\App\Models\Kerjasama::max('id') + 1);
+                    $type = 'MoA';
+                    $originalName = $file->getClientOriginalName();
+                    return "{$id}_{$type}_{$originalName}";
+                })
                 ->columnSpanFull(),
         ]);
     }

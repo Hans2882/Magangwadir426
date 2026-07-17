@@ -148,10 +148,17 @@ Forms\Components\Hidden::make('nomor_dokumen')
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas IA')
                 ->disk('google')
-                ->directory('IA')
+                ->directory(function (callable $get) {
+                    return $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
+                })
                 ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
-                ->preserveFilenames()
+                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, ?\Illuminate\Database\Eloquent\Model $record): string {
+                    $id = $record ? $record->id : (\App\Models\Kerjasama::max('id') + 1);
+                    $type = 'IA';
+                    $originalName = $file->getClientOriginalName();
+                    return "{$id}_{$type}_{$originalName}";
+                })
                 ->columnSpanFull(),
         ]);
     }

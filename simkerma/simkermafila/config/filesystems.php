@@ -67,6 +67,7 @@ return [
             'refreshToken' => env('GOOGLE_DRIVE_REFRESH_TOKEN'),
             'folder' => env('GOOGLE_DRIVE_FOLDER_ID'),
             'teamDriveId' => env('GOOGLE_DRIVE_TEAM_DRIVE_ID'),
+            'sharedFolderId' => env('GOOGLE_DRIVE_SHARED_FOLDER_ID'),
         ],
 
     ],

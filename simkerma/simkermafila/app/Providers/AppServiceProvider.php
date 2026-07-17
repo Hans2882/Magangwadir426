@@ -26,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
                 $options['teamDriveId'] = $config['teamDriveId'];
             }
 
+            if (!empty($config['sharedFolderId'])) {
+                $options['sharedFolderId'] = $config['sharedFolderId'];
+            }
+
             $client = new \Google\Client();
             $client->setClientId($config['clientId']);
             $client->setClientSecret($config['clientSecret']);
