@@ -21,4 +21,5 @@ class EditMoa extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
 }

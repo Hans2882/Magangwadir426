@@ -76,7 +76,9 @@ class MitraResource extends Resource
                     ->label('Kategori')
                     ->searchable()
                     ->sortable()
-                    ->default('-'),
+                    ->default('-')
+                    ->badge()
+                    ->color('primary'),
                 Tables\Columns\TextColumn::make('telepon')
                     ->label('No. Telepon')
                     ->default('-'),
@@ -108,19 +110,23 @@ class MitraResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            Filament\Schemas\Components\Section::make('Detail Mitra')
+            \Filament\Schemas\Components\Section::make('Detail Mitra')->columnSpan('full')
                 ->schema([
-                    Filament\Schemas\Components\Text::make('nama_mitra')->label('Nama Mitra'),
-                    Filament\Schemas\Components\Text::make('negara.nama_negara')
+                    \Filament\Infolists\Components\TextEntry::make('nama_mitra')->label('Nama Mitra'),
+                    \Filament\Infolists\Components\TextEntry::make('negara.nama_negara')
                         ->label('Negara')
                         ->default('Indonesia')
                         ->visible(fn ($record) => $record->negara_id >= 1),
-                    Filament\Schemas\Components\Text::make('kategori.kategori')->label('Kategori IKU')->default('-'),
-                    Filament\Schemas\Components\Text::make('telepon')->label('No. Telepon')->default('-'),
-                    Filament\Schemas\Components\Text::make('email')->label('Email')->default('-'),
-                    Filament\Schemas\Components\Text::make('qs_rank')->label('QS Rank')->default('-')
+                    \Filament\Infolists\Components\TextEntry::make('kategori.kategori')
+                        ->label('Kategori IKU')
+                        ->default('-')
+                        ->badge()
+                        ->color('primary'),
+                    \Filament\Infolists\Components\TextEntry::make('telepon')->label('No. Telepon')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('email')->label('Email')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('qs_rank')->label('QS Rank')->default('-')
                         ->visible(fn ($record) => $record->negara_id >= 1),
-                    Filament\Schemas\Components\Text::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
         ]);

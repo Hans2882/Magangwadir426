@@ -19,4 +19,5 @@ class EditLoi extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
 }

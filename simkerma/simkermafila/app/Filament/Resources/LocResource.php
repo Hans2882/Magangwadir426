@@ -116,24 +116,24 @@ class LocResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            Filament\Schemas\Components\Section::make('Detail LoC (Luar Negeri)')
+            \Filament\Schemas\Components\Section::make('Detail LoC (Luar Negeri)')->columnSpan('full')
                 ->schema([
-                    Filament\Schemas\Components\Text::make('judul')->label('Judul')->columnSpanFull(),
-                    Filament\Schemas\Components\Text::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
-                    Filament\Schemas\Components\Text::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
-                    Filament\Schemas\Components\Text::make('tahun')->label('Tahun')->default('-'),
-                    Filament\Schemas\Components\Text::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
-                    Filament\Schemas\Components\Text::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
-                    Filament\Schemas\Components\Text::make('status')->label('Status')->badge()
+                    \Filament\Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
+                    \Filament\Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
+                    \Filament\Infolists\Components\TextEntry::make('status')->label('Status')->badge()
                         ->getStateUsing(fn (Model $record) => $record->status)
                         ->color(fn ($state) => match($state) {
                             'AKTIF' => 'success',
                             'HABIS' => 'danger',
                             default => 'warning',
                         }),
-                    Filament\Schemas\Components\Text::make('link_dokumen')->label('Link Dokumen')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
-                    Filament\Schemas\Components\Text::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
-                    Filament\Schemas\Components\Text::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('link_dokumen')->label('Link Dokumen')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
         ]);

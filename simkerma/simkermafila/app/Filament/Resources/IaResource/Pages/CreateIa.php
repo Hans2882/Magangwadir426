@@ -8,4 +8,10 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateIa extends CreateRecord
 {
     protected static string $resource = IaResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
 }

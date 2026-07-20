@@ -38,4 +38,10 @@ class EditUser extends EditRecord
             \App\Models\UserProgramStudi::where('user_id', $this->record->id)->delete();
         }
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
 }

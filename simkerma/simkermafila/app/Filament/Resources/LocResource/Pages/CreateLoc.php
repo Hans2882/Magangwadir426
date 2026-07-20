@@ -8,4 +8,10 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateLoc extends CreateRecord
 {
     protected static string $resource = LocResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
 }

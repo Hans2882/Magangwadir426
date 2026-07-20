@@ -19,4 +19,5 @@ class EditLoc extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
 }

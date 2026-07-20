@@ -6,7 +6,7 @@ use App\Exports\KerjasamaExport;
 use App\Filament\Resources\IaResource;
 use Filament\Actions;
 use Filament\Actions\Action;
-use Filament\Schemas\Components\Tabs\Tab;
+use \Filament\Schemas\Components\Tabs\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Facades\Excel;

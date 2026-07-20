@@ -21,4 +21,5 @@ class EditPksSpk extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
 }
