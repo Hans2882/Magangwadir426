@@ -4,8 +4,8 @@ namespace App\Filament\Widgets;
 
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
-use Filament\Forms\Get;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Widgets\Widget;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -15,7 +15,7 @@ class DashboardFilterWidget extends Widget implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string $view = 'filament.widgets.dashboard-filter-widget';
+    protected string $view = 'filament.widgets.dashboard-filter-widget';
 
     protected static ?int $sort = 4;
 
@@ -36,10 +36,10 @@ class DashboardFilterWidget extends Widget implements HasForms
         ]);
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form->schema([
-            \Filament\Forms\Components\Section::make('Filter Data')
+        return $schema->schema([
+            \Filament\Schemas\Components\Section::make('Filter Data')
                 ->schema([
                     Select::make('preset')
                         ->label('Rentang Waktu')

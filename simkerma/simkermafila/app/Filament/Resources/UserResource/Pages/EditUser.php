@@ -28,5 +28,14 @@ class EditUser extends EditRecord
         } else {
             \App\Models\UserPrivilege::where('user_id', $this->record->id)->delete();
         }
+
+        if (isset($data['program_studi_id'])) {
+            \App\Models\UserProgramStudi::updateOrCreate(
+                ['user_id' => $this->record->id],
+                ['program_studi_id' => $data['program_studi_id']]
+            );
+        } else {
+            \App\Models\UserProgramStudi::where('user_id', $this->record->id)->delete();
+        }
     }
 }

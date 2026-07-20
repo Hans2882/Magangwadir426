@@ -6,9 +6,9 @@ use Filament\Pages\Page;
 
 class PermintaanKerjasama extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationGroup = 'Simmagang';
+    protected static \UnitEnum|string|null $navigationGroup = 'Simmagang';
 
     protected static ?string $navigationLabel = 'Permintaan Kerjasama';
 
@@ -16,5 +16,5 @@ class PermintaanKerjasama extends Page
 
     protected static ?int $navigationSort = 9;
 
-    protected static string $view = 'filament.pages.permintaan-kerjasama';
+    protected string $view = 'filament.pages.permintaan-kerjasama';
 }

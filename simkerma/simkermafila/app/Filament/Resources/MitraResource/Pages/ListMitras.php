@@ -6,7 +6,7 @@ use App\Filament\Resources\MitraResource;
 use App\Models\Mitra;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Resources\Pages\ListRecords\Tab;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -110,9 +110,9 @@ Tables\Columns\TextColumn::make('negara.nama_negara')
                     ->visible(fn ($livewire) => $livewire->activeTab !== 'luar_negeri'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
             ->paginated([10, 25, 50, 100])
             ->filters([

@@ -13,9 +13,9 @@ class KategoriMitra extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-tag';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-tag';
 
-    protected static ?string $navigationGroup = 'Data Mitra';
+    protected static \UnitEnum|string|null $navigationGroup = 'Data Mitra';
 
     protected static ?string $navigationLabel = 'Kategori Mitra';
 
@@ -23,7 +23,7 @@ class KategoriMitra extends Page implements HasTable
 
     protected static ?int $navigationSort = 1;
 
-    protected static string $view = 'filament.pages.kategori-mitra';
+    protected string $view = 'filament.pages.kategori-mitra';
 
     public function table(Table $table): Table
     {

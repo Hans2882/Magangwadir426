@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <x-filament::section>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem;">
             @php
                 $templates = [
                     'Templat NK MoU Polinema Short_Indo.docx',
@@ -15,13 +15,14 @@
             @endphp
             
             @foreach($templates as $template)
-                <div class="p-4 rounded-lg border border-gray-200 dark:border-white/10 flex items-center justify-between shadow-sm bg-white dark:bg-gray-900">
-                    <div class="flex items-center gap-3 overflow-hidden">
+                <div style="padding: 1rem; border-radius: 0.75rem; border: 1px solid rgba(156, 163, 175, 0.2); display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); background-color: rgb(255, 255, 255); dark:background-color: rgba(17, 24, 39, 1);">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; overflow: hidden;">
                         <x-filament::icon
                             icon="heroicon-o-document-text"
-                            class="h-8 w-8 text-primary-500 shrink-0"
+                            style="height: 2rem; width: 2rem; flex-shrink: 0;"
+                            class="text-primary-500"
                         />
-                        <span class="font-medium text-sm text-gray-700 dark:text-gray-200 truncate" title="{{ $template }}">
+                        <span style="font-weight: 500; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgb(55, 65, 81);" title="{{ $template }}">
                             {{ $template }}
                         </span>
                     </div>
@@ -34,7 +35,7 @@
                         color="primary"
                         size="sm"
                         icon="heroicon-m-arrow-down-tray"
-                        class="shrink-0 ml-2"
+                        style="flex-shrink: 0; margin-left: 0.5rem;"
                     >
                         Unduh
                     </x-filament::button>

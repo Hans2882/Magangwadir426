@@ -5,9 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\MitraResource\Pages;
 use App\Models\Mitra;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Infolists;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -16,9 +15,9 @@ class MitraResource extends Resource
 {
     protected static ?string $model = Mitra::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-building-office-2';
 
-    protected static ?string $navigationGroup = 'Data Mitra';
+    protected static \UnitEnum|string|null $navigationGroup = 'Data Mitra';
 
     protected static ?string $navigationLabel = 'Data Mitra';
 
@@ -28,9 +27,9 @@ class MitraResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->schema([
             Forms\Components\TextInput::make('nama_mitra')
                 ->label('Nama Mitra')
                 ->required()
@@ -90,9 +89,9 @@ class MitraResource extends Resource
                     ->default('-'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
             ->paginated([10, 25, 50, 100])
             ->filters([
@@ -106,22 +105,22 @@ class MitraResource extends Resource
             ->striped();
     }
 
-    public static function infolist(Infolist $infolist): Infolist
+    public static function infolist(Schema $schema): Schema
     {
-        return $infolist->schema([
-            Infolists\Components\Section::make('Detail Mitra')
+        return $schema->schema([
+            Filament\Schemas\Components\Section::make('Detail Mitra')
                 ->schema([
-                    Infolists\Components\TextEntry::make('nama_mitra')->label('Nama Mitra'),
-                    Infolists\Components\TextEntry::make('negara.nama_negara')
+                    Filament\Schemas\Components\Text::make('nama_mitra')->label('Nama Mitra'),
+                    Filament\Schemas\Components\Text::make('negara.nama_negara')
                         ->label('Negara')
                         ->default('Indonesia')
                         ->visible(fn ($record) => $record->negara_id >= 1),
-                    Infolists\Components\TextEntry::make('kategori.kategori')->label('Kategori IKU')->default('-'),
-                    Infolists\Components\TextEntry::make('telepon')->label('No. Telepon')->default('-'),
-                    Infolists\Components\TextEntry::make('email')->label('Email')->default('-'),
-                    Infolists\Components\TextEntry::make('qs_rank')->label('QS Rank')->default('-')
+                    Filament\Schemas\Components\Text::make('kategori.kategori')->label('Kategori IKU')->default('-'),
+                    Filament\Schemas\Components\Text::make('telepon')->label('No. Telepon')->default('-'),
+                    Filament\Schemas\Components\Text::make('email')->label('Email')->default('-'),
+                    Filament\Schemas\Components\Text::make('qs_rank')->label('QS Rank')->default('-')
                         ->visible(fn ($record) => $record->negara_id >= 1),
-                    Infolists\Components\TextEntry::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
+                    Filament\Schemas\Components\Text::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
         ]);

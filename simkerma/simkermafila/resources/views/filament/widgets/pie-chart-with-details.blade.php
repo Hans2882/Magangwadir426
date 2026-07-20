@@ -11,7 +11,7 @@
 <x-filament-widgets::widget class="fi-wi-chart">
     <x-filament::section :description="$description" :heading="$heading">
         {{-- Filter controls --}}
-        <x-slot name="headerEnd">
+        <x-slot name="afterHeader">
             <div class="flex flex-wrap items-end gap-2 sm:-my-2">
                 {{-- Preset dropdown --}}
                 <x-filament::input.wrapper inline-prefix wire:target="filter" class="w-max">
@@ -125,61 +125,37 @@
 
         {{-- Prodi detail section --}}
         @if (!empty($details))
-            <div class="mt-5 space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
-                <p class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <div style="margin-top: 1.5rem; border-top: 1px solid rgba(156, 163, 175, 0.2); padding-top: 1rem;">
+                <p style="font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: rgb(107, 114, 128); margin-bottom: 0.75rem;">
                     Detail Prodi
                 </p>
-                @foreach ($details as $detail)
-                    <div
-                        x-data="{ open: false }"
-                        class="rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/40"
-                    >
-                        {{-- Header (clickable toggle) --}}
-                        <button
-                            type="button"
-                            x-on:click="open = !open"
-                            class="flex w-full items-center justify-between gap-3 rounded-lg p-3 text-left transition hover:bg-gray-100 dark:hover:bg-gray-700/40"
-                        >
-                            <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {{ $detail['label'] }}
-                                <span class="ml-1 inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-800/30 dark:text-primary-400">
-                                    {{ $detail['count'] }}
-                                </span>
-                            </div>
-                            <svg
-                                class="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200"
-                                :class="{ 'rotate-180': open }"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="2"
-                                stroke="currentColor"
-                            >
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                            </svg>
-                        </button>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    @foreach ($details as $detail)
+                        <x-filament::section collapsible collapsed compact>
+                            <x-slot name="heading">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span>{{ $detail['label'] }}</span>
+                                    <x-filament::badge color="primary" size="sm">
+                                        {{ $detail['count'] }}
+                                    </x-filament::badge>
+                                </div>
+                            </x-slot>
 
-                        {{-- Collapsible prodi list --}}
-                        <div
-                            x-show="open"
-                            x-collapse
-                            class="border-t border-gray-200 px-3 pb-3 dark:border-gray-700"
-                        >
                             @if (!empty($detail['prodi']))
-                                <ul class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                                <ul style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: rgb(75, 85, 99);">
                                     @foreach ($detail['prodi'] as $prodi)
-                                        <li class="flex items-center justify-between gap-3">
+                                        <li style="display: flex; justify-content: space-between; align-items: center;">
                                             <span>{{ $prodi['name'] }}</span>
-                                            <span class="font-medium text-gray-700 dark:text-gray-200">{{ $prodi['count'] }}</span>
+                                            <span style="font-weight: 600; color: rgb(55, 65, 81);">{{ $prodi['count'] }}</span>
                                         </li>
                                     @endforeach
                                 </ul>
                             @else
-                                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Tidak ada data prodi.</p>
+                                <p style="font-size: 0.875rem; color: rgb(107, 114, 128);">Tidak ada data prodi.</p>
                             @endif
-                        </div>
-                    </div>
-                @endforeach
+                        </x-filament::section>
+                    @endforeach
+                </div>
             </div>
         @endif
     </x-filament::section>

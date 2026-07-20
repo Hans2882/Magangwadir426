@@ -9,13 +9,13 @@ use Livewire\Attributes\On;
 
 class KerjasamaBulananChart extends ChartWidget
 {
-    protected static ?string $heading = 'Perkembangan Kerjasama per Bulan';
+    protected ?string $heading = 'Perkembangan Kerjasama per Bulan';
 
-    protected static ?string $description = 'Data bulanan untuk MoU, PKS, dan IA';
+    protected ?string $description = 'Data bulanan untuk MoU, PKS, dan IA';
 
     protected static ?int $sort = 5;
 
-    protected static ?string $maxHeight = '380px';
+    protected ?string $maxHeight = '380px';
 
     protected int | string | array $columnSpan = 2;
 

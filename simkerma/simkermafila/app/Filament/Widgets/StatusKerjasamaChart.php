@@ -8,13 +8,13 @@ use Livewire\Attributes\On;
 
 class StatusKerjasamaChart extends ChartWidget
 {
-    protected static ?string $heading = 'Status Kerjasama';
+    protected ?string $heading = 'Status Kerjasama';
 
     protected static ?int $sort = 3;
 
     protected int | string | array $columnSpan = 1;
 
-    protected static string $view = 'filament.widgets.pie-chart-with-details';
+    protected string $view = 'filament.widgets.pie-chart-with-details';
 
     /**
      * Filter preset: this_year | last_1_year | last_5_years | last_10_years | all_time | custom

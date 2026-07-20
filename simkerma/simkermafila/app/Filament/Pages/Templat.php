@@ -6,9 +6,9 @@ use Filament\Pages\Page;
 
 class Templat extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-document-arrow-down';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-arrow-down';
 
-    protected static string $view = 'filament.pages.templat';
+    protected string $view = 'filament.pages.templat';
     
     protected static ?int $navigationSort = 1;
 
