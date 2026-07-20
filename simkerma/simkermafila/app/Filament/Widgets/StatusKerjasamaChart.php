@@ -236,6 +236,17 @@ class StatusKerjasamaChart extends ChartWidget
                     'position' => 'bottom',
                     'labels' => ['font' => ['size' => 12], 'padding' => 15],
                 ],
+                'tooltip' => [
+                    'titleFont' => ['size' => 16, 'weight' => 'bold'],
+                    'bodyFont' => ['size' => 16],
+                    'padding' => 12,
+                ],
+            ],
+            'animation' => [
+                'animateScale' => true,
+                'animateRotate' => true,
+                'duration' => 1000,
+                'easing' => 'easeOutQuart',
             ],
         ];
     }
