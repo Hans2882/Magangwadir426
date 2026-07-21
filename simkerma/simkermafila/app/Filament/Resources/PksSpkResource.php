@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Schemas\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use App\Filament\Resources\MouResource;
 
 class PksSpkResource extends Resource
 {
@@ -381,6 +384,32 @@ Forms\Components\Hidden::make('nomor_dokumen')
                     \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
+
+            Section::make('Hubungan Dokumen')
+    ->schema([
+
+        TextEntry::make('parent.jenisDokumen.nama')
+            ->label('Jenis')
+            ->badge()
+            ->default('-'),
+
+        TextEntry::make('parent.judul')
+            ->label('Dokumen Induk')
+            ->default('-')
+            ->url(function ($record) {
+                if (! $record->parent) {
+                    return null;
+                }
+
+                return MouResource::getUrl('view', [
+                    'record' => $record->parent,
+                ]);
+            })
+            ->openUrlInNewTab(false)
+            ->color('primary'),
+
+    ])
+    ->columns(2),
         ]);
     }
 

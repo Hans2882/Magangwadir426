@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Illuminate\Support\Facades\Storage;
 
 class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvents, WithColumnWidths
 {
@@ -30,6 +31,16 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
 
     public function map($item): array
 {
+    $link = '';
+
+if (!empty($item->link_dokumen) && $item->link_dokumen !== '-') {
+    try {
+        $link = Storage::disk('google')->url($item->link_dokumen);
+    } catch (\Throwable $e) {
+        $link = '';
+    }
+}
+
     return [
         $item->jenisDokumen?->nama,
         $item->judul,
@@ -42,7 +53,7 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
         optional($item->tanggal_awal)->format('d/m/Y'),
         optional($item->tanggal_akhir)->format('d/m/Y'),
         $item->status,
-        $item->link_dokumen,
+        $link,
     ];
 }
 
