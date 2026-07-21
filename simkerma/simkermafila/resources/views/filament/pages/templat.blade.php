@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <x-filament::section>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
             @php
                 $templates = [
                     'Templat NK MoU Polinema Short_Indo.docx',
