@@ -7,8 +7,12 @@ use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 
-class KerjasamaExport implements FromQuery, WithHeadings, WithMapping
+class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvents, WithColumnWidths
 {
     use Exportable;
 
@@ -25,36 +29,107 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping
     }
 
     public function map($item): array
-    {
-        return [
-            $item->jenisDokumen?->nama,
-            $item->judul,
-            $item->mitra?->nama_mitra,
-            $item->jenis,
-            $item->prodis->pluck('nama_prodi')->implode(', '),
-            $item->bidang?->bidang_kerjasama,
-            $item->nomor_dokumen,
-            $item->tahun,
-            optional($item->tanggal_awal)->format('d/m/Y'),
-            optional($item->tanggal_akhir)->format('d/m/Y'),
-            $item->status,
-        ];
-    }
+{
+    return [
+        $item->jenisDokumen?->nama,
+        $item->judul,
+        $item->mitra?->nama_mitra,
+        $item->jenis,
+        $item->prodis->pluck('nama_prodi')->implode(', '),
+        $item->bidang?->bidang_kerjasama,
+        $item->nomor_dokumen,
+        $item->tahun,
+        optional($item->tanggal_awal)->format('d/m/Y'),
+        optional($item->tanggal_akhir)->format('d/m/Y'),
+        $item->status,
+        $item->link_dokumen,
+    ];
+}
 
     public function headings(): array
-    {
-        return [
-            'Jenis Dokumen',
-            'Judul',
-            'Nama Mitra',
-            'Jenis Kerjasama',
-            'Program Studi',
-            'Bidang',
-            'Nomor Dokumen',
-            'Tahun',
-            'Tanggal Awal',
-            'Tanggal Akhir',
-            'Status',
-        ];
-    }
+{
+    return [
+        'Jenis Dokumen',
+        'Judul',
+        'Nama Mitra',
+        'Jenis Kerjasama',
+        'Program Studi',
+        'Bidang',
+        'Nomor Dokumen',
+        'Tahun',
+        'Tanggal Awal',
+        'Tanggal Akhir',
+        'Status',
+        'Dokumen',
+    ];
+}
+
+public function registerEvents(): array
+{
+    return [
+        AfterSheet::class => function (AfterSheet $event) {
+
+            $sheet = $event->sheet->getDelegate();
+
+            $highestRow = $sheet->getHighestRow();
+
+            // Hyperlink "Lihat PDF"
+            for ($row = 2; $row <= $highestRow; $row++) {
+
+                $url = $sheet->getCell("L{$row}")->getValue();
+
+                if (!empty($url)) {
+
+                    $sheet->setCellValue("L{$row}", "Lihat PDF");
+
+                    $sheet->getCell("L{$row}")
+                        ->getHyperlink()
+                        ->setUrl($url);
+
+                    $sheet->getStyle("L{$row}")
+                        ->getFont()
+                        ->setUnderline(true);
+
+                    $sheet->getStyle("L{$row}")
+                        ->getFont()
+                        ->getColor()
+                        ->setARGB('FF0000FF');
+                }
+            }
+
+            // Wrap text semua kolom
+            $sheet->getStyle('A1:L' . $highestRow)
+                ->getAlignment()
+                ->setWrapText(true);
+
+            // Vertical align top
+            $sheet->getStyle('A1:L' . $highestRow)
+                ->getAlignment()
+                ->setVertical(Alignment::VERTICAL_TOP);
+
+            // Tinggi baris otomatis
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $sheet->getRowDimension($row)->setRowHeight(-1);
+            }
+        },
+    ];
+}
+
+public function columnWidths(): array
+{
+    return [
+        'A' => 20,
+        'B' => 50, // Judul
+        'C' => 35,
+        'D' => 18,
+        'E' => 30,
+        'F' => 25,
+        'G' => 35,
+        'H' => 10,
+        'I' => 15,
+        'J' => 15,
+        'K' => 15,
+        'L' => 15,
+    ];
+}
 }
