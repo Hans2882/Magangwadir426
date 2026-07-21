@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
 
 class Kerjasama extends Model
@@ -102,5 +103,10 @@ class Kerjasama extends Model
     }
 
     return 'AKTIF';
+}
+
+public function children(): HasMany
+{
+    return $this->hasMany(Kerjasama::class, 'parent_id');
 }
 }

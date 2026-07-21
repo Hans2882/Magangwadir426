@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section;
 
 class MouResource extends Resource
 {
@@ -34,7 +37,10 @@ class MouResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['mitra'])
+            ->with([
+                'mitra',
+                'children.jenisDokumen',
+            ])
             ->where('jenis_dokumen_id', 1); // 1 = MoU
     }
 
@@ -330,6 +336,32 @@ class MouResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
+
+            Section::make('Hubungan Dokumen')
+    ->schema([
+        RepeatableEntry::make('children')
+            ->contained()
+            ->grid(3)
+            ->schema([
+                TextEntry::make('jenisDokumen.nama')
+                    ->label('Jenis'),
+
+                TextEntry::make('judul')
+    ->url(function ($record) {
+        return match ($record->jenis_dokumen_id) {
+            2 => \App\Filament\Resources\MoaResource::getUrl('view', ['record' => $record]),
+            3, 5 => \App\Filament\Resources\PksSpkResource::getUrl('view', ['record' => $record]),
+            4 => \App\Filament\Resources\IaResource::getUrl('view', ['record' => $record]),
+            default => null,
+        };
+    })
+    ->openUrlInNewTab(false)
+    ->color('primary'),
+
+                TextEntry::make('status')
+                    ->badge(),
+            ]),
+    ]),
         ]);
     }
 
