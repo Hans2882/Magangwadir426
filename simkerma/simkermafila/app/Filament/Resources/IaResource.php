@@ -148,15 +148,27 @@ Forms\Components\Hidden::make('nomor_dokumen')
                 ->label('Berkas IA')
                 ->disk('google')
                 ->directory(function (callable $get) {
-                    return $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
+                    $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
+                    return $base . '/' . date('Y/m/d');
                 })
                 ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
-                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, ?\Illuminate\Database\Eloquent\Model $record): string {
-                    $id = $record ? $record->id : (\App\Models\Kerjasama::max('id') + 1);
+                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
+                    $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
+                    $dir = $base . '/' . date('Y/m/d');
+                    
+                    try {
+                        $existingFiles = \Illuminate\Support\Facades\Storage::disk('google')->files($dir);
+                        $count = count($existingFiles) + 1;
+                    } catch (\Exception $e) {
+                        $count = 1;
+                    }
+                    
+                    $sequence = sprintf('%03d', $count);
                     $type = 'IA';
                     $originalName = $file->getClientOriginalName();
-                    return "{$id}_{$type}_{$originalName}";
+                    
+                    return "{$sequence}_{$type}_{$originalName}";
                 })
                 ->columnSpanFull(),
         ]);
