@@ -210,6 +210,18 @@ class MouResource extends Resource
                     ->label('Tgl. Akhir')
                     ->date('d/m/Y')
                     ->sortable(),
+                Tables\Columns\IconColumn::make('pks')
+    ->label('PKS/SPK')
+    ->boolean()
+    ->getStateUsing(fn ($record) =>
+        $record->children->whereIn('jenis_dokumen_id', [3,5])->isNotEmpty()
+    ),
+                Tables\Columns\IconColumn::make('kelengkapan')
+    ->label('IA')
+    ->boolean()
+    ->getStateUsing(fn ($record) =>
+        $record->children->contains('jenis_dokumen_id', 4)
+    ),
                 Tables\Columns\BadgeColumn::make('status')
     ->label('Status')
     ->getStateUsing(fn (Model $record) => $record->status)
@@ -244,6 +256,40 @@ class MouResource extends Resource
         ->relationship('mitra.negara', 'nama_negara')
         ->searchable()
         ->preload(),
+
+    Tables\Filters\SelectFilter::make('kelengkapan')
+    ->label('Kelengkapan Dokumen')
+    ->options([
+        'belum_ia' => 'Belum ada IA',
+        'belum_pks' => 'Belum ada PKS/SPK',
+        'belum_semua' => 'Belum ada IA & PKS/SPK',
+    ])
+    ->query(function (Builder $query, array $data): Builder {
+
+        return match ($data['value'] ?? null) {
+
+            // IA = jenis_dokumen_id 4
+            'belum_ia' => $query->whereDoesntHave('children', function ($q) {
+                $q->where('jenis_dokumen_id', 4);
+            }),
+
+            // PKS = 3, SPK = 5
+            'belum_pks' => $query->whereDoesntHave('children', function ($q) {
+                $q->whereIn('jenis_dokumen_id', [3,5]);
+            }),
+
+            // Tidak punya IA maupun PKS/SPK
+            'belum_semua' => $query
+                ->whereDoesntHave('children', function ($q) {
+                    $q->where('jenis_dokumen_id', 4);
+                })
+                ->whereDoesntHave('children', function ($q) {
+                    $q->whereIn('jenis_dokumen_id', [3,5]);
+                }),
+
+            default => $query,
+        };
+    }),
         
     Tables\Filters\SelectFilter::make('status')
         ->label('Status')
