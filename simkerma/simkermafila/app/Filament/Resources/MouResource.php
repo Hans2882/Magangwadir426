@@ -222,6 +222,17 @@ class MouResource extends Resource
 
             ->paginated([10, 25, 50, 100])
             ->filters([
+    Tables\Filters\SelectFilter::make('tahun')
+        ->label('Tahun')
+        ->options(function () {
+        return \App\Models\Kerjasama::query()
+            ->where('jenis_dokumen_id', 1)
+            ->whereNotNull('tahun')
+            ->distinct()
+            ->orderByDesc('tahun')
+            ->pluck('tahun', 'tahun')
+            ->toArray();
+    }),
     Tables\Filters\SelectFilter::make('bidang')
         ->label('Bidang Kerjasama')
         ->relationship('bidang', 'bidang_kerjasama')
