@@ -47,7 +47,30 @@ class IaResource extends Resource
                 ->relationship('mitra', 'nama_mitra')
                 ->searchable()
                 ->preload()
+                ->live()
                 ->required(),
+            Forms\Components\Select::make('parent_id')
+                ->label('Referensi MoU')
+                ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                    $mitraId = $get('mitra_id');
+                    if (! $mitraId) return [];
+                    return \App\Models\Kerjasama::where('mitra_id', $mitraId)
+                        ->where('jenis_dokumen_id', 1) // MoU
+                        ->pluck('judul', 'id');
+                })
+                ->searchable()
+                ->preload(),
+            Forms\Components\Select::make('pks_id')
+                ->label('Referensi PKS')
+                ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                    $mitraId = $get('mitra_id');
+                    if (! $mitraId) return [];
+                    return \App\Models\Kerjasama::where('mitra_id', $mitraId)
+                        ->where('jenis_dokumen_id', 3) // PKS
+                        ->pluck('judul', 'id');
+                })
+                ->searchable()
+                ->preload(),
             Forms\Components\Select::make('bidang_id')
                 ->label('Bidang Kerjasama')
                 ->relationship('bidang', 'bidang_kerjasama')

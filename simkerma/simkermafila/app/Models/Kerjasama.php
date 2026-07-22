@@ -34,6 +34,7 @@ class Kerjasama extends Model
         'link_dokumen',
         'link_perbaikan',
         'bukti_kegiatan',
+        'pks_id',
     ];
 
     protected $casts = [
@@ -59,6 +60,11 @@ class Kerjasama extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Kerjasama::class, 'parent_id');
+    }
+
+    public function pks(): BelongsTo
+    {
+        return $this->belongsTo(Kerjasama::class, 'pks_id');
     }
 
     public function prodis(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
