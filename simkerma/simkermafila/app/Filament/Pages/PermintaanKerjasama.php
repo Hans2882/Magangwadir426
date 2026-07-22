@@ -10,9 +10,15 @@ class PermintaanKerjasama extends Page
 
     protected static \UnitEnum|string|null $navigationGroup = 'Simmagang';
 
-    protected static ?string $navigationLabel = 'Permintaan Kerjasama';
+    public function getTitle(): string | \Illuminate\Contracts\Support\Htmlable
+    {
+        return 'Permintaan Kerjasama';
+    }
 
-    protected static ?string $title = 'Permintaan Kerjasama';
+    public static function getNavigationLabel(): string
+    {
+        return 'Permintaan Kerjasama';
+    }
 
     protected static ?int $navigationSort = 9;
 
