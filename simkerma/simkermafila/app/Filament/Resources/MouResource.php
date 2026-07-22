@@ -215,8 +215,8 @@ class MouResource extends Resource
     ->getStateUsing(fn (Model $record) => $record->status)
     ->colors([
         'success' => 'AKTIF',
-        'warning' => 'MAU HABIS',
-        'danger'  => 'HABIS',
+        'warning' => 'AKAN BERAKHIR',
+        'danger'  => 'BERAKHIR',
     ]),
             ])
 
@@ -238,8 +238,8 @@ class MouResource extends Resource
         ->label('Status')
         ->options([
             'AKTIF' => 'Aktif',
-            'MAU HABIS' => 'Mau Habis',
-            'HABIS' => 'Habis',
+            'AKAN BERAKHIR' => 'Akan Berakhir',
+            'BERAKHIR' => 'Berakhir',
         ])
         ->query(function (Builder $query, array $data): Builder {
 
@@ -250,11 +250,11 @@ class MouResource extends Resource
                         ->orWhereDate('tanggal_akhir', '>', now()->addMonth());
                 }),
 
-                'MAU HABIS' => $query
+                'AKAN BERAKHIR' => $query
                     ->whereDate('tanggal_akhir', '>=', now())
                     ->whereDate('tanggal_akhir', '<=', now()->addMonth()),
 
-                'HABIS' => $query
+                'BERAKHIR' => $query
                     ->whereDate('tanggal_akhir', '<', now()),
 
                 default => $query,
@@ -321,11 +321,11 @@ class MouResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('status')->label('Status')->badge()
                         ->getStateUsing(fn (Model $record) => $record->status)
                         ->color(fn ($state) => match ($state) {
-    'AKTIF' => 'success',
-    'MAU HABIS' => 'warning',
-    'HABIS' => 'danger',
-    default => 'gray',
-}),
+                            'AKTIF' => 'success',
+                            'AKAN BERAKHIR' => 'warning',
+                            'BERAKHIR' => 'danger',
+                            default => 'gray',
+                        }),
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Link Dokumen')
                         ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)

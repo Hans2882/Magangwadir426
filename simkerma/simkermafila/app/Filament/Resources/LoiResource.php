@@ -99,8 +99,8 @@ class LoiResource extends Resource
                     ->getStateUsing(fn (Model $record) => $record->status)
                     ->colors([
                         'success' => 'AKTIF',
-                        'danger'  => 'HABIS',
-                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
+                        'danger'  => 'BERAKHIR',
+                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'BERAKHIR']),
                     ]),
             ])
             ->paginated([10, 25, 50, 100])
@@ -126,11 +126,11 @@ class LoiResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
                     \Filament\Infolists\Components\TextEntry::make('status')->label('Status')->badge()
                         ->getStateUsing(fn (Model $record) => $record->status)
-                        ->color(fn ($state) => match($state) {
+                        ->colors([
                             'AKTIF' => 'success',
-                            'HABIS' => 'danger',
-                            default => 'warning',
-                        }),
+                            'BERAKHIR' => 'danger',
+                            'AKAN BERAKHIR' => 'warning',
+                        ]),
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')->label('Link Dokumen')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),

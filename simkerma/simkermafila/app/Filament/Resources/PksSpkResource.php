@@ -257,8 +257,8 @@ Forms\Components\Hidden::make('nomor_dokumen')
                     ->getStateUsing(fn (Model $record) => $record->status)
                     ->colors([
                         'success' => 'AKTIF',
-                        'danger'  => 'HABIS',
-                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
+                        'danger'  => 'BERAKHIR',
+                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'BERAKHIR']),
                     ]),
             ])
             ->paginated([10, 25, 50, 100])
@@ -287,8 +287,8 @@ Forms\Components\Hidden::make('nomor_dokumen')
         ->label('Status')
         ->options([
             'AKTIF' => 'Aktif',
-            'MAU HABIS' => 'Mau Habis',
-            'HABIS' => 'Habis',
+            'AKAN BERAKHIR' => 'Akan Berakhir',
+            'BERAKHIR' => 'Berakhir',
         ])
         ->query(function (Builder $query, array $data): Builder {
 
@@ -369,11 +369,11 @@ Forms\Components\Hidden::make('nomor_dokumen')
                     \Filament\Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
                     \Filament\Infolists\Components\TextEntry::make('status')->label('Status')->badge()
                         ->getStateUsing(fn (Model $record) => $record->status)
-                        ->color(fn ($state) => match($state) {
+                        ->colors([
                             'AKTIF' => 'success',
-                            'HABIS' => 'danger',
-                            default => 'warning',
-                        }),
+                            'BERAKHIR' => 'danger',
+                            'AKAN BERAKHIR' => 'warning',
+                        ]),
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Link Dokumen')
                         ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)

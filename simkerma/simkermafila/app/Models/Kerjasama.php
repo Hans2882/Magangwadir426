@@ -95,11 +95,11 @@ class Kerjasama extends Model
     $hariIni = now()->startOfDay();
 
     if ($tanggalAkhir->lt($hariIni)) {
-        return 'HABIS';
+        return 'BERAKHIR';
     }
 
     if ($tanggalAkhir->lte($hariIni->copy()->addMonth())) {
-        return 'MAU HABIS';
+        return 'AKAN BERAKHIR';
     }
 
     return 'AKTIF';
