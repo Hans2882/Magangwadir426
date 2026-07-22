@@ -29,7 +29,7 @@ class LoiResource extends Resource
 
     protected static ?string $slug = 'data-loi';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 5;
 
     public static function getEloquentQuery(): Builder
     {
