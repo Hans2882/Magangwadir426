@@ -340,6 +340,7 @@ class MouResource extends Resource
             Section::make('Hubungan Dokumen')
     ->schema([
         RepeatableEntry::make('children')
+            ->hiddenLabel()
             ->contained()
             ->grid(3)
             ->schema([
