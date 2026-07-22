@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Filament\Schemas\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use App\Filament\Resources\MouResource;
+use Filament\Schemas\Components\Utilities\Set;
 
 class PksSpkResource extends Resource
 {
@@ -48,12 +49,29 @@ class PksSpkResource extends Resource
         return $schema->schema([
             Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255),
             Forms\Components\Select::make('mitra_id')
-                ->label('Nama Mitra')
-                ->relationship('mitra', 'nama_mitra', fn (Builder $query) => $query->where(fn ($q) => $q->whereNull('negara_id')->orWhere('negara_id', '<', 1)))
-                ->searchable()
-                ->preload()
-                ->live()
-                ->required(),
+    ->label('Nama Mitra')
+    ->relationship(
+        'mitra',
+        'nama_mitra',
+        fn (Builder $query) => $query->where(fn ($q) =>
+            $q->whereNull('negara_id')
+              ->orWhere('negara_id', '<', 1)
+        )
+    )
+    ->searchable()
+    ->preload()
+    ->live()
+    ->afterStateUpdated(function ($state, Set $set) {
+
+        $mou = \App\Models\Kerjasama::query()
+            ->where('mitra_id', $state)
+            ->where('jenis_dokumen_id', 1) // MoU
+            ->latest('tanggal_awal')        // ambil MoU terbaru
+            ->first();
+
+        $set('parent_id', $mou?->id);
+    })
+    ->required(),
             Forms\Components\Select::make('parent_id')
                 ->label('Referensi MoU')
                 ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
