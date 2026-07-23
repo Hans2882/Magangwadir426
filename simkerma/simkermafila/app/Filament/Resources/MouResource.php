@@ -260,35 +260,41 @@ class MouResource extends Resource
     Tables\Filters\SelectFilter::make('kelengkapan')
     ->label('Kelengkapan Dokumen')
     ->options([
-        'belum_ia' => 'Belum ada IA',
-        'belum_pks' => 'Belum ada PKS/SPK',
-        'belum_semua' => 'Belum ada IA & PKS/SPK',
-    ])
+    'lengkap' => 'Lengkap',
+    'belum_ia' => 'Belum ada IA',
+    'belum_pks' => 'Belum ada PKS/SPK',
+    'belum_semua' => 'Belum ada IA & PKS/SPK',
+])
     ->query(function (Builder $query, array $data): Builder {
 
         return match ($data['value'] ?? null) {
 
-            // IA = jenis_dokumen_id 4
-            'belum_ia' => $query->whereDoesntHave('children', function ($q) {
-                $q->where('jenis_dokumen_id', 4);
-            }),
+    'lengkap' => $query
+        ->whereHas('children', function ($q) {
+            $q->where('jenis_dokumen_id', 4);
+        })
+        ->whereHas('children', function ($q) {
+            $q->whereIn('jenis_dokumen_id', [3, 5]);
+        }),
 
-            // PKS = 3, SPK = 5
-            'belum_pks' => $query->whereDoesntHave('children', function ($q) {
-                $q->whereIn('jenis_dokumen_id', [3,5]);
-            }),
+    'belum_ia' => $query->whereDoesntHave('children', function ($q) {
+        $q->where('jenis_dokumen_id', 4);
+    }),
 
-            // Tidak punya IA maupun PKS/SPK
-            'belum_semua' => $query
-                ->whereDoesntHave('children', function ($q) {
-                    $q->where('jenis_dokumen_id', 4);
-                })
-                ->whereDoesntHave('children', function ($q) {
-                    $q->whereIn('jenis_dokumen_id', [3,5]);
-                }),
+    'belum_pks' => $query->whereDoesntHave('children', function ($q) {
+        $q->whereIn('jenis_dokumen_id', [3, 5]);
+    }),
 
-            default => $query,
-        };
+    'belum_semua' => $query
+        ->whereDoesntHave('children', function ($q) {
+            $q->where('jenis_dokumen_id', 4);
+        })
+        ->whereDoesntHave('children', function ($q) {
+            $q->whereIn('jenis_dokumen_id', [3, 5]);
+        }),
+
+    default => $query,
+};
     }),
         
     Tables\Filters\SelectFilter::make('status')
