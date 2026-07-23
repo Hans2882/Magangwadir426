@@ -35,6 +35,8 @@ class Kerjasama extends Model
         'link_perbaikan',
         'bukti_kegiatan',
         'pks_id',
+        'status_workflow',
+        'jenis_pengajuan',
     ];
 
     protected $casts = [

@@ -51,6 +51,24 @@ class LocResource extends Resource
                 ->required(),
             Forms\Components\Hidden::make('jenis')->default('Luar Negeri'),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(6),
+            Forms\Components\Select::make('status_workflow')
+                ->label('Status Proses')
+                ->options([
+                    'Draft' => 'Draft (Sedang Disusun)',
+                    'Review Internal' => 'Review Internal',
+                    'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
+                    'Selesai' => 'Selesai (Aktif)',
+                ])
+                ->default('Draft')
+                ->required(),
+            Forms\Components\Select::make('jenis_pengajuan')
+                ->label('Jenis Pengajuan')
+                ->options([
+                    'Baru' => 'Dokumen Baru',
+                    'Perpanjangan' => 'Perpanjangan (Extension)',
+                ])
+                ->default('Baru')
+                ->required(),
             Forms\Components\TextInput::make('nomor_dokumen')->label('Nomor Dokumen')->maxLength(200),
             Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku'),
             Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir'),

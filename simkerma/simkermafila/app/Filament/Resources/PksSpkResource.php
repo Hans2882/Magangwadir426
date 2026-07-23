@@ -92,6 +92,24 @@ class PksSpkResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required(),
+            Forms\Components\Select::make('status_workflow')
+                ->label('Status Proses')
+                ->options([
+                    'Draft' => 'Draft (Sedang Disusun)',
+                    'Review Internal' => 'Review Internal',
+                    'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
+                    'Selesai' => 'Selesai (Aktif)',
+                ])
+                ->default('Draft')
+                ->required(),
+            Forms\Components\Select::make('jenis_pengajuan')
+                ->label('Jenis Pengajuan')
+                ->options([
+                    'Baru' => 'Dokumen Baru',
+                    'Perpanjangan' => 'Perpanjangan (Extension)',
+                ])
+                ->default('Baru')
+                ->required(),
             Forms\Components\Select::make('prodis')
                 ->label('Program Studi')
                 ->relationship('prodis', 'nama_prodi')
