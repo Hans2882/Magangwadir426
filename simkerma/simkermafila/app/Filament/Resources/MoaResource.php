@@ -88,10 +88,11 @@ class MoaResource extends Resource
     ->rule(function (?Model $record) {
         return function ($attribute, $value, $fail) use ($record) {
 
-            $query = \App\Models\Kerjasama::where(
+            $query = \App\Models\Kerjasama::query()->where(
                 'nomor_dokumen',
                 'like',
-                $value . "\n%"
+                $value . "\n%",
+                'and'
             );
 
             if ($record) {

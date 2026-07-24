@@ -54,8 +54,9 @@ class IaResource extends Resource
                 ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
                     $mitraId = $get('mitra_id');
                     if (! $mitraId) return [];
-                    return \App\Models\Kerjasama::where('mitra_id', $mitraId)
-                        ->where('jenis_dokumen_id', 1) // MoU
+                    return \App\Models\Kerjasama::query()
+                        ->where('mitra_id', '=', $mitraId, 'and')
+                        ->where('jenis_dokumen_id', '=', 1, 'and') // MoU
                         ->pluck('judul', 'id');
                 })
                 ->searchable()
@@ -65,8 +66,9 @@ class IaResource extends Resource
                 ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
                     $mitraId = $get('mitra_id');
                     if (! $mitraId) return [];
-                    return \App\Models\Kerjasama::where('mitra_id', $mitraId)
-                        ->where('jenis_dokumen_id', 3) // PKS
+                    return \App\Models\Kerjasama::query()
+                        ->where('mitra_id', '=', $mitraId, 'and')
+                        ->where('jenis_dokumen_id', '=', 3, 'and') // PKS
                         ->pluck('judul', 'id');
                 })
                 ->searchable()
@@ -129,10 +131,11 @@ class IaResource extends Resource
     ->rule(function (?Model $record) {
         return function ($attribute, $value, $fail) use ($record) {
 
-            $query = \App\Models\Kerjasama::where(
+            $query = \App\Models\Kerjasama::query()->where(
                 'nomor_dokumen',
                 'like',
-                $value . "\n%"
+                $value . "\n%",
+                'and'
             );
 
             if ($record) {
