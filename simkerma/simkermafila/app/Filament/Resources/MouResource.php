@@ -64,6 +64,7 @@ class MouResource extends Resource
                     'Selesai' => 'Selesai (Aktif)',
                 ])
                 ->default('Draft')
+                ->live()
                 ->required(),
             Forms\Components\Select::make('jenis_pengajuan')
                 ->label('Jenis Pengajuan')
@@ -141,8 +142,8 @@ class MouResource extends Resource
                     if (empty($mit)) return $pol;
                     return $pol . "\n" . $mit;
                 }),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir'),
+            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
             Forms\Components\Select::make('bidang_id')
                 ->label('Bidang Kerjasama')
                 ->relationship('bidang', 'bidang_kerjasama')
@@ -151,7 +152,7 @@ class MouResource extends Resource
                 ->required(),
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas MoU')
-                ->required()
+                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
                 ->validationMessages(['required' => 'Berkas MoU wajib diunggah.',
                 ])
                 ->disk('google')
@@ -424,24 +425,51 @@ class MouResource extends Resource
             Section::make('Hubungan Dokumen')
     ->schema([
         RepeatableEntry::make('children')
-            ->hiddenLabel()
+            ->label('PKS / SPK')
+            ->state(fn ($record) => $record->children
+                ->whereIn('jenis_dokumen_id', [3, 5])
+                ->values())
             ->contained()
-            ->grid(1)
+            ->grid(3)
             ->schema([
+
                 TextEntry::make('jenisDokumen.nama')
                     ->label('Jenis'),
 
                 TextEntry::make('judul')
-    ->url(function ($record) {
-        return match ($record->jenis_dokumen_id) {
-            2 => \App\Filament\Resources\MoaResource::getUrl('view', ['record' => $record]),
-            3, 5 => \App\Filament\Resources\PksSpkResource::getUrl('view', ['record' => $record]),
-            4 => \App\Filament\Resources\IaResource::getUrl('view', ['record' => $record]),
-            default => null,
-        };
-    })
-    ->openUrlInNewTab(false)
-    ->color('primary'),
+                    ->url(function ($record) {
+                        return \App\Filament\Resources\PksSpkResource::getUrl(
+                            'view',
+                            ['record' => $record]
+                        );
+                    })
+                    ->color('primary'),
+
+                TextEntry::make('status')
+                    ->badge(),
+
+            ]),
+
+        RepeatableEntry::make('children')
+            ->label('IA')
+            ->state(fn ($record) => $record->children
+                ->where('jenis_dokumen_id', 4)
+                ->values())
+            ->contained()
+            ->grid(3)
+            ->schema([
+
+                TextEntry::make('jenisDokumen.nama')
+                    ->label('Jenis'),
+
+                TextEntry::make('judul')
+                    ->url(function ($record) {
+                        return \App\Filament\Resources\IaResource::getUrl(
+                            'view',
+                            ['record' => $record]
+                        );
+                    })
+                    ->color('primary'),
 
                 TextEntry::make('status')
                     ->badge(),
