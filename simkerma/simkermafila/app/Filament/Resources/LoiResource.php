@@ -60,6 +60,7 @@ class LoiResource extends Resource
                     'Selesai' => 'Selesai (Aktif)',
                 ])
                 ->default('Draft')
+                ->live()
                 ->required(),
             Forms\Components\Select::make('jenis_pengajuan')
                 ->label('Jenis Pengajuan')
@@ -70,11 +71,11 @@ class LoiResource extends Resource
                 ->default('Baru')
                 ->required(),
             Forms\Components\TextInput::make('nomor_dokumen')->label('Nomor Dokumen')->maxLength(200),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir'),
+            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
             Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
             Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),
-            Forms\Components\TextInput::make('link_dokumen')->label('Link Dokumen')->url()->maxLength(500),
+            Forms\Components\TextInput::make('link_dokumen')->label('Link Dokumen')->url()->maxLength(500)->required(fn ($get) => $get('status_workflow') === 'Selesai'),
         ]);
     }
 

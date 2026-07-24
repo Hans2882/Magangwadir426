@@ -101,6 +101,7 @@ class PksSpkResource extends Resource
                     'Selesai' => 'Selesai (Aktif)',
                 ])
                 ->default('Draft')
+                ->live()
                 ->required(),
             Forms\Components\Select::make('jenis_pengajuan')
                 ->label('Jenis Pengajuan')
@@ -192,12 +193,13 @@ Forms\Components\Hidden::make('nomor_dokumen')
 
         return $pol . "\n" . $mit;
     }),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir'),
+            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
             Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
             Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas PKS/SPK')
+                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
                 ->disk('google')
                 ->directory(function (callable $get) {
                     $base = $get('jenis_dokumen_id') == 3 ? 'PKS' : 'SPK';

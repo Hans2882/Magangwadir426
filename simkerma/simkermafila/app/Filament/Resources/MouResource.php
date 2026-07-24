@@ -64,6 +64,7 @@ class MouResource extends Resource
                     'Selesai' => 'Selesai (Aktif)',
                 ])
                 ->default('Draft')
+                ->live()
                 ->required(),
             Forms\Components\Select::make('jenis_pengajuan')
                 ->label('Jenis Pengajuan')
@@ -141,8 +142,8 @@ class MouResource extends Resource
                     if (empty($mit)) return $pol;
                     return $pol . "\n" . $mit;
                 }),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir'),
+            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
             Forms\Components\Select::make('bidang_id')
                 ->label('Bidang Kerjasama')
                 ->relationship('bidang', 'bidang_kerjasama')
@@ -151,7 +152,7 @@ class MouResource extends Resource
                 ->required(),
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas MoU')
-                ->required()
+                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
                 ->validationMessages(['required' => 'Berkas MoU wajib diunggah.',
                 ])
                 ->disk('google')
