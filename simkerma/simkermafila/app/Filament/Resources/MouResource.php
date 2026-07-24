@@ -151,6 +151,9 @@ class MouResource extends Resource
                 ->required(),
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas MoU')
+                ->required()
+                ->validationMessages(['required' => 'Berkas MoU wajib diunggah.',
+                ])
                 ->disk('google')
                 ->directory(function (callable $get) {
                     $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';
@@ -423,7 +426,7 @@ class MouResource extends Resource
         RepeatableEntry::make('children')
             ->hiddenLabel()
             ->contained()
-            ->grid(3)
+            ->grid(1)
             ->schema([
                 TextEntry::make('jenisDokumen.nama')
                     ->label('Jenis'),
