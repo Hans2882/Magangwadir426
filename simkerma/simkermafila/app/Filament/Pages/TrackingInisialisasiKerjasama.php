@@ -29,9 +29,9 @@ class TrackingInisialisasiKerjasama extends Page implements HasForms, HasTable
         return $table
             ->query(Kerjasama::query()->latest())
             ->columns([
-                TextColumn::make('judul')->label('Judul / Nama Dokumen')->searchable()->limit(50),
+                TextColumn::make('judul')->label('Judul / Nama Dokumen')->searchable()->limit(50)->tooltip(fn ($record) => $record->judul),
                 TextColumn::make('jenisDokumen.nama')->label('Jenis')->badge(),
-                TextColumn::make('mitra.nama_mitra')->label('Mitra')->searchable()->limit(30),
+                TextColumn::make('mitra.nama_mitra')->label('Mitra')->searchable()->limit(30)->tooltip(fn ($record) => $record->mitra?->nama_mitra),
                 TextColumn::make('tanggal_awal')->label('Tanggal')->date(),
                 TextColumn::make('created_at')->label('Dibuat Pada')->dateTime()->sortable(),
             ])
