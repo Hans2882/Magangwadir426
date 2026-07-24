@@ -79,8 +79,9 @@ class PksSpkResource extends Resource
                     if (! $mitraId) {
                         return [];
                     }
-                    return \App\Models\Kerjasama::where('mitra_id', $mitraId)
-                        ->where('jenis_dokumen_id', 1) // 1 is usually MoU, but we can also filter by null parent_id or just all MoUs. Let's just fetch MoUs.
+                    return \App\Models\Kerjasama::query()
+                        ->where('mitra_id', '=', $mitraId, 'and')
+                        ->where('jenis_dokumen_id', '=', 1, 'and') // 1 is usually MoU, but we can also filter by null parent_id or just all MoUs. Let's just fetch MoUs.
                         ->pluck('judul', 'id');
                 })
                 ->searchable()
@@ -141,10 +142,11 @@ class PksSpkResource extends Resource
     ->rule(function (?Model $record) {
         return function ($attribute, $value, $fail) use ($record) {
 
-            $query = \App\Models\Kerjasama::where(
+            $query = \App\Models\Kerjasama::query()->where(
                 'nomor_dokumen',
                 'like',
-                $value . "\n%"
+                $value . "\n%",
+                'and'
             );
 
             if ($record) {
