@@ -425,24 +425,51 @@ class MouResource extends Resource
             Section::make('Hubungan Dokumen')
     ->schema([
         RepeatableEntry::make('children')
-            ->hiddenLabel()
+            ->label('PKS / SPK')
+            ->state(fn ($record) => $record->children
+                ->whereIn('jenis_dokumen_id', [3, 5])
+                ->values())
             ->contained()
-            ->grid(1)
+            ->grid(3)
             ->schema([
+
                 TextEntry::make('jenisDokumen.nama')
                     ->label('Jenis'),
 
                 TextEntry::make('judul')
-    ->url(function ($record) {
-        return match ($record->jenis_dokumen_id) {
-            2 => \App\Filament\Resources\MoaResource::getUrl('view', ['record' => $record]),
-            3, 5 => \App\Filament\Resources\PksSpkResource::getUrl('view', ['record' => $record]),
-            4 => \App\Filament\Resources\IaResource::getUrl('view', ['record' => $record]),
-            default => null,
-        };
-    })
-    ->openUrlInNewTab(false)
-    ->color('primary'),
+                    ->url(function ($record) {
+                        return \App\Filament\Resources\PksSpkResource::getUrl(
+                            'view',
+                            ['record' => $record]
+                        );
+                    })
+                    ->color('primary'),
+
+                TextEntry::make('status')
+                    ->badge(),
+
+            ]),
+
+        RepeatableEntry::make('children')
+            ->label('IA')
+            ->state(fn ($record) => $record->children
+                ->where('jenis_dokumen_id', 4)
+                ->values())
+            ->contained()
+            ->grid(3)
+            ->schema([
+
+                TextEntry::make('jenisDokumen.nama')
+                    ->label('Jenis'),
+
+                TextEntry::make('judul')
+                    ->url(function ($record) {
+                        return \App\Filament\Resources\IaResource::getUrl(
+                            'view',
+                            ['record' => $record]
+                        );
+                    })
+                    ->color('primary'),
 
                 TextEntry::make('status')
                     ->badge(),
