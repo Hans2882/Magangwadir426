@@ -39,6 +39,7 @@ class MitraResource extends Resource
                 ->relationship('negara', 'nama_negara')
                 ->searchable()
                 ->preload()
+                ->optionsLimit(200)
                 ->hint('Kosongkan untuk Mitra Dalam Negeri (Indonesia)'),
             Forms\Components\Select::make('kategori_id')
                 ->label('Kategori (IKU)')
