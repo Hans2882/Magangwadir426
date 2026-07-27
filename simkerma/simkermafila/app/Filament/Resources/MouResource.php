@@ -47,6 +47,36 @@ class MouResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
+            Forms\Components\FileUpload::make('link_dokumen')
+                ->label('Berkas MoU')
+                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                ->validationMessages(['required' => 'Berkas MoU wajib diunggah.'])
+                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
+                ->disk('google')
+                ->directory(function (callable $get) {
+                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';
+                    return $base . '/' . date('Y/m/d');
+                })
+                ->visibility('private')
+                ->acceptedFileTypes(['application/pdf'])
+                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
+                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';
+                    $dir = $base . '/' . date('Y/m/d');
+                    
+                    try {
+                        $existingFiles = \Illuminate\Support\Facades\Storage::disk('google')->files($dir);
+                        $count = count($existingFiles) + 1;
+                    } catch (\Exception $e) {
+                        $count = 1;
+                    }
+                    
+                    $sequence = sprintf('%03d', $count);
+                    $type = 'MoU';
+                    $originalName = $file->getClientOriginalName();
+                    
+                    return "{$sequence}_{$type}_{$originalName}";
+                })
+                ->columnSpanFull(),
             Forms\Components\TextInput::make('judul')->label('Judul MoU')->maxLength(255)->required(),
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
@@ -150,36 +180,6 @@ class MouResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required(),
-            Forms\Components\FileUpload::make('link_dokumen')
-                ->label('Berkas MoU')
-                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
-                ->validationMessages(['required' => 'Berkas MoU wajib diunggah.'])
-                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
-                ->disk('google')
-                ->directory(function (callable $get) {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';
-                    return $base . '/' . date('Y/m/d');
-                })
-                ->visibility('private')
-                ->acceptedFileTypes(['application/pdf'])
-                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';
-                    $dir = $base . '/' . date('Y/m/d');
-                    
-                    try {
-                        $existingFiles = \Illuminate\Support\Facades\Storage::disk('google')->files($dir);
-                        $count = count($existingFiles) + 1;
-                    } catch (\Exception $e) {
-                        $count = 1;
-                    }
-                    
-                    $sequence = sprintf('%03d', $count);
-                    $type = 'MoU';
-                    $originalName = $file->getClientOriginalName();
-                    
-                    return "{$sequence}_{$type}_{$originalName}";
-                })
-                ->columnSpanFull(),
         ]);
     }
 
