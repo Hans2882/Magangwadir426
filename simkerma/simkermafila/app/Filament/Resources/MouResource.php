@@ -202,6 +202,21 @@ class MouResource extends Resource
                     ->sortable()
                     ->limit(50)
                     ->tooltip(fn ($record) => $record->mitra?->nama_mitra),
+                Tables\Columns\TextColumn::make('negara')
+    ->label('Negara')
+    ->getStateUsing(function ($record) {
+        return $record->jenis === 'Luar Negeri'
+            ? ($record->mitra?->negara?->nama_negara ?? '-')
+            : 'Indonesia';
+    })
+    ->searchable(
+        query: fn (Builder $query, string $search) => $query->where(function ($q) use ($search) {
+            $q->where('jenis', 'Dalam Negeri')
+              ->where('Indonesia', 'like', "%{$search}%");
+        })->orWhereHas('mitra.negara', function ($q) use ($search) {
+            $q->where('nama_negara', 'like', "%{$search}%");
+        })
+    ),
                 Tables\Columns\TextColumn::make('link_dokumen')
                     ->label('Dokumen')
                     ->formatStateUsing(fn ($state) => $state && $state !== '-' ? 'Lihat' : '-')
