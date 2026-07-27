@@ -76,6 +76,23 @@ class TrackingDraftTable extends Component implements HasForms, HasTable, HasAct
                         'Baru' => 'Dokumen Baru',
                         'Perpanjangan' => 'Perpanjangan',
                     ]),
+            ])
+            ->actions([
+                \Filament\Actions\Action::make('update_status')
+                    ->label('Update Status & Dokumen')
+                    ->icon('heroicon-m-pencil-square')
+                    ->color('primary')
+                    ->url(function ($record) {
+                        return match ($record->jenis_dokumen_id) {
+                            1 => \App\Filament\Resources\MouResource::getUrl('edit', ['record' => $record]),
+                            2 => \App\Filament\Resources\MoaResource::getUrl('edit', ['record' => $record]),
+                            3, 5 => \App\Filament\Resources\PksSpkResource::getUrl('edit', ['record' => $record]),
+                            4 => \App\Filament\Resources\IaResource::getUrl('edit', ['record' => $record]),
+                            6 => \App\Filament\Resources\LocResource::getUrl('edit', ['record' => $record]),
+                            7 => \App\Filament\Resources\LoiResource::getUrl('edit', ['record' => $record]),
+                            default => null,
+                        };
+                    })
             ]);
     }
 

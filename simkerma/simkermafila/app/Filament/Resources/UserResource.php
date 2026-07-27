@@ -78,18 +78,18 @@ class UserResource extends Resource
                                 Forms\Components\Toggle::make('can_update')->default(false),
                                 Forms\Components\Toggle::make('can_delete')->default(false),
                             ])
-                            ->fillForm(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                            ->fillForm(function ($get) {
                                 $privId = $get('privilege_id');
                                 if (! $privId) return [];
-                                return \App\Models\Privilege::find($privId)?->toArray() ?? [];
+                                return \App\Models\Privilege::find($privId, ['*'])?->toArray() ?? [];
                             })
-                            ->action(function (array $data, \Filament\Schemas\Components\Utilities\Get $get) {
+                            ->action(function (array $data, $get) {
                                 $privId = $get('privilege_id');
                                 if ($privId) {
-                                    \App\Models\Privilege::find($privId)?->update($data);
+                                    \App\Models\Privilege::find($privId, ['*'])?->update($data);
                                 }
                             })
-                            ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => filled($get('privilege_id')))
+                            ->visible(fn ($get) => filled($get('privilege_id')))
                     ),
                 Forms\Components\Select::make('program_studi_id')
                     ->label('Program Studi')

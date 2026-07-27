@@ -28,7 +28,7 @@ class EditUser extends EditRecord
                 ['privilege_id' => $data['privilege_id']]
             );
         } else {
-            \App\Models\UserPrivilege::where('user_id', $this->record->id)->delete();
+            \App\Models\UserPrivilege::query()->where('user_id', '=', $this->record->id, 'and')->delete();
         }
 
         if (isset($data['program_studi_id'])) {
@@ -37,7 +37,7 @@ class EditUser extends EditRecord
                 ['program_studi_id' => $data['program_studi_id']]
             );
         } else {
-            \App\Models\UserProgramStudi::where('user_id', $this->record->id)->delete();
+            \App\Models\UserProgramStudi::query()->where('user_id', '=', $this->record->id, 'and')->delete();
         }
     }
 
