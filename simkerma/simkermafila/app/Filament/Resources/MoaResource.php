@@ -178,6 +178,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('status_workflow', 'Selesai'))
             ->recordAction(null)
             ->recordUrl(fn ($record) => static::getUrl('view', ['record' => $record]))
             ->columns([
