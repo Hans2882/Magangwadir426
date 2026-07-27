@@ -202,6 +202,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas PKS/SPK')
                 ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function (callable $get) {
                     $base = $get('jenis_dokumen_id') == 3 ? 'PKS' : 'SPK';

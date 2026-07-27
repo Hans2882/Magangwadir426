@@ -153,8 +153,8 @@ class MouResource extends Resource
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas MoU')
                 ->required(fn ($get) => $get('status_workflow') === 'Selesai')
-                ->validationMessages(['required' => 'Berkas MoU wajib diunggah.',
-                ])
+                ->validationMessages(['required' => 'Berkas MoU wajib diunggah.'])
+                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function (callable $get) {
                     $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';

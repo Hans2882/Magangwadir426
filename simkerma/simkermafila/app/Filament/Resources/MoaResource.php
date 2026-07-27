@@ -149,6 +149,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas MoA')
                 ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function () {
                     return 'MoA/' . date('Y/m/d');

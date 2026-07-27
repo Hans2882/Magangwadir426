@@ -192,6 +192,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas IA')
                 ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function (callable $get) {
                     $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
