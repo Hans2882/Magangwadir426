@@ -9,4 +9,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreatePelaporanCaseStudy extends CreateRecord
 {
     protected static string $resource = PelaporanCaseStudyResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
