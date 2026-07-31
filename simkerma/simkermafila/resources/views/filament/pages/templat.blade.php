@@ -11,6 +11,7 @@
                     'Template_Laporan Pelaksanaan Kerja Sama.docx',
                     'Template_Laporan Pelaksanaan Kerja Sama_ENG.docx',
                     'Template_PKS.docx',
+                    'Template Laporan Collaborative Case Studies.docx',
                 ];
             @endphp
             

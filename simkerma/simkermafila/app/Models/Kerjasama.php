@@ -74,6 +74,11 @@ class Kerjasama extends Model
         return $this->belongsToMany(MasterProgramStudi::class, 'kerjasama_prodi', 'kerjasama_id', 'prodi_id');
     }
 
+    public function jurusans(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(MasterJurusan::class, 'kerjasama_jurusan', 'kerjasama_id', 'jurusan_id');
+    }
+
     public function getProdiDisplayNameAttribute(): string
     {
         $prodis = $this->relationLoaded('prodis')

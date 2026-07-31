@@ -29,14 +29,16 @@ class GeminiOcrService
         // Base64 encode the PDF
         $pdfData = base64_encode($pdfContent);
 
-        $prompt = "You are a highly accurate data extraction assistant. Analyze the attached Indonesian cooperation document (MoU, MoA, IA, or PKS). Extract the following information and return it strictly as a single, valid JSON object, with no markdown formatting, no preamble, and no extra braces.\n"
+        $prompt = "You are a highly accurate data extraction assistant. Analyze the attached Indonesian cooperation document (MoU, MoA, IA, PKS, or Laporan Kegiatan/Case Study). Extract the following information and return it strictly as a single, valid JSON object, with no markdown formatting, no preamble, and no extra braces.\n"
                 . "Use exactly these keys:\n"
-                . "- nomor_dokumen_polinema (String, the first document number at the top, usually containing PL2)\n"
-                . "- nomor_dokumen_mitra (String, the second document number at the top, belonging to the partner)\n"
-                . "- tanggal_awal (Date in YYYY-MM-DD format, the start date or signing date)\n"
+                . "- nomor_dokumen_polinema (String, the first document number at the top, usually containing PL2, or the 'Surat Tugas' number for activity reports)\n"
+                . "- nomor_dokumen_mitra (String, the second document number at the top, belonging to the partner. Leave blank for activity reports)\n"
+                . "- tanggal_awal (Date in YYYY-MM-DD format, the start date, signing date, or the date of the activity)\n"
                 . "- tanggal_akhir (Date in YYYY-MM-DD format, the end date if mentioned, otherwise null)\n"
-                . "- judul (String, the specific title or subject of the agreement. ONLY include the text that comes exactly AFTER the word 'TENTANG')\n"
-                . "- nama_mitra (String, the name of the external partner organization)";
+                . "- judul (String, the specific title or subject of the agreement or activity. For agreements, include text AFTER 'TENTANG'. For reports, include the main activity title)\n"
+                . "- nama_mitra (String, the name of the external partner organization or university)\n"
+                . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document)\n"
+                . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)";
 
         $payload = [
             'contents' => [
@@ -140,6 +142,22 @@ class GeminiOcrService
                     if (!empty($data['nama_mitra'])) {
                         $mitra = \App\Models\Mitra::where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%', 'and')->first();
                         if ($mitra) $set('mitra_id', $mitra->id);
+                    }
+                    if (!empty($data['prodis']) && is_array($data['prodis'])) {
+                        $prodiIds = [];
+                        foreach ($data['prodis'] as $prodiName) {
+                            $p = \App\Models\MasterProgramStudi::where('nama_prodi', 'like', '%' . $prodiName . '%')->first();
+                            if ($p) $prodiIds[] = $p->id;
+                        }
+                        if (!empty($prodiIds)) $set('prodis', $prodiIds);
+                    }
+                    if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
+                        $jurusanIds = [];
+                        foreach ($data['jurusans'] as $jurusanName) {
+                            $j = \App\Models\MasterJurusan::where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
+                            if ($j) $jurusanIds[] = $j->id;
+                        }
+                        if (!empty($jurusanIds)) $set('jurusans', $jurusanIds);
                     }
                     \Filament\Notifications\Notification::make()->title('Auto-Fill Berhasil!')->success()->send();
                 } else {
