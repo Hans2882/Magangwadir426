@@ -45,6 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 'Data Mitra',
                 'Data Kerjasama',
+                'Pelaporan & Tracking',
                 'Simmagang',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')

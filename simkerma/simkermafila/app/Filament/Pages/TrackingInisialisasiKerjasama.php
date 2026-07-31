@@ -18,7 +18,11 @@ class TrackingInisialisasiKerjasama extends Page implements HasForms, HasTable
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Data Kerjasama';
+    protected static \UnitEnum|string|null $navigationGroup = 'Pelaporan & Tracking';
+
+    protected static ?string $navigationLabel = 'Tracking Inisiasi Kerjasama';
+    
+    protected static ?string $title = 'Tracking Inisiasi Kerjasama';
 
     protected static ?int $navigationSort = 8;
 
