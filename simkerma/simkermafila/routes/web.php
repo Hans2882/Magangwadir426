@@ -2,9 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', \App\Livewire\Landing\CaseStudies::class)->name('home');
 
 Route::middleware('auth')->group(function () {
     Route::get('/view-dokumen', function (\Illuminate\Http\Request $request) {

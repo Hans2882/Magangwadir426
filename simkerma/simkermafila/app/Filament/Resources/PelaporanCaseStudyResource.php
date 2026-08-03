@@ -75,6 +75,8 @@ class PelaporanCaseStudyResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required(),
+            Forms\Components\Toggle::make('is_mitra_anonim')
+                ->label('Sembunyikan Nama Mitra untuk Publik (Anonymize)'),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(8),
             Forms\Components\Hidden::make('status_workflow')->default('Selesai'),
             Forms\Components\Hidden::make('jenis_pengajuan')->default('Baru'),

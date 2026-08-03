@@ -37,11 +37,13 @@ class Kerjasama extends Model
         'pks_id',
         'status_workflow',
         'jenis_pengajuan',
+        'is_mitra_anonim',
     ];
 
     protected $casts = [
         'tanggal_awal' => 'date',
         'tanggal_akhir' => 'date',
+        'is_mitra_anonim' => 'boolean',
     ];
 
     public function mitra(): BelongsTo
@@ -118,8 +120,17 @@ class Kerjasama extends Model
     return 'AKTIF';
 }
 
-public function children(): HasMany
-{
-    return $this->hasMany(Kerjasama::class, 'parent_id');
-}
+    public function children(): HasMany
+    {
+        return $this->hasMany(Kerjasama::class, 'parent_id');
+    }
+
+    public function getPublicMitraNameAttribute(): string
+    {
+        $realName = $this->mitra ? $this->mitra->nama_mitra : '-';
+        if (!auth()->check() && $this->is_mitra_anonim) {
+            return 'PT. XYZ';
+        }
+        return $realName;
+    }
 }
