@@ -57,12 +57,14 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([])
             ->userMenuItems([
                 'privilege' => MenuItem::make()
-                    ->label(fn () => auth()->user()->userPrivilege?->privilege?->nama ?? '')
-                    ->visible(fn () => auth()->user()->userPrivilege?->privilege?->nama !== null),
+                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama ?? '')
+                    ->icon(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama === 'WADIR 4' ? 'heroicon-o-star' : 'heroicon-o-shield-check')
+                    ->visible(fn () => filled(\Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama))
+                    ->url(fn (): string => \App\Filament\Resources\UserResource::getUrl('edit', ['record' => \Illuminate\Support\Facades\Auth::user()])),
 
                 'prodi' => MenuItem::make()
-                    ->label(fn () => auth()->user()->userProgramStudi?->programStudi?->nama_prodi ?? '')
-                    ->visible(fn () => auth()->user()->userProgramStudi?->programStudi?->nama_prodi !== null),
+                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi ?? '')
+                    ->visible(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi !== null),
             ])
             ->middleware([
                 EncryptCookies::class,

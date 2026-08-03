@@ -128,7 +128,7 @@ class Kerjasama extends Model
     public function getPublicMitraNameAttribute(): string
     {
         $realName = $this->mitra ? $this->mitra->nama_mitra : '-';
-        if (!auth()->check() && $this->is_mitra_anonim) {
+        if (!\Illuminate\Support\Facades\Auth::check() && $this->is_mitra_anonim) {
             return 'PT. XYZ';
         }
         return $realName;

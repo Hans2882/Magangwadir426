@@ -155,7 +155,12 @@ class PelaporanCaseStudyResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Berkas Dokumen')
                         ->formatStateUsing(fn ($state) => $state ? 'Lihat Dokumen' : '-')
-                        ->url(fn ($record) => $record->link_dokumen ? \Illuminate\Support\Facades\Storage::disk('google')->url(is_array($record->link_dokumen) ? array_values($record->link_dokumen)[0] : $record->link_dokumen) : null, true)
+                        ->url(function ($record) {
+                            if (!$record->link_dokumen) return null;
+                            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+                            $disk = \Illuminate\Support\Facades\Storage::disk('google');
+                            return $disk->url(is_array($record->link_dokumen) ? array_values($record->link_dokumen)[0] : $record->link_dokumen);
+                        }, true)
                         ->color('primary')
                         ->badge()
                         ->icon('heroicon-o-document-arrow-down')

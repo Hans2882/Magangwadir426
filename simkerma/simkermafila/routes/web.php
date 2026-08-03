@@ -15,7 +15,9 @@ Route::get('/view-dokumen', function (\Illuminate\Http\Request $request) {
     }
 
     try {
-        $url = \Illuminate\Support\Facades\Storage::disk('google')->url($path);
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = \Illuminate\Support\Facades\Storage::disk('google');
+        $url = $disk->url($path);
         preg_match('/id=([^&]+)/', $url, $matches);
         $finalUrl = isset($matches[1]) ? "https://drive.google.com/file/d/{$matches[1]}/view" : $url;
         return redirect($finalUrl);

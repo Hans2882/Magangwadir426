@@ -4,7 +4,9 @@ namespace App\Livewire\Landing;
 
 use Livewire\Component;
 use App\Models\Kerjasama;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.landing')]
 class CaseStudies extends Component
 {
     public function render()
@@ -18,6 +20,6 @@ class CaseStudies extends Component
 
         return view('livewire.landing.case-studies', [
             'caseStudies' => $caseStudies
-        ])->layout('components.layouts.landing');
+        ]);
     }
 }
