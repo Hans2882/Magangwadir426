@@ -35,6 +35,11 @@ class Mitra extends Model
         return $this->hasMany(Kerjasama::class, 'mitra_id');
     }
 
+    public function kerjasamas(): HasMany
+    {
+        return $this->hasMany(Kerjasama::class, 'mitra_id');
+    }
+
     public function negara(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Negara::class, 'negara_id');

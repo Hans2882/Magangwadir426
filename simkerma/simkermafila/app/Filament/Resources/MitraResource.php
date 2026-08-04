@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MitraResource\Pages;
+use App\Filament\Resources\MitraResource\RelationManagers\KerjasamasRelationManager;
 use App\Models\Mitra;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -135,7 +136,9 @@ class MitraResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            KerjasamasRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
