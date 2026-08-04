@@ -105,6 +105,10 @@ class GeminiOcrService
         return \Filament\Actions\Action::make('autofill')
             ->label('Auto-Fill via AI')
             ->icon('heroicon-m-sparkles')
+            ->requiresConfirmation()
+            ->modalHeading('Ekstrak Data Otomatis')
+            ->modalDescription('Sistem AI akan membaca dokumen Anda dan mengisi form secara otomatis. Proses ini mungkin memakan waktu 5-15 detik.')
+            ->modalSubmitActionLabel('Mulai Proses AI')
             ->action(function ($get, $set) {
                 $state = $get('link_dokumen');
                 if (!$state) {
