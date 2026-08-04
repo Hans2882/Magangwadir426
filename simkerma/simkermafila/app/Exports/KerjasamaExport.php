@@ -35,7 +35,13 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
 
 if (!empty($item->link_dokumen) && $item->link_dokumen !== '-') {
     try {
-        $link = Storage::disk('google')->url($item->link_dokumen);
+        if (str_starts_with($item->link_dokumen, 'http')) {
+            // Sudah URL, gunakan apa adanya
+            $link = $item->link_dokumen;
+        } else {
+            // Masih path, ubah menjadi URL Google Drive
+            $link = Storage::disk('google')->url($item->link_dokumen);
+        }
     } catch (\Throwable $e) {
         $link = '';
     }
