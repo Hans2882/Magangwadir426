@@ -54,13 +54,13 @@ class MouResource extends Resource
                 ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function (callable $get) {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';
+                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU';
                     return $base . '/' . date('Y/m/d');
                 })
                 ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
                 ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU Test';
+                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU';
                     $dir = $base . '/' . date('Y/m/d');
                     
                     try {
