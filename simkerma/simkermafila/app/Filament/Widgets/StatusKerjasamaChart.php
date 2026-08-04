@@ -87,10 +87,19 @@ class StatusKerjasamaChart extends ChartWidget
             $baseQuery->whereBetween('tahun', [$startYear, $endYear]);
         }
 
-        // Aktif: tanggal_akhir >= hari ini
+        $expiringThreshold = now()->addMonths(4);
+
+        // Aktif: tanggal_akhir > 4 bulan dari sekarang
         $aktif = (clone $baseQuery)
             ->whereNotNull('tanggal_akhir')
+            ->whereDate('tanggal_akhir', '>', $expiringThreshold)
+            ->count();
+
+        // Akan Habis: tanggal_akhir dalam 4 bulan ke depan
+        $akanHabis = (clone $baseQuery)
+            ->whereNotNull('tanggal_akhir')
             ->whereDate('tanggal_akhir', '>=', now())
+            ->whereDate('tanggal_akhir', '<=', $expiringThreshold)
             ->count();
 
         // Habis: tanggal_akhir < hari ini
@@ -99,17 +108,12 @@ class StatusKerjasamaChart extends ChartWidget
             ->whereDate('tanggal_akhir', '<', now())
             ->count();
 
-        // Lainnya: tanggal_akhir IS NULL
-        $lainnya = (clone $baseQuery)
-            ->whereNull('tanggal_akhir')
-            ->count();
-
-        $total = $aktif + $habis + $lainnya ?: 1;
+        $total = $aktif + $akanHabis + $habis ?: 1;
 
         $labels = [
-            'Aktif: '   . number_format($aktif   / $total * 100, 1) . '% (' . $aktif . ')',
-            'Habis: '   . number_format($habis   / $total * 100, 1) . '% (' . $habis . ')',
-            'Lainnya: ' . number_format($lainnya / $total * 100, 1) . '% (' . $lainnya . ')',
+            'Aktif: '      . number_format($aktif      / $total * 100, 1) . '% (' . $aktif . ')',
+            'Akan Habis: ' . number_format($akanHabis / $total * 100, 1) . '% (' . $akanHabis . ')',
+            'Habis: '      . number_format($habis      / $total * 100, 1) . '% (' . $habis . ')',
         ];
 
         $details = [
@@ -119,22 +123,22 @@ class StatusKerjasamaChart extends ChartWidget
                 'prodi' => $this->buildProdiDetail($baseQuery, 'active'),
             ],
             [
+                'label' => 'Akan Habis',
+                'count' => $akanHabis,
+                'prodi' => $this->buildProdiDetail($baseQuery, 'expiring'),
+            ],
+            [
                 'label' => 'Habis',
                 'count' => $habis,
                 'prodi' => $this->buildProdiDetail($baseQuery, 'expired'),
-            ],
-            [
-                'label' => 'Lainnya',
-                'count' => $lainnya,
-                'prodi' => $this->buildProdiDetail($baseQuery, 'other'),
             ],
         ];
 
         return [
             'datasets' => [
                 [
-                    'data'            => [$aktif, $habis, $lainnya],
-                    'backgroundColor' => ['#27ae60', '#c0392b', '#95a5a6'],
+                    'data'            => [$aktif, $akanHabis, $habis],
+                    'backgroundColor' => ['#27ae60', '#f39c12', '#c0392b'],
                     'borderColor'     => '#ffffff',
                     'borderWidth'     => 2,
                 ],
@@ -156,13 +160,15 @@ class StatusKerjasamaChart extends ChartWidget
 
         switch ($status) {
             case 'active':
-                $q->whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '>=', now());
+                $q->whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '>', now()->addMonths(4));
+                break;
+            case 'expiring':
+                $q->whereNotNull('tanggal_akhir')
+                    ->whereDate('tanggal_akhir', '>=', now())
+                    ->whereDate('tanggal_akhir', '<=', now()->addMonths(4));
                 break;
             case 'expired':
                 $q->whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '<', now());
-                break;
-            case 'other':
-                $q->whereNull('tanggal_akhir');
                 break;
         }
 

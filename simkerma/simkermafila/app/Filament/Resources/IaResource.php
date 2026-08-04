@@ -121,6 +121,7 @@ class IaResource extends Resource
                     'Draft' => 'Draft (Sedang Disusun)',
                     'Review Internal' => 'Review Internal',
                     'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
+                    'Menunggu TTD Direktur' => 'Menunggu TTD Direktur',
                     'Selesai' => 'Selesai (Aktif)',
                 ])
                 ->default('Draft')
