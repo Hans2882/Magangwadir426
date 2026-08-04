@@ -39,8 +39,14 @@ if (!empty($item->link_dokumen) && $item->link_dokumen !== '-') {
             // Sudah URL, gunakan apa adanya
             $link = $item->link_dokumen;
         } else {
-            // Masih path, ubah menjadi URL Google Drive
-            $link = Storage::disk('google')->url($item->link_dokumen);
+            // Path Google Drive -> ubah menjadi URL view
+            $url = Storage::disk('google')->url($item->link_dokumen);
+
+            parse_str(parse_url($url, PHP_URL_QUERY), $query);
+
+            if (!empty($query['id'])) {
+                $link = "https://drive.google.com/file/d/{$query['id']}/view";
+            }
         }
     } catch (\Throwable $e) {
         $link = '';
