@@ -25,6 +25,11 @@ class KategoriMitra extends Page implements HasTable
 
     protected string $view = 'filament.pages.kategori-mitra';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->userPrivilege?->privilege?->is_admin_panel ?? false;
+    }
+
     public function table(Table $table): Table
     {
         return $table

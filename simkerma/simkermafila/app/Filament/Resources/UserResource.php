@@ -25,6 +25,12 @@ class UserResource extends Resource
     protected static ?string $pluralModelLabel = 'Admin';
     
     protected static ?int $navigationSort = 2;
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->userPrivilege?->privilege?->is_admin_panel ?? false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -62,6 +68,7 @@ class UserResource extends Resource
                         Forms\Components\Toggle::make('can_read')->default(false),
                         Forms\Components\Toggle::make('can_update')->default(false),
                         Forms\Components\Toggle::make('can_delete')->default(false),
+                        Forms\Components\Toggle::make('is_admin_panel')->label('Admin Panel Access')->default(false),
                     ])
                     ->createOptionUsing(function (array $data): int {
                         return \App\Models\Privilege::create($data)->id;
@@ -77,6 +84,7 @@ class UserResource extends Resource
                                 Forms\Components\Toggle::make('can_read')->default(false),
                                 Forms\Components\Toggle::make('can_update')->default(false),
                                 Forms\Components\Toggle::make('can_delete')->default(false),
+                                Forms\Components\Toggle::make('is_admin_panel')->label('Admin Panel Access')->default(false),
                             ])
                             ->fillForm(function ($get) {
                                 $privId = $get('privilege_id');

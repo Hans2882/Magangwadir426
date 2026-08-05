@@ -15,4 +15,5 @@ class Templat extends Page
     protected static ?string $navigationLabel = 'Templat';
     
     protected static ?string $title = 'Download Templat Dokumen';
+
 }

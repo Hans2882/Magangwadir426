@@ -22,7 +22,7 @@ class EditUser extends EditRecord
     protected function afterSave(): void
     {
         $data = $this->form->getRawState();
-        if (isset($data['privilege_id'])) {
+        if (!empty($data['privilege_id'])) {
             \App\Models\UserPrivilege::updateOrCreate(
                 ['user_id' => $this->record->id],
                 ['privilege_id' => $data['privilege_id']]
@@ -31,7 +31,7 @@ class EditUser extends EditRecord
             \App\Models\UserPrivilege::query()->where('user_id', '=', $this->record->id, 'and')->delete();
         }
 
-        if (isset($data['program_studi_id'])) {
+        if (!empty($data['program_studi_id'])) {
             \App\Models\UserProgramStudi::updateOrCreate(
                 ['user_id' => $this->record->id],
                 ['program_studi_id' => $data['program_studi_id']]

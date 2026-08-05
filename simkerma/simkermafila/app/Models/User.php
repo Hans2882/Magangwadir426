@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
+use Filament\Panel;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser, HasName
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -56,4 +59,31 @@ public function userProgramStudi(): HasOne
 {
     return $this->hasOne(UserProgramStudi::class);
 }
+
+public function getFilamentName(): string
+{
+    $prodi = $this->userProgramStudi?->programStudi?->nama_prodi;
+    
+    if ($prodi) {
+        return "{$this->name} - {$prodi}";
+    }
+
+    return $this->name;
+}
+
+public function canAccessPanel(Panel $panel): bool
+{
+    $isAdmin = $this->userPrivilege?->privilege?->is_admin_panel ?? false;
+    
+    if ($panel->getId() === 'admin') {
+        return $isAdmin;
+    }
+
+    if ($panel->getId() === 'user') {
+        return true; // All authenticated users can access the user panel
+    }
+
+    return false;
+}
+
 }
