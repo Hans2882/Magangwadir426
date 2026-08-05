@@ -10,6 +10,9 @@ use Filament\Schemas\Schema;
 use Filament\Infolists\Components\TextEntry;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
+use App\Exports\KerjasamaExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Filament\Actions\Action;
 
 class KerjasamasRelationManager extends RelationManager
 {
@@ -106,9 +109,22 @@ class KerjasamasRelationManager extends RelationManager
             };
         }),
             ])
+
             ->headerActions([
-                //
-            ])
+    Action::make('export')
+        ->label('Export Excel')
+        ->icon('heroicon-o-arrow-down-tray')
+        ->color('success')
+        ->action(function () {
+            $query = $this->getFilteredTableQuery();
+
+            return Excel::download(
+                new KerjasamaExport($query),
+                'Kerjasama_' . $this->ownerRecord->nama_mitra . '.xlsx'
+            );
+        }),
+])
+            
             ->recordActions([
                 ViewAction::make(),
             ])
