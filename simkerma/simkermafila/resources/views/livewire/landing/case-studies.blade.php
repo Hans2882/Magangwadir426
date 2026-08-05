@@ -1,7 +1,7 @@
 <div>
     <div class="header-section">
         <h2>Publikasi SIMKERMA</h2>
-        <p>Jelajahi berbagai laporan Case Study dan daftar Mitra institusi kami.</p>
+        <p>Kumpulan laporan Case Study dan daftar Mitra institusi kami.</p>
     </div>
 
     <!-- Tab Switcher -->
