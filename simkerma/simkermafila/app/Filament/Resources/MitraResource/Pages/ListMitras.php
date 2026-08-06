@@ -10,6 +10,8 @@ use \Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Tables\Filters\Filter;
 
 class ListMitras extends ListRecords
 {
@@ -123,6 +125,67 @@ Tables\Columns\TextColumn::make('negara.nama_negara')
         ->searchable()
         ->preload()
         ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
+
+    Tables\Filters\SelectFilter::make('kategori_id')
+        ->label('Kategori IKU')
+        ->relationship('kategori', 'kategori')
+        ->searchable()
+        ->preload(),
+
+    Filter::make('kerjasama')
+        ->label('Status Kerjasama')
+        ->form([
+            CheckboxList::make('filter')
+                ->options([
+                    'none' => 'Belum ada Kerjasama',
+                    'expired' => 'Semua Kerjasama Berakhir',
+                    'mou' => 'Memiliki MoU',
+                    'moa' => 'Memiliki MoA',
+                    'ia' => 'Memiliki IA',
+                ])
+                ->columns(2),
+        ])
+        ->query(function (Builder $query, array $data): Builder {
+
+            $filters = $data['filter'] ?? [];
+
+            if (empty($filters)) {
+                return $query;
+            }
+
+            return $query->where(function (Builder $q) use ($filters) {
+
+                foreach ($filters as $filter) {
+
+                    match ($filter) {
+
+                        'none' => $q->orWhereDoesntHave('kerjasamas'),
+
+                        'expired' => $q->orWhereHas('kerjasamas', function ($k) {
+                            // tidak ada kerjasama yang masih aktif
+                        })->whereDoesntHave('kerjasamas', function ($k) {
+                            $k->whereDate('tanggal_akhir', '>=', now());
+                        }),
+
+                        'mou' => $q->orWhereHas('kerjasamas', function ($k) {
+                            $k->where('jenis_dokumen_id', 1);
+                        }),
+
+                        'moa' => $q->orWhereHas('kerjasamas', function ($k) {
+                            $k->where('jenis_dokumen_id', 2);
+                        }),
+
+                        'ia' => $q->orWhereHas('kerjasamas', function ($k) {
+                            $k->where('jenis_dokumen_id', 4);
+                        }),
+
+                        default => null,
+                    };
+
+                }
+
+            });
+        }),
 ])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();

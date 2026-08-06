@@ -56,17 +56,17 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([])
-            ->userMenuItems([
-                'privilege' => MenuItem::make()
-                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama ?? '')
-                    ->icon(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama === 'WADIR 4' ? 'heroicon-o-star' : 'heroicon-o-shield-check')
-                    ->visible(fn () => filled(\Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama))
-                    ->url(fn (): string => \App\Filament\Resources\UserResource::getUrl('edit', ['record' => \Illuminate\Support\Facades\Auth::user()])),
+            //->userMenuItems([
+              //  'privilege' => MenuItem::make()
+                //    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama ?? '')
+                  //  ->icon(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama === 'WADIR 4' ? 'heroicon-o-star' : 'heroicon-o-shield-check')
+                    //->visible(fn () => filled(\Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama))
+                    //->url(fn (): string => \App\Filament\Resources\UserResource::getUrl('edit', ['record' => \Illuminate\Support\Facades\Auth::user()])),
 
-                'prodi' => MenuItem::make()
-                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi ?? '')
-                    ->visible(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi !== null),
-            ])
+//                'prodi' => MenuItem::make()
+  //                  ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi ?? '')
+    //                ->visible(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi !== null),
+      //      ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
