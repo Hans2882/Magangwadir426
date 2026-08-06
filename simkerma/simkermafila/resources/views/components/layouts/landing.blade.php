@@ -100,9 +100,9 @@
         <header>
             <h1>SIMKERMA</h1>
             @if(auth()->check())
-                <a href="/admin" class="login-btn">Dashboard</a>
+                <a href="{{ auth()->user()?->canAccessPanel(Filament\Facades\Filament::getPanel('admin')) ? url('/admin') : url('/user') }}" class="login-btn">Dashboard</a>
             @else
-                <a href="/admin/login" class="login-btn">Login</a>
+                <a href="{{ url('/user/login') }}" class="login-btn">Login</a>
             @endif
         </header>
 
@@ -110,9 +110,9 @@
             {{ $slot }}
         </main>
 
-        <footer>
+        {{-- <footer>
             &copy; {{ date('Y') }} SIMKERMA. Hak Cipta Dilindungi.
-        </footer>
+        </footer> --}}
 
         @livewireScripts
         <script>
