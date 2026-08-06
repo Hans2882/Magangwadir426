@@ -86,12 +86,7 @@ Tables\Columns\TextColumn::make('negara.nama_negara')
     ->default('-')
     ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
 
-                Tables\Columns\TextColumn::make('negara.nama_negara')
-                    ->label('Negara')
-                    ->searchable()
-                    ->sortable()
-                    ->default('-')
-                    ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
+
 
                 Tables\Columns\TextColumn::make('telepon')
                     ->label('No. Telepon')
@@ -122,7 +117,7 @@ Tables\Columns\TextColumn::make('negara.nama_negara')
         ->searchable()
         ->preload(),
 
-    Tables\Filters\SelectFilter::make('negara')
+    Tables\Filters\SelectFilter::make('negara_id')
         ->label('Negara')
         ->relationship('negara', 'nama_negara')
         ->searchable()
