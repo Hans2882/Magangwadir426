@@ -26,6 +26,9 @@ class UserPanelProvider extends PanelProvider
         return $panel
             ->id('user')
             ->path('user')
+            ->favicon(asset('favicon.png'))
+            ->brandLogo(asset('images/logo.png'))
+            ->brandLogoHeight('3rem')
             ->login()
             ->databaseNotifications()
             ->colors([
