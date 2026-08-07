@@ -35,9 +35,8 @@ class UsulanKerjasama extends Page implements HasTable
 
     public function table(Table $table): Table
     {
-        // Using User model just to generate 2 empty rows for the mockup
         return $table
-            ->query(\App\Models\User::query()->limit(2))
+            ->query(\App\Models\User::query()->where('id', -1))
             ->headerActions([
                 Action::make('create')
                     ->label('Ajukan Usulan Baru')
@@ -45,27 +44,20 @@ class UsulanKerjasama extends Page implements HasTable
                     ->color('primary')
             ])
             ->columns([
-                TextColumn::make('mitra')
+                TextColumn::make('nama_mitra')
                     ->label('Nama Mitra')
-                    ->state(fn ($record) => 'Atase Pendidikan dan Kebudayaan Manila')
-                    ->description('Philippines')
                     ->icon('heroicon-o-globe-alt'),
                     
-                TextColumn::make('bentuk')
+                TextColumn::make('bentuk_kerjasama')
                     ->label('Bentuk Kerjasama')
-                    ->state(fn ($record) => 'Pertukaran Informasi, Student Exchange')
                     ->badge()
-                    ->color('info')
-                    ->separator(','),
+                    ->color('info'),
                     
                 TextColumn::make('pengusul')
-                    ->label('Pengusul')
-                    ->state(fn ($record) => 'Drs. Zubaidi, M.Pd')
-                    ->description('D3 Administrasi Bisnis'),
+                    ->label('Pengusul'),
                     
                 TextColumn::make('status')
                     ->label('Status')
-                    ->state(fn ($record) => 'Menunggu Review')
                     ->badge()
                     ->color('warning')
                     ->icon('heroicon-m-clock'),
