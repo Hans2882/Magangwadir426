@@ -27,10 +27,15 @@ class UserPanelProvider extends PanelProvider
             ->id('user')
             ->path('user')
             ->favicon(asset('favicon.png'))
-            ->brandLogo(asset('images/logo.png'))
-            ->brandLogoHeight('3rem')
             ->login()
+            ->sidebarCollapsibleOnDesktop()
             ->databaseNotifications()
+            ->brandName('SIMKERMA')
+            ->brandLogo(fn () => new \Illuminate\Support\HtmlString('<div></div>'))
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::TOPBAR_START,
+                fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.logo")')
+            )
             ->colors([
                 'primary' => Color::Indigo,
             ])
