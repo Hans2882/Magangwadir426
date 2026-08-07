@@ -32,15 +32,15 @@ class ListMitras extends ListRecords
             'dalam_negeri' => Tab::make('Dalam Negeri')
                 ->icon('heroicon-o-building-office-2')
                 ->badge(
-                    Mitra::whereNull('negara_id')
-                        ->orWhere('negara_id', '<', 1)
+                    Mitra::whereRaw('negara_id IS NULL', [], 'and')
+                        ->orWhereRaw('negara_id < 1', [], 'or')
                         ->count()
                 ),
 
             'luar_negeri' => Tab::make('Luar Negeri')
                 ->icon('heroicon-o-globe-alt')
                 ->badge(
-                    Mitra::where('negara_id', '>=', 1)
+                    Mitra::whereRaw('negara_id >= 1', [], 'and')
                         ->count()
                 ),
         ];

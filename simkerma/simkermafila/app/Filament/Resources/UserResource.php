@@ -28,7 +28,9 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->userPrivilege?->privilege?->is_admin_panel ?? false;
+        /** @var \App\Models\User|null $user */
+        $user = \Illuminate\Support\Facades\Auth::user();
+        return $user?->userPrivilege?->privilege?->is_admin_panel ?? false;
     }
 
     public static function form(Schema $schema): Schema

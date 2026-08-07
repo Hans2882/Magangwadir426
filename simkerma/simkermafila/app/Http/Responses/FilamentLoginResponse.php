@@ -2,7 +2,7 @@
 
 namespace App\Http\Responses;
 
-use Filament\Http\Responses\Auth\Contracts\LoginResponse as LoginResponseContract;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse as LoginResponseContract;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Features\SupportRedirects\Redirector;
 use Filament\Facades\Filament;
@@ -11,6 +11,7 @@ class FilamentLoginResponse implements LoginResponseContract
 {
     public function toResponse($request): RedirectResponse|Redirector
     {
+        /** @var \App\Models\User|null $user */
         $user = auth()->user();
         
         // If they have admin panel access, send them to the admin dashboard
