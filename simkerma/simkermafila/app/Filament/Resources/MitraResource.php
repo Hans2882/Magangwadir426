@@ -61,6 +61,12 @@ class MitraResource extends Resource
             Forms\Components\Textarea::make('alamat')
                 ->label('Alamat')
                 ->columnSpanFull(),
+            Forms\Components\TextInput::make('kota')
+                ->label('Kota')
+                ->maxLength(100),
+            Forms\Components\TextInput::make('provinsi')
+                ->label('Provinsi')
+                ->maxLength(100),
         ]);
     }
 
@@ -129,6 +135,8 @@ class MitraResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('qs_rank')->label('QS Rank')->default('-')
                         ->visible(fn ($record) => $record->negara_id >= 1),
                     \Filament\Infolists\Components\TextEntry::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('kota')->label('Kota')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('provinsi')->label('Provinsi')->default('-'),
                 ])
                 ->columns(2),
         ]);

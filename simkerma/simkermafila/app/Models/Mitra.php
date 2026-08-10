@@ -19,6 +19,8 @@ class Mitra extends Model
         'telepon',
         'email',
         'alamat',
+        'kota',
+        'provinsi',
         'pic',
     ];
 
