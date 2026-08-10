@@ -61,12 +61,20 @@ class MitraResource extends Resource
             Forms\Components\Textarea::make('alamat')
                 ->label('Alamat')
                 ->columnSpanFull(),
-            Forms\Components\TextInput::make('kota')
-                ->label('Kota')
-                ->maxLength(100),
-            Forms\Components\TextInput::make('provinsi')
+            Forms\Components\Select::make('provinsi_id')
                 ->label('Provinsi')
-                ->maxLength(100),
+                ->relationship('provinsiModel', 'nama_provinsi')
+                ->searchable()
+                ->preload()
+                ->live()
+                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set) => $set('kota_id', null)),
+            Forms\Components\Select::make('kota_id')
+                ->label('Kota')
+                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): \Illuminate\Support\Collection => \App\Models\MasterKota::query()
+                    ->where('provinsi_id', $get('provinsi_id'))
+                    ->pluck('nama_kota', 'id'))
+                ->searchable()
+                ->preload(),
         ]);
     }
 
@@ -135,8 +143,8 @@ class MitraResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('qs_rank')->label('QS Rank')->default('-')
                         ->visible(fn ($record) => $record->negara_id >= 1),
                     \Filament\Infolists\Components\TextEntry::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
-                    \Filament\Infolists\Components\TextEntry::make('kota')->label('Kota')->default('-'),
-                    \Filament\Infolists\Components\TextEntry::make('provinsi')->label('Provinsi')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('kotaModel.nama_kota')->label('Kota')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('provinsiModel.nama_provinsi')->label('Provinsi')->default('-'),
                 ])
                 ->columns(2),
         ]);

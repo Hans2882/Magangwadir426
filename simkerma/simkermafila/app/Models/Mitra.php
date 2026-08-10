@@ -21,6 +21,8 @@ class Mitra extends Model
         'alamat',
         'kota',
         'provinsi',
+        'provinsi_id',
+        'kota_id',
         'pic',
     ];
 
@@ -50,5 +52,15 @@ class Mitra extends Model
     public function kategori(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(MasterMitraIku::class, 'kategori_id');
+    }
+
+    public function provinsiModel(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(MasterProvinsi::class, 'provinsi_id');
+    }
+
+    public function kotaModel(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(MasterKota::class, 'kota_id');
     }
 }
