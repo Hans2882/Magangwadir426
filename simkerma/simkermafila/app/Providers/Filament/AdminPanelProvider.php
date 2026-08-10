@@ -58,13 +58,13 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([])
             ->userMenuItems([
                 'privilege' => MenuItem::make()
-                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama ?? '')
+                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama ?: 'Privilege')
                     ->icon(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama === 'WADIR 4' ? 'heroicon-o-star' : 'heroicon-o-shield-check')
                     ->visible(fn () => filled(\Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama))
                     ->url(fn (): string => \App\Filament\Resources\UserResource::getUrl('edit', ['record' => \Illuminate\Support\Facades\Auth::user()])),
 
                 'prodi' => MenuItem::make()
-                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi ?? '')
+                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi ?: 'Program Studi')
                     ->visible(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi !== null),
             ])
             ->middleware([
