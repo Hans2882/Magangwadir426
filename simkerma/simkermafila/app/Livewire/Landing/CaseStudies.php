@@ -40,6 +40,13 @@ class CaseStudies extends Component
     #[Validate('required')]
     public $surveyTelepon = '';
 
+    #[Validate('required|string')]
+    public $surveyNomorDokumen = '';
+
+    public $matchedKerjasamaId = null;
+    public $matchedMitraName = null;
+    public $suggestions = [];
+
     #[Validate('required|integer|min:1|max:5')]
     public $surveyKomunikasi = null;
     
@@ -100,18 +107,30 @@ class CaseStudies extends Component
     #[Validate('required|integer|min:1|max:5')]
     public $surveyPengembanganDiri = null;
 
-    #[Validate('nullable|string')]
+    #[Validate('required|string')]
     public $surveySaranKerjasama = '';
     
-    #[Validate('nullable|string')]
+    #[Validate('required|string')]
     public $surveySaranAlumni = '';
     
-    #[Validate('nullable|string')]
+    #[Validate('required')]
     public $surveyProgramStudiAlumni = '';
+
+    protected $messages = [
+        'required' => 'This field is required.',
+        'email' => 'Email tidak valid.',
+        'integer' => 'Pilih angka 1 sampai 5.',
+    ];
 
     public function submitSurvey()
     {
         $this->validate();
+
+        $kerjasama = $this->findKerjasamaByDocument($this->surveyNomorDokumen);
+        if (!$kerjasama) {
+            $this->addError('surveyNomorDokumen', 'Document not found.');
+            return;
+        }
 
         KuisionerKepuasan::create([
             'nama' => $this->surveyNama,
@@ -119,6 +138,7 @@ class CaseStudies extends Component
             'instansi' => $this->surveyInstansi,
             'email' => $this->surveyEmail,
             'telepon' => $this->surveyTelepon,
+            'nomor_dokumen' => $kerjasama->nomor_dokumen,
             'komunikasi' => $this->surveyKomunikasi,
             'proses' => $this->surveyProses,
             'bantuan' => $this->surveyBantuan,
@@ -147,7 +167,7 @@ class CaseStudies extends Component
         session()->flash('success', 'Kuisioner berhasil dikirim. Terima kasih atas partisipasi Anda!');
 
         $this->reset([
-            'surveyNama', 'surveyJabatan', 'surveyInstansi', 'surveyEmail', 'surveyTelepon',
+            'surveyNama', 'surveyJabatan', 'surveyInstansi', 'surveyEmail', 'surveyTelepon', 'surveyNomorDokumen',
             'surveyKomunikasi', 'surveyProses', 'surveyBantuan', 'surveySdmProfesionalisme',
             'surveyHarapan', 'surveyManfaat', 'surveyKembali', 'surveyImplementasi', 'surveyLaporan',
             'surveyAlumniAda', 'surveyEtika', 'surveyKepemimpinan', 'surveyEtosKerja',
@@ -155,6 +175,91 @@ class CaseStudies extends Component
             'surveyKeahlianBidangIlmuTerapan', 'surveyBahasaAsing', 'surveyTeknologiInformasi',
             'surveyPengembanganDiri', 'surveySaranKerjasama', 'surveySaranAlumni', 'surveyProgramStudiAlumni'
         ]);
+
+        $this->matchedKerjasamaId = null;
+        $this->matchedMitraName = null;
+    }
+
+    public function updatedSurveyNomorDokumen()
+    {
+        $this->resetErrorBag('surveyNomorDokumen');
+
+        $input = trim($this->surveyNomorDokumen);
+        $this->matchedKerjasamaId = null;
+        $this->suggestions = [];
+
+        if ($input === '') {
+            $this->matchedMitraName = null;
+            return;
+        }
+
+        $matches = $this->findKerjasamaMatches($input);
+        if ($matches->isEmpty()) {
+            $this->matchedKerjasamaId = null;
+            $this->matchedMitraName = null;
+            $this->suggestions = [];
+            return;
+        }
+
+        $first = $matches->first();
+        $this->matchedKerjasamaId = $first->id;
+        $this->matchedMitraName = $first->mitra?->nama_mitra;
+        if ($first->mitra?->nama_mitra) {
+            $this->surveyInstansi = $first->mitra->nama_mitra;
+        }
+
+        // prepare suggestions array for the view
+        $this->suggestions = $matches->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'nomor' => $item->nomor_dokumen,
+                'mitra' => $item->mitra?->nama_mitra,
+            ];
+        })->take(6)->toArray();
+    }
+
+    private function findKerjasamaByDocument(string $input): ?Kerjasama
+    {
+        $clean = strtolower(trim(preg_replace('/\s+/', ' ', $input)));
+
+        return Kerjasama::with('mitra')
+            ->whereIn('jenis_dokumen_id', [1, 3, 4])
+            ->whereRaw('LOWER(REPLACE(REPLACE(REPLACE(nomor_dokumen, "\n", " "), "\r", " "), "  ", " ")) = ?', [$clean])
+            ->orWhere(function ($query) use ($clean) {
+                $query->whereIn('jenis_dokumen_id', [1, 3, 4])
+                    ->whereRaw('LOWER(REPLACE(REPLACE(REPLACE(nomor_dokumen, "\n", " "), "\r", " "), "  ", " ")) like ?', ['%' . $clean . '%']);
+            })
+            ->first();
+    }
+
+    private function findKerjasamaMatches(string $input)
+    {
+        $clean = strtolower(trim(preg_replace('/\s+/', ' ', $input)));
+
+        return Kerjasama::with('mitra')
+            ->whereIn('jenis_dokumen_id', [1, 3, 4])
+            ->whereRaw('LOWER(REPLACE(REPLACE(REPLACE(nomor_dokumen, "\n", " "), "\r", " "), "  ", " ")) like ?', [$clean . '%'])
+            ->orWhere(function ($query) use ($clean) {
+                $query->whereIn('jenis_dokumen_id', [1, 3, 4])
+                    ->whereRaw('LOWER(REPLACE(REPLACE(REPLACE(nomor_dokumen, "\n", " "), "\r", " "), "  ", " ")) like ?', ['%' . $clean . '%']);
+            })
+            ->orderByDesc('tanggal_awal')
+            ->limit(6)
+            ->get();
+    }
+
+    public function selectSuggestion(string $nomor)
+    {
+        $kerjasama = $this->findKerjasamaByDocument($nomor);
+        if (!$kerjasama) return;
+
+        $this->surveyNomorDokumen = $kerjasama->nomor_dokumen;
+        $this->matchedKerjasamaId = $kerjasama->id;
+        $this->matchedMitraName = $kerjasama->mitra?->nama_mitra;
+        if ($kerjasama->mitra?->nama_mitra) {
+            $this->surveyInstansi = $kerjasama->mitra->nama_mitra;
+        }
+        $this->suggestions = [];
     }
 
     public function render()

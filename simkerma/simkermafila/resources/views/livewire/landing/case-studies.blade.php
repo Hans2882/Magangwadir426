@@ -126,6 +126,8 @@
                         <p class="eyebrow">Kuisioner Kepuasan</p>
                         <h3>Bagikan pengalaman Anda dengan SIMKERMA</h3>
                         <p>Isi kuisioner berikut agar kami dapat meningkatkan layanan dan kemudahan penggunaan platform.</p>
+                        <p class="survey-note">Masukkan nomor MOU/PKS/IA yang sudah Anda miliki untuk membuka formulir. Jika nomor valid, institusi/mitra akan terisi otomatis.</p>
+                        <p class="survey-note-small">Pastikan nomor dokumen benar agar pengisian valid dan hanya pihak yang terverifikasi dapat mengirimkan kuisioner.</p>
                     </div>
                 </div>
 
@@ -149,8 +151,27 @@
                         </label>
                         <label>
                             <span>Institusi / Afiliasi</span>
-                            <input type="text" wire:model.defer="surveyInstansi" placeholder="Institusi atau afiliasi" />
+                            <input type="text" wire:model.defer="surveyInstansi" placeholder="Instansi akan terisi otomatis setelah nomor MOU/PKS/IA valid" />
+                            {{-- <span class="field-note">Isi jika belum terisi otomatis atau untuk menyesuaikan nama institusi.</span> --}}
                             @error('surveyInstansi') <span class="field-error">{{ $message }}</span> @enderror
+                        </label>
+                        <label>
+                            <span>Nomor MOU/PKS/IA</span>
+                            <input type="text" wire:model="surveyNomorDokumen" placeholder="Contoh: MOU-123/2026 atau PKS/456" />
+                            <span class="field-note">Masukkan nomor dokumen</span>
+                            @error('surveyNomorDokumen') <span class="field-error">{{ $message }}</span> @enderror
+
+                            @if(!empty($suggestions))
+                                <ul class="suggestions">
+                                    @foreach($suggestions as $s)
+                                        <li>
+                                            <button type="button" wire:click.prevent="selectSuggestion('{{ $s['nomor'] }}')">{{ $s['nomor'] }} — {{ $s['mitra'] ?? '-' }}</button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @elseif($surveyNomorDokumen)
+                                <span class="field-note">Tidak ada hasil.</span>
+                            @endif
                         </label>
                         <label>
                             <span>Alamat email</span>
@@ -531,6 +552,53 @@
             line-height: 1.8;
         }
 
+        .survey-note {
+            font-size: 0.95rem;
+            color: #475569;
+            margin-top: 0.75rem;
+        }
+
+        .survey-note-small {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-top: 0.3rem;
+        }
+
+        .field-note {
+            display: block;
+            color: #475569;
+            font-size: 0.88rem;
+            margin-top: 0.25rem;
+        }
+
+        .field-success {
+            display: block;
+            color: #164e63;
+            font-size: 0.92rem;
+            margin-top: 0.35rem;
+            font-weight: 700;
+        }
+
+        .suggestions {
+            margin: 0.5rem 0 0 0;
+            padding: 0.4rem 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .suggestions li button {
+            background: transparent;
+            border: 1px solid rgba(148,163,184,0.25);
+            padding: 0.45rem 0.6rem;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            width: 100%;
+            color: var(--text-main);
+        }
+
         .alert-success {
             background: rgba(16, 185, 129, 0.12);
             border: 1px solid rgba(16, 185, 129, 0.25);
@@ -546,23 +614,57 @@
             gap: 1.25rem;
         }
 
+        .survey-form {
+            display: grid;
+            gap: 1.5rem;
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 0.5rem 0;
+        }
+
         .field-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 1rem;
         }
 
-        .field-block,
-        .field-grid label {
+        .field-grid label,
+        .field-block {
             display: grid;
-            gap: 0.5rem;
+            gap: 0.55rem;
+            padding: 1rem 1.1rem;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.98);
+        }
+
+        .field-grid label {
+            min-height: 4.5rem;
         }
 
         .field-block {
-            padding: 1rem 1.1rem;
-            border: 1px solid rgba(148, 163, 184, 0.4);
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.92);
+            padding: 1.2rem 1.25rem;
+        }
+
+        .field-error {
+            display: block;
+            margin-top: 0.25rem;
+            color: #b91c1c;
+            font-size: 0.9rem;
+        }
+
+        .btn-submit {
+            width: fit-content;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 1.75rem;
+            border-radius: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            align-self: flex-start;
+            margin-top: 0.5rem;
         }
 
         .field-label,
