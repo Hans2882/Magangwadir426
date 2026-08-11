@@ -14,6 +14,7 @@ class KuisionerKepuasan extends Model
         'instansi',
         'email',
         'telepon',
+        'nomor_dokumen',
         'komunikasi',
         'proses',
         'bantuan',
