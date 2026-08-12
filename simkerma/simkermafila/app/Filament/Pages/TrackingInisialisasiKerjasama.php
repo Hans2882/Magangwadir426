@@ -20,9 +20,9 @@ class TrackingInisialisasiKerjasama extends Page implements HasForms, HasTable
 
     protected static \UnitEnum|string|null $navigationGroup = 'Pelaporan & Tracking';
 
-    protected static ?string $navigationLabel = 'Tracking Inisiasi Kerjasama';
+    protected static ?string $navigationLabel = 'Tracking Dokumen Kerjasama';
     
-    protected static ?string $title = 'Tracking Inisiasi Kerjasama';
+    protected static ?string $title = 'Tracking Dokumen Kerjasama';
 
     protected static ?int $navigationSort = 8;
 
