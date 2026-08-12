@@ -84,13 +84,13 @@
                         fillColor: this.getColor(count),
                         weight: 1,
                         opacity: 1,
-                        color: '#ffffff',
+                        color: '#000000',
                         fillOpacity: 0.8
                     };
                 },
 
                 async loadProvinces() {
-                    const response = await fetch('https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province.json');
+                    const response = await fetch('/38 Provinsi Indonesia - Provinsi.json');
                     const geojson = await response.json();
 
                     this.provinceLayer = L.geoJSON(geojson, {
@@ -145,7 +145,7 @@
                                     fillColor: this.getColor(count),
                                     weight: 1,
                                     opacity: 1,
-                                    color: '#ffffff',
+                                    color: '#000000',
                                     fillOpacity: 0.8
                                 };
                             },
