@@ -46,7 +46,7 @@ class AdminPanelProvider extends PanelProvider
                 'Data Mitra',
                 'Data Kerjasama',
                 'Pelaporan & Tracking',
-                'Usulan Kerjasama',
+                'Inisiasi Kerjasama',
                 'Simmagang',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
