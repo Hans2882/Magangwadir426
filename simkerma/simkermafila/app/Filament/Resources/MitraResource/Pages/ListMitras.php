@@ -126,66 +126,96 @@ Tables\Columns\TextColumn::make('negara.nama_negara')
         ->preload()
         ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
 
-    Tables\Filters\SelectFilter::make('kategori_id')
-        ->label('Kategori IKU')
-        ->relationship('kategori', 'kategori')
-        ->searchable()
-        ->preload(),
+    Tables\Filters\SelectFilter::make('status_kerjasama')
+    ->label('Status Kerjasama')
+    ->options([
+        'none' => 'Belum Ada Kerjasama',
+        'active' => 'Aktif',
+        'expiring' => 'Akan Berakhir',
+        'expired' => 'Berakhir',
+    ])
+    ->query(function (Builder $query, array $data): Builder {
+        $status = $data['value'] ?? null;
 
-    Filter::make('kerjasama')
-        ->label('Status Kerjasama')
-        ->form([
-            CheckboxList::make('filter')
-                ->options([
-                    'none' => 'Belum ada Kerjasama',
-                    'expired' => 'Semua Kerjasama Berakhir',
-                    'mou' => 'Memiliki MoU',
-                    'moa' => 'Memiliki MoA',
-                    'ia' => 'Memiliki IA',
-                ])
-                ->columns(2),
-        ])
-        ->query(function (Builder $query, array $data): Builder {
+        if (!$status) {
+            return $query;
+        }
 
-            $filters = $data['filter'] ?? [];
+        return match ($status) {
 
-            if (empty($filters)) {
-                return $query;
-            }
+            // Tidak memiliki dokumen kerjasama sama sekali
+            'none' => $query->whereDoesntHave('kerjasamas'),
 
-            return $query->where(function (Builder $q) use ($filters) {
+            // Memiliki minimal satu kerjasama yang masih AKTIF
+            // Sama dengan logika MoU:
+            // tanggal_akhir NULL atau > 1 bulan dari sekarang
+            'active' => $query->whereHas('kerjasamas', function (Builder $k) {
+                $k->where(function (Builder $q) {
+                    $q->whereNull('tanggal_akhir')
+                        ->orWhereDate(
+                            'tanggal_akhir',
+                            '>',
+                            now()->addMonth()
+                        );
+                });
+            }),
 
-                foreach ($filters as $filter) {
+            // Memiliki minimal satu kerjasama yang akan berakhir
+            // dalam 1 bulan ke depan
+            'expiring' => $query->whereHas('kerjasamas', function (Builder $k) {
+                $k->whereNotNull('tanggal_akhir')
+                    ->whereDate(
+                        'tanggal_akhir',
+                        '>=',
+                        now()
+                    )
+                    ->whereDate(
+                        'tanggal_akhir',
+                        '<=',
+                        now()->addMonth()
+                    );
+            }),
 
-                    match ($filter) {
+            // Memiliki kerjasama, tetapi tidak memiliki satupun
+            // kerjasama yang masih aktif / akan berakhir
+            'expired' => $query
+                ->whereHas('kerjasamas')
+                ->whereDoesntHave('kerjasamas', function (Builder $k) {
+                    $k->whereNull('tanggal_akhir')
+                        ->orWhereDate(
+                            'tanggal_akhir',
+                            '>=',
+                            now()
+                        );
+                }),
 
-                        'none' => $q->orWhereDoesntHave('kerjasamas'),
+            default => $query,
+        };
+    }),
 
-                        'expired' => $q->orWhereHas('kerjasamas', function ($k) {
-                            // tidak ada kerjasama yang masih aktif
-                        })->whereDoesntHave('kerjasamas', function ($k) {
-                            $k->whereDate('tanggal_akhir', '>=', now());
-                        }),
+    Tables\Filters\SelectFilter::make('jenis_dokumen')
+    ->label('Jenis Dokumen')
+    ->multiple()
+    ->options([
+        1 => 'MoU',
+        2 => 'MoA',
+        3 => 'PKS',
+        4 => 'IA',
+        5 => 'SPK',
+        6 => 'LoC',
+        7 => 'LoI',
+    ])
+    ->query(function (Builder $query, array $data): Builder {
+        $jenisDokumen = $data['values'] ?? [];
 
-                        'mou' => $q->orWhereHas('kerjasamas', function ($k) {
-                            $k->where('jenis_dokumen_id', 1);
-                        }),
+        if (empty($jenisDokumen)) {
+            return $query;
+        }
 
-                        'moa' => $q->orWhereHas('kerjasamas', function ($k) {
-                            $k->where('jenis_dokumen_id', 2);
-                        }),
-
-                        'ia' => $q->orWhereHas('kerjasamas', function ($k) {
-                            $k->where('jenis_dokumen_id', 4);
-                        }),
-
-                        default => null,
-                    };
-
-                }
-
-            });
-        }),
+        return $query->whereHas('kerjasamas', function (Builder $k) use ($jenisDokumen) {
+            $k->whereIn('jenis_dokumen_id', $jenisDokumen);
+        });
+    }),
 ])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();
