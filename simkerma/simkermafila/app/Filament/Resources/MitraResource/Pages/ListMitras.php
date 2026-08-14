@@ -127,86 +127,95 @@ Tables\Columns\TextColumn::make('negara.nama_negara')
         ->visible(fn ($livewire) => $livewire->activeTab === 'luar_negeri'),
 
     Tables\Filters\SelectFilter::make('status_kerjasama')
-        ->label('Status Kerjasama')
-        ->options([
-            'none' => 'Belum Ada Kerjasama',
-            'active' => 'Aktif',
-            'expiring' => 'Akan Berakhir',
-            'expired' => 'Berakhir',
-        ])
-        ->query(function (Builder $query, array $data): Builder {
-            $status = $data['value'] ?? null;
+    ->label('Status Kerjasama')
+    ->options([
+        'none' => 'Belum Ada Kerjasama',
+        'active' => 'Aktif',
+        'expiring' => 'Akan Berakhir',
+        'expired' => 'Berakhir',
+    ])
+    ->query(function (Builder $query, array $data): Builder {
+        $status = $data['value'] ?? null;
 
-            if (!$status) {
-                return $query;
-            }
+        if (!$status) {
+            return $query;
+        }
 
-            return match ($status) {
+        return match ($status) {
 
-                'none' => $query->whereDoesntHave('kerjasamas'),
+            // Tidak memiliki dokumen kerjasama sama sekali
+            'none' => $query->whereDoesntHave('kerjasamas'),
 
-                'active' => $query->whereHas('kerjasamas', function (Builder $k) {
-                    $k->where(function (Builder $q) {
-                        $q->whereNull('tanggal_akhir')
-                            ->orWhereDate(
-                                'tanggal_akhir',
-                                '>',
-                                now()->addMonth()->startOfDay()
-                            );
-                    });
-                }),
+            // Memiliki minimal satu kerjasama yang masih AKTIF
+            // Sama dengan logika MoU:
+            // tanggal_akhir NULL atau > 1 bulan dari sekarang
+            'active' => $query->whereHas('kerjasamas', function (Builder $k) {
+                $k->where(function (Builder $q) {
+                    $q->whereNull('tanggal_akhir')
+                        ->orWhereDate(
+                            'tanggal_akhir',
+                            '>',
+                            now()->addMonth()
+                        );
+                });
+            }),
 
-                'expiring' => $query->whereHas('kerjasamas', function (Builder $k) {
-                    $k->whereNotNull('tanggal_akhir')
-                        ->whereDate(
+            // Memiliki minimal satu kerjasama yang akan berakhir
+            // dalam 1 bulan ke depan
+            'expiring' => $query->whereHas('kerjasamas', function (Builder $k) {
+                $k->whereNotNull('tanggal_akhir')
+                    ->whereDate(
+                        'tanggal_akhir',
+                        '>=',
+                        now()
+                    )
+                    ->whereDate(
+                        'tanggal_akhir',
+                        '<=',
+                        now()->addMonth()
+                    );
+            }),
+
+            // Memiliki kerjasama, tetapi tidak memiliki satupun
+            // kerjasama yang masih aktif / akan berakhir
+            'expired' => $query
+                ->whereHas('kerjasamas')
+                ->whereDoesntHave('kerjasamas', function (Builder $k) {
+                    $k->whereNull('tanggal_akhir')
+                        ->orWhereDate(
                             'tanggal_akhir',
                             '>=',
-                            now()->startOfDay()
-                        )
-                        ->whereDate(
-                            'tanggal_akhir',
-                            '<=',
-                            now()->addMonth()->endOfDay()
+                            now()
                         );
                 }),
 
-                'expired' => $query
-                    ->whereHas('kerjasamas')
-                    ->whereDoesntHave('kerjasamas', function (Builder $k) {
-                        $k->whereNull('tanggal_akhir')
-                            ->orWhereDate(
-                                'tanggal_akhir',
-                                '>=',
-                                now()->startOfDay()
-                            );
-                    }),
-
-                default => $query,
-            };
-        }),
+            default => $query,
+        };
+    }),
 
     Tables\Filters\SelectFilter::make('jenis_dokumen')
-        ->label('Jenis Dokumen')
-        ->options([
-            1 => 'MoU',
-            2 => 'MoA',
-            3 => 'PKS',
-            4 => 'IA',
-            5 => 'SPK',
-            6 => 'LoC',
-            7 => 'LoI',
-        ])
-        ->query(function (Builder $query, array $data): Builder {
-            $jenisDokumen = $data['value'] ?? null;
+    ->label('Jenis Dokumen')
+    ->multiple()
+    ->options([
+        1 => 'MoU',
+        2 => 'MoA',
+        3 => 'PKS',
+        4 => 'IA',
+        5 => 'SPK',
+        6 => 'LoC',
+        7 => 'LoI',
+    ])
+    ->query(function (Builder $query, array $data): Builder {
+        $jenisDokumen = $data['values'] ?? [];
 
-            if (!$jenisDokumen) {
-                return $query;
-            }
+        if (empty($jenisDokumen)) {
+            return $query;
+        }
 
-            return $query->whereHas('kerjasamas', function (Builder $k) use ($jenisDokumen) {
-                $k->where('jenis_dokumen_id', $jenisDokumen);
-            });
-        }),
+        return $query->whereHas('kerjasamas', function (Builder $k) use ($jenisDokumen) {
+            $k->whereIn('jenis_dokumen_id', $jenisDokumen);
+        });
+    }),
 ])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();
