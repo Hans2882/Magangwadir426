@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\IaResource\Pages;
+use App\Filament\Resources\Traits\HasMitraFormSchema;
 use App\Models\Kerjasama;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class IaResource extends Resource
 {
+    use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-text';
@@ -80,6 +82,10 @@ class IaResource extends Resource
                 ->searchable()
                 ->preload()
                 ->live()
+                ->createOptionForm(static::getMitraCreateFormSchema())
+                ->createOptionUsing(function (array $data) {
+                    return \App\Models\Mitra::query()->create($data)->getKey();
+                })
                 ->required(),
             Forms\Components\Select::make('parent_id')
                 ->label('Referensi MoU')

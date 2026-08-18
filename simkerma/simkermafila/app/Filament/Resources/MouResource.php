@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MouResource\Pages;
+use App\Filament\Resources\Traits\HasMitraFormSchema;
 use App\Models\Kerjasama;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -18,6 +19,7 @@ use Filament\Schemas\Components\Section;
 
 class MouResource extends Resource
 {
+    use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-text';
@@ -86,6 +88,10 @@ class MouResource extends Resource
                 ->relationship('mitra', 'nama_mitra')
                 ->searchable()
                 ->preload()
+                ->createOptionForm(static::getMitraCreateFormSchema())
+                ->createOptionUsing(function (array $data) {
+                    return \App\Models\Mitra::query()->create($data)->getKey();
+                })
                 ->required(),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(1),
             Forms\Components\Select::make('status_workflow')

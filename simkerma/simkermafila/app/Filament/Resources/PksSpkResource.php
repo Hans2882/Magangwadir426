@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PksSpkResource\Pages;
+use App\Filament\Resources\Traits\HasMitraFormSchema;
 use App\Models\Kerjasama;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -19,6 +20,7 @@ use Filament\Schemas\Components\Utilities\Set;
 
 class PksSpkResource extends Resource
 {
+    use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-check';
@@ -93,6 +95,10 @@ class PksSpkResource extends Resource
     ->searchable()
     ->preload()
     ->live()
+    ->createOptionForm(static::getMitraCreateFormSchema())
+    ->createOptionUsing(function (array $data) {
+        return \App\Models\Mitra::query()->create($data)->getKey();
+    })
     ->afterStateUpdated(function ($state, Set $set) {
 
         $mou = \App\Models\Kerjasama::query()
