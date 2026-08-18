@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MoaResource\Pages;
+use App\Filament\Resources\Traits\HasMitraFormSchema;
 use App\Models\Kerjasama;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class MoaResource extends Resource
 {
+    use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-duplicate';
@@ -78,6 +80,10 @@ class MoaResource extends Resource
                 ->relationship('mitra', 'nama_mitra', fn (Builder $query) => $query->where('negara_id', '>=', 1))
                 ->searchable()
                 ->preload()
+                ->createOptionForm(static::getMitraCreateFormSchema())
+                ->createOptionUsing(function (array $data) {
+                    return \App\Models\Mitra::query()->create($data)->getKey();
+                })
                 ->required(),
             Forms\Components\Hidden::make('jenis')->default('Luar Negeri'),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(2),
