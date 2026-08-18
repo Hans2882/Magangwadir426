@@ -70,6 +70,9 @@ class IaResource extends Resource
                     return "{$sequence}_{$type}_{$originalName}";
                 })
                 ->columnSpanFull(),
+            Forms\Components\RichEditor::make('topdown')
+                ->label('Top Down')
+                ->columnSpanFull(),
             Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255)->required(),
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
@@ -420,6 +423,11 @@ Forms\Components\Hidden::make('nomor_dokumen')
                             'BERAKHIR' => 'danger',
                             'AKAN BERAKHIR' => 'warning',
                         ]),
+                    \Filament\Infolists\Components\TextEntry::make('topdown')
+                        ->label('Top Down')
+                        ->html()
+                        ->default('-')
+                        ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Link Dokumen')
                         ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)

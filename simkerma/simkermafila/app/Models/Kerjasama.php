@@ -32,6 +32,7 @@ class Kerjasama extends Model
         'jenis_dokumen_id',
         'bidang_id',
         'link_dokumen',
+        'topdown',
         'link_perbaikan',
         'bukti_kegiatan',
         'pks_id',
