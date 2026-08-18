@@ -77,6 +77,9 @@ class MouResource extends Resource
                     return "{$sequence}_{$type}_{$originalName}";
                 })
                 ->columnSpanFull(),
+            Forms\Components\RichEditor::make('topdown')
+                ->label('Top Down')
+                ->columnSpanFull(),
             Forms\Components\TextInput::make('judul')->label('Judul MoU')->maxLength(255)->required(),
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
@@ -413,6 +416,11 @@ class MouResource extends Resource
                             'BERAKHIR' => 'danger',
                             default => 'gray',
                         }),
+                    \Filament\Infolists\Components\TextEntry::make('topdown')
+                        ->label('Top Down')
+                        ->html()
+                        ->default('-')
+                        ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Link Dokumen')
                         ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
