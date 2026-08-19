@@ -28,7 +28,6 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->favicon(asset('favicon.png'))
-            ->brandLogo(asset('images/logo.png'))
             ->brandLogoHeight('3rem')
             ->login()
             ->sidebarCollapsibleOnDesktop()

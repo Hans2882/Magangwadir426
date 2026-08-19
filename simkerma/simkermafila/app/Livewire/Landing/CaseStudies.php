@@ -16,8 +16,8 @@ class CaseStudies extends Component
 {
     use WithPagination;
 
-    public $activeTab = 'caseStudies';
-    public $search = '';
+    public string $activeTab = 'caseStudies';
+    public string $search = '';
 
     public function updatedSearch()
     {
@@ -26,95 +26,95 @@ class CaseStudies extends Component
 
     // Survey Properties
     #[Validate('required')]
-    public $surveyNama = '';
+    public string $surveyNama = '';
     
     #[Validate('required')]
-    public $surveyJabatan = '';
+    public string $surveyJabatan = '';
     
     #[Validate('required')]
-    public $surveyInstansi = '';
+    public string $surveyInstansi = '';
     
     #[Validate('required|email')]
-    public $surveyEmail = '';
+    public string $surveyEmail = '';
     
     #[Validate('required')]
-    public $surveyTelepon = '';
+    public string $surveyTelepon = '';
 
     #[Validate('required|string')]
-    public $surveyNomorDokumen = '';
+    public string $surveyNomorDokumen = '';
 
-    public $matchedKerjasamaId = null;
-    public $matchedMitraName = null;
-    public $suggestions = [];
+    public ?int $matchedKerjasamaId = null;
+    public ?string $matchedMitraName = null;
+    public array $suggestions = [];
 
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyKomunikasi = null;
+    public ?int $surveyKomunikasi = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyProses = null;
+    public ?int $surveyProses = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyBantuan = null;
+    public ?int $surveyBantuan = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveySdmProfesionalisme = null;
+    public ?int $surveySdmProfesionalisme = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyHarapan = null;
+    public ?int $surveyHarapan = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyManfaat = null;
+    public ?int $surveyManfaat = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyKembali = null;
+    public ?int $surveyKembali = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyImplementasi = null;
+    public ?int $surveyImplementasi = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyLaporan = null;
+    public ?int $surveyLaporan = null;
 
     #[Validate('required')]
-    public $surveyAlumniAda = '';
+    public string $surveyAlumniAda = '';
 
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyEtika = null;
+    public ?int $surveyEtika = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyKepemimpinan = null;
+    public ?int $surveyKepemimpinan = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyEtosKerja = null;
+    public ?int $surveyEtosKerja = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyKomunikasiAlumni = null;
+    public ?int $surveyKomunikasiAlumni = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyKerjasamaTim = null;
+    public ?int $surveyKerjasamaTim = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyKeahlianBidangIlmu = null;
+    public ?int $surveyKeahlianBidangIlmu = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyKeahlianBidangIlmuTerapan = null;
+    public ?int $surveyKeahlianBidangIlmuTerapan = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyBahasaAsing = null;
+    public ?int $surveyBahasaAsing = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyTeknologiInformasi = null;
+    public ?int $surveyTeknologiInformasi = null;
     
     #[Validate('required|integer|min:1|max:5')]
-    public $surveyPengembanganDiri = null;
+    public ?int $surveyPengembanganDiri = null;
 
     #[Validate('required|string')]
-    public $surveySaranKerjasama = '';
+    public string $surveySaranKerjasama = '';
     
     #[Validate('required|string')]
-    public $surveySaranAlumni = '';
+    public string $surveySaranAlumni = '';
     
-    #[Validate('required')]
-    public $surveyProgramStudiAlumni = '';
+    #[Validate('required|string')]
+    public string $surveyProgramStudiAlumni = '';
 
     protected $messages = [
         'required' => 'This field is required.',
@@ -271,7 +271,7 @@ class CaseStudies extends Component
             ->latest('tanggal_awal')
             ->get();
 
-        $programStudiOptions = MasterProgramStudi::orderBy('nama_prodi')->pluck('nama_prodi')->toArray();
+        $programStudiOptions = MasterProgramStudi::orderBy('nama_prodi', 'asc')->pluck('nama_prodi', 'id')->toArray();
 
         $mitras = Mitra::with(['negara', 'kategori'])
             ->when($this->search, function ($query) {
