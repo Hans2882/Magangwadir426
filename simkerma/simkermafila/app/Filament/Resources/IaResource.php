@@ -228,6 +228,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
             Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
             Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
             Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),
+            Forms\Components\TextInput::make('link_laporan_kegiatan')->label('Link Laporan Kegiatan')->url()->maxLength(500),
         ]);
     }
 
@@ -442,6 +443,7 @@ Forms\Components\Hidden::make('nomor_dokumen')
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('link_laporan_kegiatan')->label('Link Laporan Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
         ]);
