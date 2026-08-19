@@ -63,9 +63,11 @@ class PelaporanCaseStudyResource extends Resource
                     
                     $sequence = sprintf('%03d', $count);
                     $type = 'Case_Study';
-                    $originalName = $file->getClientOriginalName();
+                    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                    $extension = pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION);
+                    $cleanName = \Illuminate\Support\Str::slug($originalName);
                     
-                    return "{$sequence}_{$type}_{$originalName}";
+                    return "{$sequence}_{$type}_{$cleanName}.{$extension}";
                 })
                 ->columnSpanFull(),
             Forms\Components\TextInput::make('judul')->label('Judul Laporan / Kegiatan')->maxLength(255)->required(),
