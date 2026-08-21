@@ -382,7 +382,24 @@ class MouResource extends Resource
                             default => 'heroicon-o-question-mark-circle',
                         }),
                     \Filament\Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
-                    \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')
+    ->label('Nama Mitra')
+    ->default('-')
+    ->color('primary')
+    ->url(fn ($record) => $record->mitra
+        ? \App\Filament\Resources\MitraResource::getUrl('view', [
+            'record' => $record->mitra,
+        ])
+        : null
+    )
+    ->openUrlInNewTab(),
+\Filament\Infolists\Components\TextEntry::make('mitra.provinsiModel.nama_provinsi')
+    ->label('Provinsi')
+    ->default('-'),
+
+\Filament\Infolists\Components\TextEntry::make('mitra.kotaModel.nama_kota')
+    ->label('Kota')
+    ->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('bidang.bidang_kerjasama')
                         ->label('Bidang Kerjasama')
                         ->badge()
