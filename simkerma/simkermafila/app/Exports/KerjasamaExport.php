@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -29,45 +30,53 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
         return $this->query;
     }
 
-    public function map($item): array
-{
-    $link = '';
+    /**
+     * @param \App\Models\Kerjasama $item
+     */
+    public function map(mixed $item): array
+    {
+        $link = '';
+        $documentPath = (string) ($item->link_dokumen ?? '');
 
-if (!empty($item->link_dokumen) && $item->link_dokumen !== '-') {
-    try {
-        if (str_starts_with($item->link_dokumen, 'http')) {
-            // Sudah URL, gunakan apa adanya
-            $link = $item->link_dokumen;
-        } else {
-            // Path Google Drive -> ubah menjadi URL view
-            $url = Storage::disk('google')->url($item->link_dokumen);
+        if ($documentPath !== '' && $documentPath !== '-') {
+            try {
+                if (str_starts_with($documentPath, 'http')) {
+                    // Sudah URL, gunakan apa adanya
+                    $link = $documentPath;
+                } else {
+                    // Path Google Drive -> ubah menjadi URL view
+                    /** @var FilesystemAdapter $googleDisk */
+                    $googleDisk = Storage::disk('google');
+                    /** @var \Masbug\Flysystem\GoogleDriveAdapter $googleDriveAdapter */
+                    $googleDriveAdapter = $googleDisk->getAdapter();
+                    $driveUrl = (string) $googleDriveAdapter->getUrl($documentPath);
+                    $queryString = parse_url($driveUrl, PHP_URL_QUERY);
+                    parse_str(is_string($queryString) ? $queryString : '', $query);
 
-            parse_str(parse_url($url, PHP_URL_QUERY), $query);
-
-            if (!empty($query['id'])) {
-                $link = "https://drive.google.com/file/d/{$query['id']}/view";
+                    if (!empty($query['id'])) {
+                        $link = "https://drive.google.com/file/d/{$query['id']}/view";
+                    }
+                }
+            } catch (\Throwable $e) {
+                $link = '';
             }
         }
-    } catch (\Throwable $e) {
-        $link = '';
-    }
-}
 
-    return [
-        $item->jenisDokumen?->nama,
-        $item->judul,
-        $item->mitra?->nama_mitra,
-        $item->jenis,
-        $item->prodis->pluck('nama_prodi')->implode(', '),
-        $item->bidang?->bidang_kerjasama,
-        $item->nomor_dokumen,
-        $item->tahun,
-        optional($item->tanggal_awal)->format('d/m/Y'),
-        optional($item->tanggal_akhir)->format('d/m/Y'),
-        $item->status,
-        $link,
-    ];
-}
+        return [
+            $item->jenisDokumen?->nama,
+            $item->judul,
+            $item->mitra?->nama_mitra,
+            $item->jenis,
+            $item->prodis->pluck('nama_prodi')->implode(', '),
+            $item->bidang?->bidang_kerjasama,
+            $item->nomor_dokumen,
+            $item->tahun,
+            optional($item->tanggal_awal)->format('d/m/Y'),
+            optional($item->tanggal_akhir)->format('d/m/Y'),
+            $item->status,
+            $link,
+        ];
+    }
 
     public function headings(): array
 {
@@ -101,7 +110,7 @@ public function registerEvents(): array
 
                 $url = $sheet->getCell("L{$row}")->getValue();
 
-                if (!empty($url)) {
+                if (is_string($url) && $url !== '') {
 
                     $sheet->setCellValue("L{$row}", "Lihat PDF");
 

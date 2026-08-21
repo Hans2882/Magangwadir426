@@ -35,6 +35,7 @@ class Kerjasama extends Model
         'topdown',
         'link_perbaikan',
         'bukti_kegiatan',
+        'link_laporan_kegiatan',
         'pks_id',
         'status_workflow',
         'jenis_pengajuan',
