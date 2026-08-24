@@ -27,7 +27,7 @@ class IndonesiaMapWidget extends Widget
     protected function baseQuery()
     {
         return DB::table('kerjasama')
-            ->whereIn('kerjasama.jenis_dokumen_id', [1, 3, 4])  // MoU=1, PKS=3, IA=4
+            ->whereIn('kerjasama.jenis_dokumen_id', [1, 3])  // MoU=1, PKS=3
             ->whereNotNull('kerjasama.tanggal_akhir')
             ->whereDate('kerjasama.tanggal_akhir', '>=', now())  // Aktif + Akan Berakhir
             ->whereNotNull('kerjasama.provinsi_id');              // Must have a province
@@ -42,7 +42,6 @@ class IndonesiaMapWidget extends Widget
                 'master_provinsi.id as provinsi_id',
                 DB::raw('SUM(kerjasama.jenis_dokumen_id = 1) as mou_count'),
                 DB::raw('SUM(kerjasama.jenis_dokumen_id = 3) as pks_count'),
-                DB::raw('SUM(kerjasama.jenis_dokumen_id = 4) as ia_count'),
                 DB::raw('count(kerjasama.id) as total')
             )
             ->groupBy('master_provinsi.id', 'master_provinsi.nama_provinsi')
@@ -54,7 +53,6 @@ class IndonesiaMapWidget extends Widget
                 'total'     => (int) $row->total,
                 'mou_count' => (int) $row->mou_count,
                 'pks_count' => (int) $row->pks_count,
-                'ia_count'  => (int) $row->ia_count,
             ];
         }
         return $result;
@@ -73,7 +71,6 @@ class IndonesiaMapWidget extends Widget
                 'master_kota.nama_kota',
                 DB::raw('SUM(kerjasama.jenis_dokumen_id = 1) as mou_count'),
                 DB::raw('SUM(kerjasama.jenis_dokumen_id = 3) as pks_count'),
-                DB::raw('SUM(kerjasama.jenis_dokumen_id = 4) as ia_count'),
                 DB::raw('count(kerjasama.id) as total')
             )
             ->groupBy('master_kota.id', 'master_kota.nama_kota')
@@ -85,7 +82,6 @@ class IndonesiaMapWidget extends Widget
                 'total'     => (int) $row->total,
                 'mou_count' => (int) $row->mou_count,
                 'pks_count' => (int) $row->pks_count,
-                'ia_count'  => (int) $row->ia_count,
             ];
         }
         return $result;

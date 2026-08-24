@@ -104,7 +104,6 @@
                             if (data && total > 0) {
                                 tooltipContent += `<br/><span style='color:#1d4ed8;'>MoU: ${data.mou_count}</span>`;
                                 tooltipContent += `<br/><span style='color:#15803d;'>PKS: ${data.pks_count}</span>`;
-                                tooltipContent += `<br/><span style='color:#b45309;'>IA: ${data.ia_count}</span>`;
                             }
                             
                             layer.bindTooltip(tooltipContent, { sticky: true });
@@ -157,7 +156,6 @@
                                 if (data && total > 0) {
                                     tooltipContent += `<br/><span style='color:#1d4ed8;'>MoU: ${data.mou_count}</span>`;
                                     tooltipContent += `<br/><span style='color:#15803d;'>PKS: ${data.pks_count}</span>`;
-                                    tooltipContent += `<br/><span style='color:#b45309;'>IA: ${data.ia_count}</span>`;
                                 }
                                 layer.bindTooltip(tooltipContent, { sticky: true });
                             }
