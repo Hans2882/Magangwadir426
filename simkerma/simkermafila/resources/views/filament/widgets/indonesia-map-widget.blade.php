@@ -79,7 +79,8 @@
 
                 styleFeature(feature, dataMap, keyField) {
                     let name = this.normalizeName(feature.properties.Propinsi || feature.properties.PROVINSI || feature.properties.name || '');
-                    let count = dataMap[name] || 0;
+                    let data = dataMap[name] || 0;
+                    let count = (typeof data === 'object') ? (data.total || 0) : data;
                     return {
                         fillColor: this.getColor(count),
                         weight: 1,
@@ -97,11 +98,16 @@
                         style: (feature) => this.styleFeature(feature, this.provinceData, 'Propinsi'),
                         onEachFeature: (feature, layer) => {
                             let name = this.normalizeName(feature.properties.Propinsi || feature.properties.PROVINSI || feature.properties.name || '');
-                            let count = this.provinceData[name] || 0;
+                            let data = this.provinceData[name] || null;
+                            let total = data ? data.total : 0;
+                            let tooltipContent = `<b>${name}</b><br/>Total: <b>${total}</b>`;
+                            if (data && total > 0) {
+                                tooltipContent += `<br/><span style='color:#1d4ed8;'>MoU: ${data.mou_count}</span>`;
+                                tooltipContent += `<br/><span style='color:#15803d;'>PKS: ${data.pks_count}</span>`;
+                                tooltipContent += `<br/><span style='color:#b45309;'>IA: ${data.ia_count}</span>`;
+                            }
                             
-                            layer.bindTooltip(`<b>${name}</b><br/>${count} Kerjasama`, {
-                                sticky: true
-                            });
+                            layer.bindTooltip(tooltipContent, { sticky: true });
 
                             layer.on({'click': (e) => this.drillDownToProvince(e, name) });
                         }
@@ -132,15 +138,8 @@
                         this.cityLayer = L.geoJSON(geojson, {
                             style: (feature) => {
                                 let name = (feature.properties.WADMKK || '').toUpperCase();
-                                let count = 0;
-                                if (name.startsWith('KOTA ')) {
-                                    count = cityData[name] || 0;
-                                } else if (name.startsWith('KABUPATEN ')) {
-                                    count = cityData[name] || cityData[name.replace('KABUPATEN ', '')] || 0;
-                                } else {
-                                    count = cityData['KABUPATEN ' + name] || cityData[name] || 0;
-                                }
-                                
+                                let data = cityData[name] || cityData[name.replace('KABUPATEN ', '')] || cityData['KABUPATEN ' + name] || null;
+                                let count = data ? (data.total || 0) : 0;
                                 return {
                                     fillColor: this.getColor(count),
                                     weight: 1,
@@ -151,22 +150,16 @@
                             },
                             onEachFeature: (feature, layer) => {
                                 let name = (feature.properties.WADMKK || '').toUpperCase();
-                                let dbName = name;
-                                let count = 0;
-                                if (name.startsWith('KOTA ')) {
-                                    count = cityData[name] || 0;
-                                    dbName = name;
-                                } else if (name.startsWith('KABUPATEN ')) {
-                                    count = cityData[name] || cityData[name.replace('KABUPATEN ', '')] || 0;
-                                    dbName = name;
-                                } else {
-                                    count = cityData['KABUPATEN ' + name] || cityData[name] || 0;
-                                    dbName = 'KABUPATEN ' + name;
+                                let dbName = name.startsWith('KOTA ') ? name : (name.startsWith('KABUPATEN ') ? name : 'KABUPATEN ' + name);
+                                let data = cityData[name] || cityData[name.replace('KABUPATEN ', '')] || cityData['KABUPATEN ' + name] || null;
+                                let total = data ? (data.total || 0) : 0;
+                                let tooltipContent = `<b>${dbName}</b><br/>Total: <b>${total}</b>`;
+                                if (data && total > 0) {
+                                    tooltipContent += `<br/><span style='color:#1d4ed8;'>MoU: ${data.mou_count}</span>`;
+                                    tooltipContent += `<br/><span style='color:#15803d;'>PKS: ${data.pks_count}</span>`;
+                                    tooltipContent += `<br/><span style='color:#b45309;'>IA: ${data.ia_count}</span>`;
                                 }
-                                
-                                layer.bindTooltip(`<b>${dbName}</b><br/>${count} Kerjasama`, {
-                                    sticky: true
-                                });
+                                layer.bindTooltip(tooltipContent, { sticky: true });
                             }
                         }).addTo(this.map);
                     } catch (err) {

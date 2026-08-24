@@ -18,19 +18,46 @@ class IndonesiaMapWidget extends Widget
         $this->provinceData = $this->fetchProvinceData();
     }
 
+    /**
+     * Base query for active (Aktif + Akan Berakhir) MoU, PKS, IA records.
+     * Location is taken from the kerjasama record itself (kerjasama.provinsi_id /
+     * kerjasama.kota_id), NOT from the mitra.
+     * Only counts records where the kerjasama has a province set.
+     */
+    protected function baseQuery()
+    {
+        return DB::table('kerjasama')
+            ->whereIn('kerjasama.jenis_dokumen_id', [1, 3, 4])  // MoU=1, PKS=3, IA=4
+            ->whereNotNull('kerjasama.tanggal_akhir')
+            ->whereDate('kerjasama.tanggal_akhir', '>=', now())  // Aktif + Akan Berakhir
+            ->whereNotNull('kerjasama.provinsi_id');              // Must have a province
+    }
+
     protected function fetchProvinceData(): array
     {
-        // Only count active MoU (1) and PKS (3), similar to StatusKerjasamaChart
-        return DB::table('kerjasama')
-            ->join('mitra', 'kerjasama.mitra_id', '=', 'mitra.id')
-            ->join('master_provinsi', 'mitra.provinsi_id', '=', 'master_provinsi.id')
-            ->whereIn('kerjasama.jenis_dokumen_id', [1, 3])
-            ->whereNotNull('kerjasama.tanggal_akhir')
-            ->whereDate('kerjasama.tanggal_akhir', '>', now()) // Only Active Kerjasama
-            ->select('master_provinsi.nama_provinsi', DB::raw('count(kerjasama.id) as count'))
-            ->groupBy('master_provinsi.nama_provinsi')
-            ->pluck('count', 'nama_provinsi')
-            ->toArray();
+        $rows = $this->baseQuery()
+            ->join('master_provinsi', 'kerjasama.provinsi_id', '=', 'master_provinsi.id')
+            ->select(
+                'master_provinsi.nama_provinsi',
+                'master_provinsi.id as provinsi_id',
+                DB::raw('SUM(kerjasama.jenis_dokumen_id = 1) as mou_count'),
+                DB::raw('SUM(kerjasama.jenis_dokumen_id = 3) as pks_count'),
+                DB::raw('SUM(kerjasama.jenis_dokumen_id = 4) as ia_count'),
+                DB::raw('count(kerjasama.id) as total')
+            )
+            ->groupBy('master_provinsi.id', 'master_provinsi.nama_provinsi')
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $result[strtoupper($row->nama_provinsi)] = [
+                'total'     => (int) $row->total,
+                'mou_count' => (int) $row->mou_count,
+                'pks_count' => (int) $row->pks_count,
+                'ia_count'  => (int) $row->ia_count,
+            ];
+        }
+        return $result;
     }
 
     /**
@@ -38,17 +65,29 @@ class IndonesiaMapWidget extends Widget
      */
     public function getCityData(string $provinsiName): array
     {
-        return DB::table('kerjasama')
-            ->join('mitra', 'kerjasama.mitra_id', '=', 'mitra.id')
-            ->join('master_kota', 'mitra.kota_id', '=', 'master_kota.id')
-            ->join('master_provinsi', 'master_kota.provinsi_id', '=', 'master_provinsi.id')
-            ->whereIn('kerjasama.jenis_dokumen_id', [1, 3])
-            ->whereNotNull('kerjasama.tanggal_akhir')
-            ->whereDate('kerjasama.tanggal_akhir', '>', now()) // Only Active Kerjasama
-            ->where('master_provinsi.nama_provinsi', 'like', "%{$provinsiName}%")
-            ->select('master_kota.nama_kota', DB::raw('count(kerjasama.id) as count'))
-            ->groupBy('master_kota.nama_kota')
-            ->pluck('count', 'nama_kota')
-            ->toArray();
+        $rows = $this->baseQuery()
+            ->join('master_kota', 'kerjasama.kota_id', '=', 'master_kota.id')
+            ->join('master_provinsi', 'kerjasama.provinsi_id', '=', 'master_provinsi.id')
+            ->where(DB::raw('UPPER(master_provinsi.nama_provinsi)'), 'like', '%' . strtoupper($provinsiName) . '%')
+            ->select(
+                'master_kota.nama_kota',
+                DB::raw('SUM(kerjasama.jenis_dokumen_id = 1) as mou_count'),
+                DB::raw('SUM(kerjasama.jenis_dokumen_id = 3) as pks_count'),
+                DB::raw('SUM(kerjasama.jenis_dokumen_id = 4) as ia_count'),
+                DB::raw('count(kerjasama.id) as total')
+            )
+            ->groupBy('master_kota.id', 'master_kota.nama_kota')
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $result[strtoupper($row->nama_kota)] = [
+                'total'     => (int) $row->total,
+                'mou_count' => (int) $row->mou_count,
+                'pks_count' => (int) $row->pks_count,
+                'ia_count'  => (int) $row->ia_count,
+            ];
+        }
+        return $result;
     }
 }
