@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Utilities\Set;
 
 class PksSpkResource extends Resource
 {
+    use \App\Filament\Resources\Traits\HasKerjasamaLocationFormSchema;
     use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
@@ -41,7 +42,7 @@ class PksSpkResource extends Resource
     {
         // 3 = PKS, 5 = SPK
         return parent::getEloquentQuery()
-            ->with(['mitra'])
+            ->with(['mitra', 'provinsi', 'kota'])
             ->where('jenis', 'Dalam Negeri')
             ->whereIn('jenis_dokumen_id', [3, 5]);
     }
@@ -107,6 +108,7 @@ class PksSpkResource extends Resource
         $set('parent_id', $mou?->id);
     })
     ->required(),
+            ...static::getKerjasamaLocationFormSchema(),
             Forms\Components\Select::make('parent_id')
                 ->label('Referensi MoU')
                 ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
@@ -392,11 +394,11 @@ Forms\Components\Hidden::make('nomor_dokumen')
     )
     ->openUrlInNewTab(),
 
-\Filament\Infolists\Components\TextEntry::make('mitra.provinsiModel.nama_provinsi')
+\Filament\Infolists\Components\TextEntry::make('provinsi.nama_provinsi')
     ->label('Provinsi')
     ->default('-'),
 
-\Filament\Infolists\Components\TextEntry::make('mitra.kotaModel.nama_kota')
+\Filament\Infolists\Components\TextEntry::make('kota.nama_kota')
     ->label('Kota')
     ->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('bidang.bidang_kerjasama')
