@@ -22,6 +22,12 @@ class UsulanKerjasama extends Model
         'usulan_email',
         'usulan_qs_rank',
         'usulan_alamat',
+        'pengusul_nama',
+        'pengusul_nip',
+        'pengusul_jabatan',
+        'pengusul_jurusan',
+        'pengusul_prodi',
+        'nomor_dokumen',
     ];
 
     public function user()

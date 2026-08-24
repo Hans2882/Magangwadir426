@@ -22,9 +22,7 @@ class UsulanKerjasamasTable
                     ->label('Mitra Usulan Baru')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('tipe_inisiasi')
-                    ->label('Tipe Inisiasi')
-                    ->searchable(),
+
                 TextColumn::make('status_usulan')
                     ->label('Status')
                     ->badge()
@@ -47,7 +45,7 @@ class UsulanKerjasamasTable
                 \Filament\Actions\Action::make('download_dokumen')
                     ->label('Download Dokumen')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->url(fn (\App\Models\UsulanKerjasama $record): string => $record->dokumen_pendukung ? asset('storage/' . $record->dokumen_pendukung) : '#')
+                    ->url(fn (\App\Models\UsulanKerjasama $record): string => $record->dokumen_pendukung ? route('view-dokumen', ['path' => $record->dokumen_pendukung]) : '#')
                     ->openUrlInNewTab()
                     ->visible(fn (\App\Models\UsulanKerjasama $record): bool => (bool)$record->dokumen_pendukung),
                 

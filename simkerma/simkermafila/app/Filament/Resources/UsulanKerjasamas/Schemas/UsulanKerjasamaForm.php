@@ -15,17 +15,18 @@ class UsulanKerjasamaForm
                 \Filament\Forms\Components\Hidden::make('user_id')
                     ->default(fn () => auth()->id()),
                     
-                \Filament\Forms\Components\Select::make('tipe_inisiasi')
-                    ->options([
-                        'Bottom-Up' => 'Bottom-Up (Inisiatif Prodi/Jurusan)',
-                        'Top-Down' => 'Top-Down (Inisiatif Wadir/Direktur)',
-                    ])
-                    ->default('Bottom-Up')
-                    ->required()
-                    ->columnSpanFull(),
+                \Filament\Schemas\Components\Section::make('Informasi Dokumen')
+                    ->description('Masukkan nomor surat / dokumen Berita Acara Inisiasi')
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('nomor_dokumen')
+                            ->label('Nomor Dokumen')
+                            ->placeholder('contoh: 123/PL2/KS/2026')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                    ]),
 
-                \Filament\Schemas\Components\Section::make('Data Mitra Baru')
-                    ->description('Masukkan detail mitra baru yang akan diajukan')
+                \Filament\Schemas\Components\Section::make('Data Mitra')
+                    ->description('Masukkan detail mitra yang akan diajukan')
                     ->schema([
                         \Filament\Forms\Components\TextInput::make('usulan_nama_mitra')
                             ->label('Nama Mitra')
@@ -38,39 +39,10 @@ class UsulanKerjasamaForm
                             ->preload()
                             ->optionsLimit(200)
                             ->hint('Kosongkan untuk Mitra Dalam Negeri (Indonesia)'),
-                        \Filament\Forms\Components\Select::make('usulan_kategori_id')
-                            ->label('Kategori (IKU)')
-                            ->relationship('usulanKategori', 'kategori')
-                            ->searchable()
-                            ->preload(),
-                        \Filament\Forms\Components\TextInput::make('usulan_telepon')
-                            ->label('Nomor Telepon')
-                            ->maxLength(50),
-                        \Filament\Forms\Components\TextInput::make('usulan_email')
-                            ->label('Email')
-                            ->email()
-                            ->maxLength(255),
-                        \Filament\Forms\Components\TextInput::make('usulan_qs_rank')
-                            ->label('QS Rank')
-                            ->maxLength(50)
-                            ->hint('Hanya untuk Mitra Luar Negeri'),
                         \Filament\Forms\Components\Textarea::make('usulan_alamat')
                             ->label('Alamat')
+                            ->required()
                             ->columnSpanFull(),
-                        \Filament\Forms\Components\Select::make('usulan_provinsi_id')
-                            ->label('Provinsi')
-                            ->relationship('usulanProvinsiModel', 'nama_provinsi')
-                            ->searchable()
-                            ->preload()
-                            ->live()
-                            ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set) => $set('usulan_kota_id', null)),
-                        \Filament\Forms\Components\Select::make('usulan_kota_id')
-                            ->label('Kota')
-                            ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): \Illuminate\Support\Collection => \App\Models\MasterKota::query()
-                                ->where('provinsi_id', $get('usulan_provinsi_id'))
-                                ->pluck('nama_kota', 'id'))
-                            ->searchable()
-                            ->preload(),
                     ])->columns(2),
 
                 \Filament\Forms\Components\Select::make('kegiatans')
@@ -80,14 +52,32 @@ class UsulanKerjasamaForm
                     ->required()
                     ->label('Bentuk Kegiatan yang Diusulkan'),
 
-                \Filament\Forms\Components\FileUpload::make('dokumen_pendukung')
-                    ->label('Dokumen Berita Acara Inisiasi')
-                    ->helperText(new \Illuminate\Support\HtmlString('Silahkan download template Berita Acara Inisiasi <a href="/templates/berita_acara_inisiasi.docx" target="_blank" style="color: blue; text-decoration: underline;">disini</a>. Isi, tandatangani, dan upload kembali.'))
-                    ->acceptedFileTypes(['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'])
-                    ->maxSize(5120)
-                    ->disk('google')
-                    ->directory('Usulan Inisiasi/' . date('Y/m/d'))
-                    ->required(),
+                \Filament\Schemas\Components\Section::make('Data Pihak Pertama (Pengusul)')
+                    ->description('Masukkan data pengusul yang akan dicetak pada Berita Acara Inisiasi')
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('pengusul_nama')
+                            ->label('Nama Pengusul')
+                            ->required()
+                            ->maxLength(255),
+                        \Filament\Forms\Components\TextInput::make('pengusul_nip')
+                            ->label('NIP Pengusul')
+                            ->required()
+                            ->maxLength(255),
+                        \Filament\Forms\Components\TextInput::make('pengusul_jabatan')
+                            ->label('Jabatan Pengusul')
+                            ->required()
+                            ->maxLength(255),
+                        \Filament\Forms\Components\TextInput::make('pengusul_jurusan')
+                            ->label('Jurusan Pengusul')
+                            ->placeholder('contoh: Jurusan Administrasi Niaga')
+                            ->required()
+                            ->maxLength(255),
+                        \Filament\Forms\Components\TextInput::make('pengusul_prodi')
+                            ->label('Program Studi Pengusul')
+                            ->placeholder('contoh: Program Studi D3 Administrasi Bisnis')
+                            ->required()
+                            ->maxLength(255),
+                    ])->columns(3),
             ]);
     }
 }
