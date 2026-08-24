@@ -19,6 +19,7 @@ use Filament\Schemas\Components\Section;
 
 class MouResource extends Resource
 {
+    use \App\Filament\Resources\Traits\HasKerjasamaLocationFormSchema;
     use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
@@ -41,6 +42,8 @@ class MouResource extends Resource
         return parent::getEloquentQuery()
             ->with([
                 'mitra',
+                'provinsi',
+                'kota',
                 'children.jenisDokumen',
             ])
             ->where('jenis_dokumen_id', 1); // 1 = MoU
@@ -90,6 +93,7 @@ class MouResource extends Resource
                     return \App\Models\Mitra::query()->create($data)->getKey();
                 })
                 ->required(),
+            ...static::getKerjasamaLocationFormSchema(),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(1),
             Forms\Components\Select::make('status_workflow')
                 ->label('Status Proses')
@@ -393,11 +397,11 @@ class MouResource extends Resource
         : null
     )
     ->openUrlInNewTab(),
-\Filament\Infolists\Components\TextEntry::make('mitra.provinsiModel.nama_provinsi')
+\Filament\Infolists\Components\TextEntry::make('provinsi.nama_provinsi')
     ->label('Provinsi')
     ->default('-'),
 
-\Filament\Infolists\Components\TextEntry::make('mitra.kotaModel.nama_kota')
+\Filament\Infolists\Components\TextEntry::make('kota.nama_kota')
     ->label('Kota')
     ->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('bidang.bidang_kerjasama')

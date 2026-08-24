@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class IaResource extends Resource
 {
+    use \App\Filament\Resources\Traits\HasKerjasamaLocationFormSchema;
     use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
@@ -36,7 +37,7 @@ class IaResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['mitra', 'prodis'])
+            ->with(['mitra', 'provinsi', 'kota', 'prodis'])
             ->where('jenis_dokumen_id', 4); // 4 = IA
     }
 
@@ -84,6 +85,7 @@ class IaResource extends Resource
                     return \App\Models\Mitra::query()->create($data)->getKey();
                 })
                 ->required(),
+            ...static::getKerjasamaLocationFormSchema(),
             Forms\Components\Select::make('parent_id')
                 ->label('Referensi MoU')
                 ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
@@ -396,11 +398,11 @@ Forms\Components\Hidden::make('nomor_dokumen')
     )
     ->openUrlInNewTab(),
 
-\Filament\Infolists\Components\TextEntry::make('mitra.provinsiModel.nama_provinsi')
+\Filament\Infolists\Components\TextEntry::make('provinsi.nama_provinsi')
     ->label('Provinsi')
     ->default('-'),
 
-\Filament\Infolists\Components\TextEntry::make('mitra.kotaModel.nama_kota')
+\Filament\Infolists\Components\TextEntry::make('kota.nama_kota')
     ->label('Kota')
     ->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('bidang.bidang_kerjasama')

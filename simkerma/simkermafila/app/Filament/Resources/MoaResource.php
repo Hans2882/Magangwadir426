@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class MoaResource extends Resource
 {
+    use \App\Filament\Resources\Traits\HasKerjasamaLocationFormSchema;
     use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
 
@@ -36,7 +37,7 @@ class MoaResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['mitra'])
+            ->with(['mitra', 'provinsi', 'kota'])
             ->where('jenis', 'Luar Negeri')
             ->where('jenis_dokumen_id', 2);
     }
@@ -82,6 +83,7 @@ class MoaResource extends Resource
                     return \App\Models\Mitra::query()->create($data)->getKey();
                 })
                 ->required(),
+            ...static::getKerjasamaLocationFormSchema(),
             Forms\Components\Hidden::make('jenis')->default('Luar Negeri'),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(2),
             Forms\Components\Select::make('status_workflow')
@@ -302,6 +304,8 @@ Forms\Components\Hidden::make('nomor_dokumen')
                 ->schema([
                     \Filament\Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('provinsi.nama_provinsi')->label('Provinsi')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('kota.nama_kota')->label('Kota')->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('prodis.nama_prodi')
                         ->label('Program Studi')
                         ->badge()

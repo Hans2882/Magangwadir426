@@ -23,6 +23,8 @@ class Kerjasama extends Model
     protected $fillable = [
         'parent_id',
         'mitra_id',
+        'provinsi_id',
+        'kota_id',
         'jenis',
         'judul',
         'nomor_dokumen',
@@ -51,6 +53,16 @@ class Kerjasama extends Model
     public function mitra(): BelongsTo
     {
         return $this->belongsTo(Mitra::class, 'mitra_id');
+    }
+
+    public function provinsi(): BelongsTo
+    {
+        return $this->belongsTo(MasterProvinsi::class, 'provinsi_id');
+    }
+
+    public function kota(): BelongsTo
+    {
+        return $this->belongsTo(MasterKota::class, 'kota_id');
     }
 
     public function jenisDokumen(): BelongsTo
