@@ -8,4 +8,9 @@ use Filament\Resources\Pages\EditRecord;
 class EditMitraAwardPeriod extends EditRecord
 {
     protected static string $resource = MitraAwardPeriodResource::class;
+
+    protected function getAllRelationManagers(): array
+    {
+        return [];
+    }
 }

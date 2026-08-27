@@ -23,6 +23,11 @@ class ScoresRelationManager extends RelationManager
 
     protected static ?string $title = 'Peserta dan Penilaian';
 
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema->schema([
