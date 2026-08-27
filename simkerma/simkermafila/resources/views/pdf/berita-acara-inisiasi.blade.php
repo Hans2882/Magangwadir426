@@ -206,6 +206,9 @@
             @foreach($kegiatans as $kegiatan)
                 <li>{{ $kegiatan->bidang_kerjasama }}</li>
             @endforeach
+            @foreach($kegiatanLainnya ?? [] as $lainnya)
+                <li>{{ $lainnya }}</li>
+            @endforeach
         </ol>
 
         <p>{{ $record->pengusul_jurusan ?? '-' }} melalui {{ $record->pengusul_prodi ?? '-' }} telah melakukan komunikasi awal dengan pihak mitra dan mendapatkan respon positif. Diharapkan rencana ini dapat ditindaklanjuti ke tahap fasilitasi oleh Wakil Direktur IV untuk proses administrasi kerja sama sesuai prosedur yang berlaku di Politeknik Negeri Malang.</p>

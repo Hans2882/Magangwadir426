@@ -24,10 +24,14 @@ class EditUsulanKerjasama extends EditRecord
         // Fetch the related activities
         $kegiatans = $record->kegiatans;
 
+        // Custom activities stored on the proposal row only (not in master_kegiatan)
+        $kegiatanLainnya = $record->kegiatan_lainnya ?? [];
+
         // Generate PDF
         $pdf = app('dompdf.wrapper')->loadView('pdf.berita-acara-inisiasi', [
             'record' => $record,
-            'kegiatans' => $kegiatans
+            'kegiatans' => $kegiatans,
+            'kegiatanLainnya' => $kegiatanLainnya,
         ]);
 
         // Clean filename and upload to Google Drive

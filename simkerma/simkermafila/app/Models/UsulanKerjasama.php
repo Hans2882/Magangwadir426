@@ -28,6 +28,11 @@ class UsulanKerjasama extends Model
         'pengusul_jurusan',
         'pengusul_prodi',
         'nomor_dokumen',
+        'kegiatan_lainnya',
+    ];
+
+    protected $casts = [
+        'kegiatan_lainnya' => 'array',
     ];
 
     public function user()

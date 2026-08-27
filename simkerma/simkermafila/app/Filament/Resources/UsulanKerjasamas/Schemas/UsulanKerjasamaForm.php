@@ -49,8 +49,16 @@ class UsulanKerjasamaForm
                     ->relationship('kegiatans', 'bidang_kerjasama')
                     ->multiple()
                     ->preload()
-                    ->required()
-                    ->label('Bentuk Kegiatan yang Diusulkan'),
+                    ->requiredWithout('kegiatan_lainnya')
+                    ->label('Bentuk Kegiatan yang Diusulkan')
+                    ->helperText('Pilih dari daftar kegiatan yang tersedia. Isi minimal salah satu antara daftar ini atau "Kegiatan Lainnya".'),
+
+                \Filament\Forms\Components\TagsInput::make('kegiatan_lainnya')
+                    ->label('Kegiatan Lainnya (Manual)')
+                    ->placeholder('Ketik kegiatan lalu tekan Enter')
+                    ->helperText('Untuk kegiatan yang belum ada di daftar.')
+                    ->requiredWithout('kegiatans')
+                    ->columnSpanFull(),
 
                 \Filament\Schemas\Components\Section::make('Data Pihak Pertama (Pengusul)')
                     ->description('Masukkan data pengusul yang akan dicetak pada Berita Acara Inisiasi')
