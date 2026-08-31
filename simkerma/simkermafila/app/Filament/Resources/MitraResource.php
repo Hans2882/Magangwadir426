@@ -3,11 +3,11 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MitraResource\Pages;
+use App\Filament\Resources\MitraResource\RelationManagers\KerjasamasRelationManager;
 use App\Models\Mitra;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Infolists;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -16,9 +16,9 @@ class MitraResource extends Resource
 {
     protected static ?string $model = Mitra::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-building-office-2';
 
-    protected static ?string $navigationGroup = 'Data Mitra';
+    protected static \UnitEnum|string|null $navigationGroup = 'Data Mitra';
 
     protected static ?string $navigationLabel = 'Data Mitra';
 
@@ -28,9 +28,9 @@ class MitraResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->schema([
             Forms\Components\TextInput::make('nama_mitra')
                 ->label('Nama Mitra')
                 ->required()
@@ -40,6 +40,7 @@ class MitraResource extends Resource
                 ->relationship('negara', 'nama_negara')
                 ->searchable()
                 ->preload()
+                ->optionsLimit(200)
                 ->hint('Kosongkan untuk Mitra Dalam Negeri (Indonesia)'),
             Forms\Components\Select::make('kategori_id')
                 ->label('Kategori (IKU)')
@@ -60,6 +61,20 @@ class MitraResource extends Resource
             Forms\Components\Textarea::make('alamat')
                 ->label('Alamat')
                 ->columnSpanFull(),
+            Forms\Components\Select::make('provinsi_id')
+                ->label('Provinsi')
+                ->relationship('provinsiModel', 'nama_provinsi')
+                ->searchable()
+                ->preload()
+                ->live()
+                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set) => $set('kota_id', null)),
+            Forms\Components\Select::make('kota_id')
+                ->label('Kota')
+                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): \Illuminate\Support\Collection => \App\Models\MasterKota::query()
+                    ->where('provinsi_id', $get('provinsi_id'))
+                    ->pluck('nama_kota', 'id'))
+                ->searchable()
+                ->preload(),
         ]);
     }
 
@@ -67,7 +82,7 @@ class MitraResource extends Resource
     {
         return $table
             ->recordAction(null)
-            ->recordUrl(fn ($record) => Pages\ViewMitra::getUrl([$record->id]))
+            ->recordUrl(fn ($record) => static::getUrl('view', ['record' => $record]))
             ->columns([
                 Tables\Columns\TextColumn::make('nama_mitra')
                     ->label('Nama Mitra')
@@ -77,7 +92,9 @@ class MitraResource extends Resource
                     ->label('Kategori')
                     ->searchable()
                     ->sortable()
-                    ->default('-'),
+                    ->default('-')
+                    ->badge()
+                    ->color('primary'),
                 Tables\Columns\TextColumn::make('telepon')
                     ->label('No. Telepon')
                     ->default('-'),
@@ -90,31 +107,44 @@ class MitraResource extends Resource
                     ->default('-'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
-            ->filters([])
+            ->paginated([10, 25, 50, 100])
+            ->filters([
+    Tables\Filters\SelectFilter::make('kategori_id')
+        ->label('Kategori IKU')
+        ->relationship('kategori', 'kategori')
+        ->searchable()
+        ->preload(),
+])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();
     }
 
-    public static function infolist(Infolist $infolist): Infolist
+    public static function infolist(Schema $schema): Schema
     {
-        return $infolist->schema([
-            Infolists\Components\Section::make('Detail Mitra')
+        return $schema->schema([
+            \Filament\Schemas\Components\Section::make('Detail Mitra')->columnSpan('full')
                 ->schema([
-                    Infolists\Components\TextEntry::make('nama_mitra')->label('Nama Mitra'),
-                    Infolists\Components\TextEntry::make('negara.nama_negara')
+                    \Filament\Infolists\Components\TextEntry::make('nama_mitra')->label('Nama Mitra'),
+                    \Filament\Infolists\Components\TextEntry::make('negara.nama_negara')
                         ->label('Negara')
                         ->default('Indonesia')
                         ->visible(fn ($record) => $record->negara_id >= 1),
-                    Infolists\Components\TextEntry::make('kategori.kategori')->label('Kategori IKU')->default('-'),
-                    Infolists\Components\TextEntry::make('telepon')->label('No. Telepon')->default('-'),
-                    Infolists\Components\TextEntry::make('email')->label('Email')->default('-'),
-                    Infolists\Components\TextEntry::make('qs_rank')->label('QS Rank')->default('-')
+                    \Filament\Infolists\Components\TextEntry::make('kategori.kategori')
+                        ->label('Kategori IKU')
+                        ->default('-')
+                        ->badge()
+                        ->color('primary'),
+                    \Filament\Infolists\Components\TextEntry::make('telepon')->label('No. Telepon')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('email')->label('Email')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('qs_rank')->label('QS Rank')->default('-')
                         ->visible(fn ($record) => $record->negara_id >= 1),
-                    Infolists\Components\TextEntry::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('alamat')->label('Alamat')->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('kotaModel.nama_kota')->label('Kota')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('provinsiModel.nama_provinsi')->label('Provinsi')->default('-'),
                 ])
                 ->columns(2),
         ]);
@@ -122,7 +152,9 @@ class MitraResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            KerjasamasRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

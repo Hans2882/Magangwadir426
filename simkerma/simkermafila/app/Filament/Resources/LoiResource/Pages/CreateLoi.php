@@ -8,4 +8,10 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateLoi extends CreateRecord
 {
     protected static string $resource = LoiResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
 }

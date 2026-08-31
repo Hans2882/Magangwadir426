@@ -19,6 +19,10 @@ class Mitra extends Model
         'telepon',
         'email',
         'alamat',
+        'kota',
+        'provinsi',
+        'provinsi_id',
+        'kota_id',
         'pic',
     ];
 
@@ -30,9 +34,14 @@ class Mitra extends Model
         return $this->nama_mitra ?? '';
     }
 
-    public function kerjasama(): HasMany
+    public function kerjasamas(): HasMany
+{
+    return $this->hasMany(Kerjasama::class, 'mitra_id');
+}
+
+    public function awardScores(): HasMany
     {
-        return $this->hasMany(Kerjasama::class, 'mitra_id');
+        return $this->hasMany(MitraAwardScore::class, 'mitra_id');
     }
 
     public function negara(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -43,5 +52,15 @@ class Mitra extends Model
     public function kategori(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(MasterMitraIku::class, 'kategori_id');
+    }
+
+    public function provinsiModel(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(MasterProvinsi::class, 'provinsi_id');
+    }
+
+    public function kotaModel(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(MasterKota::class, 'kota_id');
     }
 }

@@ -6,32 +6,67 @@ use App\Models\Kerjasama;
 use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
 
+use Livewire\Attributes\On;
+
 class PertumbuhanMouAktifChart extends ChartWidget
 {
-    protected static ?string $heading = 'Pertumbuhan Kerjasama Aktif';
+    protected ?string $heading = 'Pertumbuhan Kerjasama Aktif';
 
-    protected static ?string $description = 'Jumlah MoU, PKS, dan IA aktif per bulan';
+    protected ?string $description = 'Jumlah MoU, PKS, dan IA aktif per bulan';
 
-    protected static ?int $sort = 5;
+    protected static ?int $sort = 6;
 
-    protected static ?string $maxHeight = '320px';
+    protected ?string $maxHeight = '320px';
 
     protected int | string | array $columnSpan = 2;
 
-    public ?string $filter = null;
+    public ?string $preset = 'this_year';
+    public ?string $startYear = null;
+    public ?string $endYear = null;
 
-    public function mount(): void
+    #[On('filter-updated')]
+    public function updateFilter($preset, $startYear = null, $endYear = null)
     {
-        parent::mount();
-
-        if (blank($this->filter)) {
-            $this->filter = (string) now()->year;
-        }
+        $this->preset = $preset;
+        $this->startYear = $startYear;
+        $this->endYear = $endYear;
     }
 
     protected function getData(): array
     {
-        $year = $this->filter ?? now()->year;
+        $preset = $this->preset;
+        $startYear = now()->year;
+        $endYear = now()->year;
+
+        if ($preset === 'last_1_year') {
+            $startYear = now()->year - 1;
+        } elseif ($preset === 'last_5_years') {
+            $startYear = now()->year - 5;
+        } elseif ($preset === 'last_10_years') {
+            $startYear = now()->year - 10;
+        } elseif ($preset === 'all_time') {
+            $startYear = 2000;
+        } elseif ($preset === 'custom') {
+            $startYear = (int) ($this->startYear ?? now()->year);
+            $endYear = (int) ($this->endYear ?? now()->year);
+        }
+
+        if ($startYear > $endYear) {
+            $temp = $startYear;
+            $startYear = $endYear;
+            $endYear = $temp;
+        }
+
+        $labels = [];
+        $monthPoints = [];
+        $current = Carbon::create($startYear, 1, 1)->startOfMonth();
+        $end = Carbon::create($endYear, 12, 1)->endOfMonth();
+
+        while ($current->lte($end)) {
+            $labels[] = $this->monthLabel($current->month) . ' ' . $current->year;
+            $monthPoints[] = ['year' => $current->year, 'month' => $current->month];
+            $current->addMonth();
+        }
 
         $datasets = [];
         $documentTypes = [
@@ -43,15 +78,16 @@ class PertumbuhanMouAktifChart extends ChartWidget
         foreach ($documentTypes as $documentTypeId => $config) {
             $monthlyGrowth = [];
 
-            for ($month = 1; $month <= 12; $month++) {
-                $startOfMonth = Carbon::create($year, $month, 1)->startOfMonth();
+            foreach ($monthPoints as $point) {
+                $startOfMonth = Carbon::create($point['year'], $point['month'], 1)->startOfMonth();
                 $endOfMonth = $startOfMonth->copy()->endOfMonth();
 
                 $activeCount = Kerjasama::query()
                     ->where('jenis_dokumen_id', $documentTypeId)
-                    ->whereNotNull('tanggal_akhir')
-                    ->whereDate('tanggal_akhir', '>=', $startOfMonth)
-                    ->whereDate('tanggal_akhir', '<=', $endOfMonth)
+                    ->whereDate('tanggal_awal', '<=', $endOfMonth)
+                    ->where(function ($query) use ($endOfMonth): void {
+                        $query->whereNull('tanggal_akhir')->orWhereDate('tanggal_akhir', '>=', $endOfMonth);
+                    })
                     ->count();
 
                 $monthlyGrowth[] = $activeCount;
@@ -74,7 +110,7 @@ class PertumbuhanMouAktifChart extends ChartWidget
         return [
             'type' => 'line',
             'datasets' => $datasets,
-            'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],
+            'labels' => $labels,
         ];
     }
 
@@ -93,21 +129,22 @@ class PertumbuhanMouAktifChart extends ChartWidget
         return "rgba($r, $g, $b, $opacity)";
     }
 
-    protected function getFilters(): ?array
+    protected function monthLabel(int $month): string
     {
-        $years = Kerjasama::query()
-            ->select('tahun')
-            ->distinct()
-            ->orderBy('tahun')
-            ->pluck('tahun')
-            ->map(fn ($year) => (string) $year)
-            ->all();
-
-        if (empty($years)) {
-            $years = [(string) now()->year];
-        }
-
-        return array_combine($years, $years);
+        return match ($month) {
+            1 => 'Jan',
+            2 => 'Feb',
+            3 => 'Mar',
+            4 => 'Apr',
+            5 => 'Mei',
+            6 => 'Jun',
+            7 => 'Jul',
+            8 => 'Agu',
+            9 => 'Sep',
+            10 => 'Okt',
+            11 => 'Nov',
+            default => 'Des',
+        };
     }
 
     protected function getType(): string

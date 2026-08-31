@@ -27,6 +27,8 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->favicon(asset('favicon.png'))
+            ->brandLogoHeight('3rem')
             ->login()
             ->sidebarCollapsibleOnDesktop()
             ->databaseNotifications()
@@ -42,7 +44,10 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 'Data Mitra',
                 'Data Kerjasama',
+                'Pelaporan & Tracking',
+                'Inisiasi Kerjasama',
                 'Simmagang',
+                'Mitra Awards',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -52,12 +57,16 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([])
             ->userMenuItems([
-    'privilege' => MenuItem::make()
-        ->label(fn () => auth()->user()->userPrivilege?->privilege?->nama ?? '-'),
+                'privilege' => MenuItem::make()
+                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama ?: 'Privilege')
+                    ->icon(fn () => \Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama === 'WADIR 4' ? 'heroicon-o-star' : 'heroicon-o-shield-check')
+                    ->visible(fn () => filled(\Illuminate\Support\Facades\Auth::user()->userPrivilege?->privilege?->nama))
+                    ->url(fn (): string => \App\Filament\Resources\UserResource::getUrl('edit', ['record' => \Illuminate\Support\Facades\Auth::user()])),
 
-    'prodi' => MenuItem::make()
-        ->label(fn () => auth()->user()->userProgramStudi?->programStudi?->nama_prodi ?? '-'),
-])
+                'prodi' => MenuItem::make()
+                    ->label(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi ?: 'Program Studi')
+                    ->visible(fn () => \Illuminate\Support\Facades\Auth::user()->userProgramStudi?->programStudi?->nama_prodi !== null),
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

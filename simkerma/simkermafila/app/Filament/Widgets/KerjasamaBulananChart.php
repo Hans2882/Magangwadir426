@@ -5,129 +5,138 @@ namespace App\Filament\Widgets;
 use App\Models\Kerjasama;
 use Filament\Widgets\ChartWidget;
 
+use Livewire\Attributes\On;
+
 class KerjasamaBulananChart extends ChartWidget
 {
-    protected static ?string $heading = 'Perkembangan Kerjasama per Bulan';
+    protected ?string $heading = 'Perkembangan Kerjasama per Bulan';
 
-    protected static ?string $description = 'Data bulanan untuk MoU, PKS, dan IA';
+    protected ?string $description = 'Data bulanan untuk MoU, PKS, dan IA';
 
-    protected static ?int $sort = 4;
+    protected static ?int $sort = 5;
 
-    protected static ?string $maxHeight = '380px';
+    protected ?string $maxHeight = '380px';
 
     protected int | string | array $columnSpan = 2;
 
-    public ?string $filter = null;
+    public ?string $preset = 'this_year';
+    public ?string $startYear = null;
+    public ?string $endYear = null;
 
-    public function mount(): void
+    #[On('filter-updated')]
+    public function updateFilter($preset, $startYear = null, $endYear = null)
     {
-        parent::mount();
-
-        if (blank($this->filter)) {
-            $this->filter = (string) now()->year;
-        }
+        $this->preset = $preset;
+        $this->startYear = $startYear;
+        $this->endYear = $endYear;
     }
 
     protected function getData(): array
     {
-        $year = $this->filter ?? $this->getDefaultYear();
+        $preset = $this->preset;
+        $startYear = now()->year;
+        $endYear = now()->year;
 
-        $mouData = $this->buildMonthlyCounts($year, 1);
-        $pksData = $this->buildMonthlyCounts($year, 3);
-        $iaData = $this->buildMonthlyCounts($year, 4);
+        if ($preset === 'last_1_year') {
+            $startYear = now()->year - 1;
+        } elseif ($preset === 'last_5_years') {
+            $startYear = now()->year - 5;
+        } elseif ($preset === 'last_10_years') {
+            $startYear = now()->year - 10;
+        } elseif ($preset === 'all_time') {
+            $startYear = 2000;
+        } elseif ($preset === 'custom') {
+            $startYear = (int) ($this->startYear ?? now()->year);
+            $endYear = (int) ($this->endYear ?? now()->year);
+        }
+
+        if ($startYear > $endYear) {
+            $temp = $startYear;
+            $startYear = $endYear;
+            $endYear = $temp;
+        }
+
+        $labels = [];
+        $monthPoints = [];
+        $current = \Carbon\Carbon::create($startYear, 1, 1)->startOfMonth();
+        $end = \Carbon\Carbon::create($endYear, 12, 1)->endOfMonth();
+
+        while ($current->lte($end)) {
+            $labels[] = $this->monthLabel($current->month) . ' ' . $current->year;
+            $monthPoints[] = ['year' => $current->year, 'month' => $current->month];
+            $current->addMonth();
+        }
+
+        $datasets = [];
+        $documentTypes = [
+            1 => ['label' => 'MoU', 'color' => '#2563eb'],
+            3 => ['label' => 'PKS', 'color' => '#16a34a'],
+            4 => ['label' => 'IA', 'color' => '#f59e0b'],
+        ];
+
+        foreach ($documentTypes as $documentTypeId => $config) {
+            $data = [];
+
+            foreach ($monthPoints as $point) {
+                $data[] = Kerjasama::query()
+                    ->where('jenis_dokumen_id', $documentTypeId)
+                    ->whereYear('tanggal_awal', $point['year'])
+                    ->whereMonth('tanggal_awal', $point['month'])
+                    ->count();
+            }
+
+            $datasets[] = [
+                'label' => $config['label'],
+                'data' => $data,
+                'borderColor' => $config['color'],
+                'backgroundColor' => $this->hexToRgba($config['color'], 0.16),
+                'pointBackgroundColor' => $config['color'],
+                'pointBorderColor' => '#ffffff',
+                'pointRadius' => 4,
+                'pointHoverRadius' => 6,
+                'fill' => false,
+                'tension' => 0.3,
+            ];
+        }
 
         return [
             'type' => 'line',
-            'datasets' => [
-                [
-                    'label' => 'MoU',
-                    'data' => $mouData,
-                    'borderColor' => '#2563eb',
-                    'backgroundColor' => 'rgba(37, 99, 235, 0.16)',
-                    'pointBackgroundColor' => '#2563eb',
-                    'pointBorderColor' => '#ffffff',
-                    'pointRadius' => 4,
-                    'pointHoverRadius' => 6,
-                    'fill' => false,
-                    'tension' => 0.3,
-                ],
-                [
-                    'label' => 'PKS',
-                    'data' => $pksData,
-                    'borderColor' => '#16a34a',
-                    'backgroundColor' => 'rgba(22, 163, 74, 0.16)',
-                    'pointBackgroundColor' => '#16a34a',
-                    'pointBorderColor' => '#ffffff',
-                    'pointRadius' => 4,
-                    'pointHoverRadius' => 6,
-                    'fill' => false,
-                    'tension' => 0.3,
-                ],
-                [
-                    'label' => 'IA',
-                    'data' => $iaData,
-                    'borderColor' => '#f59e0b',
-                    'backgroundColor' => 'rgba(245, 158, 11, 0.16)',
-                    'pointBackgroundColor' => '#f59e0b',
-                    'pointBorderColor' => '#ffffff',
-                    'pointRadius' => 4,
-                    'pointHoverRadius' => 6,
-                    'fill' => false,
-                    'tension' => 0.3,
-                ],
-            ],
-            'labels' => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'],
+            'datasets' => $datasets,
+            'labels' => $labels,
         ];
     }
 
-    protected function buildMonthlyCounts(string $year, int $jenisDokumenId): array
+    protected function monthLabel(int $month): string
     {
-        $months = Kerjasama::query()
-            ->where('tahun', $year)
-            ->where('jenis_dokumen_id', $jenisDokumenId)
-            ->pluck('tanggal_awal')
-            ->filter(fn ($date) => $date !== null)
-            ->map(fn ($date) => (int) $date->format('m'))
-            ->values()
-            ->all();
-
-        $monthlyCounts = array_fill(1, 12, 0);
-
-        foreach ($months as $month) {
-            if (isset($monthlyCounts[$month])) {
-                $monthlyCounts[$month]++;
-            }
-        }
-
-        return array_values($monthlyCounts);
+        return match ($month) {
+            1 => 'Jan',
+            2 => 'Feb',
+            3 => 'Mar',
+            4 => 'Apr',
+            5 => 'Mei',
+            6 => 'Jun',
+            7 => 'Jul',
+            8 => 'Agu',
+            9 => 'Sep',
+            10 => 'Okt',
+            11 => 'Nov',
+            default => 'Des',
+        };
     }
 
-    protected function getFilters(): ?array
+    protected function hexToRgba(string $hex, float $opacity): string
     {
-        $years = Kerjasama::query()
-            ->select('tahun')
-            ->distinct()
-            ->orderBy('tahun')
-            ->pluck('tahun')
-            ->map(fn ($year) => (string) $year)
-            ->all();
+        $hex = ltrim($hex, '#');
 
-        if (empty($years)) {
-            $years = [(string) now()->year];
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
         }
 
-        return array_combine($years, $years);
-    }
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
 
-    protected function getDefaultYear(): string
-    {
-        $years = $this->getFilters();
-
-        if ($years && in_array((string) now()->year, array_keys($years), true)) {
-            return (string) now()->year;
-        }
-
-        return $years ? (string) array_key_first($years) : (string) now()->year;
+        return "rgba($r, $g, $b, $opacity)";
     }
 
     protected function getType(): string

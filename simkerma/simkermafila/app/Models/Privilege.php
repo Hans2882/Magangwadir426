@@ -7,4 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class Privilege extends Model
 {
     protected $table = 'privileges';
+
+    protected $guarded = [];
 }

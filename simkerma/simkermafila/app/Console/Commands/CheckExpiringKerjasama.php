@@ -21,24 +21,23 @@ class CheckExpiringKerjasama extends Command
      *
      * @var string
      */
-    protected $description = 'Check for Kerjasama expiring in 30 or 60 days and notify admins.';
+    protected $description = 'Check for Kerjasama expiring in exactly 4 months and notify users.';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $sixtyDays = now()->addDays(60)->format('Y-m-d');
-        $thirtyDays = now()->addDays(30)->format('Y-m-d');
+        $fourMonths = now()->addMonths(4)->format('Y-m-d');
 
         $expiring = Kerjasama::with('mitra')
             ->whereNotNull('tanggal_akhir')
-            ->whereIn('tanggal_akhir', [$sixtyDays, $thirtyDays])
+            ->whereDate('tanggal_akhir', $fourMonths)
             ->get();
         $users = User::all();
 
         if ($expiring->isEmpty()) {
-            $this->info('No Kerjasama expiring in exactly 30 or 60 days today.');
+            $this->info('No Kerjasama expiring in exactly 4 months today.');
             return;
         }
 

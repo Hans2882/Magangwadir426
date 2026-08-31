@@ -5,9 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\LoiResource\Pages;
 use App\Models\Kerjasama;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Infolists;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -18,9 +17,9 @@ class LoiResource extends Resource
 {
     protected static ?string $model = Kerjasama::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Data Kerjasama';
+    protected static \UnitEnum|string|null $navigationGroup = 'Data Kerjasama';
 
     protected static ?string $navigationLabel = 'Data LoI';
 
@@ -30,7 +29,7 @@ class LoiResource extends Resource
 
     protected static ?string $slug = 'data-loi';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 5;
 
     public static function getEloquentQuery(): Builder
     {
@@ -40,9 +39,9 @@ class LoiResource extends Resource
             ->where('jenis_dokumen_id', 7);
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->schema([
             Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255),
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
@@ -52,21 +51,38 @@ class LoiResource extends Resource
                 ->required(),
             Forms\Components\Hidden::make('jenis')->default('Luar Negeri'),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(7),
+            Forms\Components\Select::make('status_workflow')
+                ->label('Status Proses')
+                ->options([
+                    'Draft' => 'Draft (Sedang Disusun)',
+                    'Review Internal' => 'Review Internal',
+                    'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
+                    'Selesai' => 'Selesai (Aktif)',
+                ])
+                ->default('Draft')
+                ->live()
+                ->required(),
+            Forms\Components\Select::make('jenis_pengajuan')
+                ->label('Jenis Pengajuan')
+                ->options([
+                    'Baru' => 'Dokumen Baru',
+                    'Perpanjangan' => 'Perpanjangan (Extension)',
+                ])
+                ->default('Baru')
+                ->required(),
             Forms\Components\TextInput::make('nomor_dokumen')->label('Nomor Dokumen')->maxLength(200),
-            Forms\Components\TextInput::make('tahun')->label('Tahun')->maxLength(10),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Awal'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir'),
+            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
             Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
             Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),
-            Forms\Components\TextInput::make('link_dokumen')->label('Link Dokumen')->url()->maxLength(500),
+            Forms\Components\TextInput::make('link_dokumen')->label('Link Dokumen')->url()->maxLength(500)->required(fn ($get) => $get('status_workflow') === 'Selesai'),
         ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->recordAction(null)
-            ->recordUrl(fn ($record) => Pages\ViewLoi::getUrl([$record->id]))
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('status_workflow', 'Selesai'))
             ->columns([
                 Tables\Columns\TextColumn::make('judul')
                     ->label('Judul')
@@ -74,14 +90,11 @@ class LoiResource extends Resource
                     ->sortable()
                     ->limit(50)
                     ->tooltip(fn ($record) => $record->judul),
-                Tables\Columns\ViewColumn::make('link_dokumen')
-                    ->label('Dokumen')
-                    ->view('filament.tables.columns.link-dokumen'),
                 Tables\Columns\TextColumn::make('mitra.nama_mitra')
                     ->label('Nama Mitra')
                     ->searchable()
                     ->sortable()
-                    ->limit(40)
+                    ->limit(50)
                     ->tooltip(fn ($record) => $record->mitra?->nama_mitra)
                     ->default('-'),
                 Tables\Columns\TextColumn::make('nomor_dokumen')
@@ -106,35 +119,41 @@ class LoiResource extends Resource
                     ->getStateUsing(fn (Model $record) => $record->status)
                     ->colors([
                         'success' => 'AKTIF',
-                        'danger'  => 'HABIS',
-                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'HABIS']),
+                        'danger'  => 'BERAKHIR',
+                        'warning' => fn ($state) => !in_array($state, ['AKTIF', 'BERAKHIR']),
                     ]),
+            ])
+            ->paginated([10, 25, 50, 100])
+            ->actions([
+                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
             ->defaultSort('created_at', 'desc')
             ->striped();
     }
 
-    public static function infolist(Infolist $infolist): Infolist
+    public static function infolist(Schema $schema): Schema
     {
-        return $infolist->schema([
-            Infolists\Components\Section::make('Detail LoI (Luar Negeri)')
+        return $schema->schema([
+            \Filament\Schemas\Components\Section::make('Detail LoI (Luar Negeri)')->columnSpan('full')
                 ->schema([
-                    Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
-                    Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
-                    Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
-                    Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
-                    Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
-                    Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
-                    Infolists\Components\TextEntry::make('status')->label('Status')->badge()
+                    \Filament\Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')->label('Nama Mitra')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('nomor_dokumen')->label('Nomor Dokumen')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
+                    \Filament\Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
+                    \Filament\Infolists\Components\TextEntry::make('status')->label('Status')->badge()
                         ->getStateUsing(fn (Model $record) => $record->status)
-                        ->color(fn ($state) => match($state) {
+                        ->colors([
                             'AKTIF' => 'success',
-                            'HABIS' => 'danger',
-                            default => 'warning',
-                        }),
-                    Infolists\Components\TextEntry::make('link_dokumen')->label('Link Dokumen')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
-                    Infolists\Components\TextEntry::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
-                    Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                            'BERAKHIR' => 'danger',
+                            'AKAN BERAKHIR' => 'warning',
+                        ]),
+                    \Filament\Infolists\Components\TextEntry::make('link_dokumen')->label('Link Dokumen')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
         ]);

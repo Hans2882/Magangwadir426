@@ -9,6 +9,8 @@ class Negara extends Model
 {
     protected $table = 'master_negara';
 
+    public $timestamps = false;
+
     protected $fillable = ['nama_negara'];
 
     public function mitraLuarNegeri(): HasMany

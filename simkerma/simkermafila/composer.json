@@ -7,9 +7,13 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "filament/filament": "3.3.*",
+        "barryvdh/laravel-dompdf": "^3.1",
+        "filament/actions": "^5.7",
+        "filament/filament": "^5.7",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/tinker": "^2.10.1",
+        "maatwebsite/excel": "4.x-dev",
+        "masbug/flysystem-google-drive-ext": "^2.5"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
