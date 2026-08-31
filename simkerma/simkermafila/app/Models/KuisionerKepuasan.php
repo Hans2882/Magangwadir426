@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class KuisionerKepuasan extends Model
 {
@@ -61,4 +62,9 @@ class KuisionerKepuasan extends Model
         'teknologi_informasi' => 'integer',
         'pengembangan_diri' => 'integer',
     ];
+
+    public function followups(): HasMany
+    {
+        return $this->hasMany(KuisionerKepuasanFollowup::class, 'kuisioner_kepuasan_id');
+    }
 }
