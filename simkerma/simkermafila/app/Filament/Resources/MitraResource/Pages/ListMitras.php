@@ -4,7 +4,6 @@ namespace App\Filament\Resources\MitraResource\Pages;
 
 use App\Filament\Resources\MitraResource;
 use App\Models\Mitra;
-use App\Filament\Actions\ApiKeyAction;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use \Filament\Schemas\Components\Tabs\Tab;
@@ -19,14 +18,19 @@ class ListMitras extends ListRecords
     protected static string $resource = MitraResource::class;
 
     protected function getHeaderActions(): array
-    {
-        return [
-            ApiKeyAction::make(),
-            Actions\CreateAction::make()
-                ->label('Tambah Mitra')
-                ->icon('heroicon-o-plus'),
-        ];
-    }
+{
+    return [
+        Actions\Action::make('api')
+            ->label('Lihat API')
+            ->icon('heroicon-o-code-bracket')
+            ->url(fn () => route('api.mitra'))
+            ->openUrlInNewTab(),
+
+        Actions\CreateAction::make()
+            ->label('Tambah Mitra')
+            ->icon('heroicon-o-plus'),
+    ];
+}
 
     public function getTabs(): array
     {
