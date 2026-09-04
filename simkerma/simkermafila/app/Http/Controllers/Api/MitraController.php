@@ -5,11 +5,21 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Mitra;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class MitraController extends Controller
 {
-    public function index(): JsonResponse
-    {
+    public function index(Request $request): JsonResponse
+{
+    $apiKey = $request->query('api_key');
+
+    if ($apiKey !== config('services.web_api.key')) {
+        return response()->json([
+            'success' => false,
+            'message' => 'API Key tidak valid.',
+        ], 401);
+    }
+
         $mitra = Mitra::query()
             ->with([
                 'negara:id,nama_negara',

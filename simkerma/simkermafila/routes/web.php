@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\MitraController;
 
 Route::get('/', \App\Livewire\Landing\CaseStudies::class)->name('home');
 
@@ -25,3 +26,10 @@ Route::get('/view-dokumen', function (\Illuminate\Http\Request $request) {
         return abort(404, 'File tidak ditemukan di Google Drive.');
     }
 })->name('view-dokumen');
+
+Route::get('/api/mitra-docs', function () {
+    return view('api.mitra');
+})->name('api.mitra.docs');
+
+Route::get('/api/mitra', [MitraController::class, 'index'])
+    ->name('api.mitra');

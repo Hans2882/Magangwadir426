@@ -39,4 +39,8 @@ return [
         'api_key' => env('GEMINI_API_KEY'),
     ],
 
+    'web_api' => [
+    'key' => env('WEB_API_KEY'),
+],
+
 ];

@@ -21,10 +21,14 @@ class ListMitras extends ListRecords
 {
     return [
         Actions\Action::make('api')
-            ->label('Lihat API')
-            ->icon('heroicon-o-code-bracket')
-            ->url(fn () => route('api.mitra'))
-            ->openUrlInNewTab(),
+    ->label('Lihat API')
+    ->icon('heroicon-o-code-bracket')
+    ->modalHeading('')
+    ->modalSubmitAction(false)
+    ->modalCancelActionLabel('Tutup')
+    ->modalContent(function () {
+        return view('api.mitra');
+    }),
 
         Actions\CreateAction::make()
             ->label('Tambah Mitra')
