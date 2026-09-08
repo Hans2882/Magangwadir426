@@ -16,6 +16,27 @@ class ListPksSpks extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('api')
+                ->label('Lihat API')
+                ->icon('heroicon-o-code-bracket')
+                ->modalHeading('API Data PKS / SPK')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup')
+                ->modalContent(function () {
+                    $filters = $this->tableFilters ?? [];
+
+                    return view('api.kerjasama', [
+                        'endpoint' => url('/api/pks'),
+                        'label' => 'PKS / SPK',
+                        'filters' => array_filter([
+                            'jenis_dokumen_id' => $filters['jenis_dokumen_id']['value'] ?? null,
+                            'prodi_id' => $filters['prodis']['values'] ?? [],
+                            'bidang_id' => $filters['bidang']['value'] ?? null,
+                            'status' => $filters['status']['value'] ?? null,
+                        ], fn ($value) => $value !== null && $value !== '' && $value !== []),
+                    ]);
+                }),
+
             Action::make('export')
     ->label('Export Excel')
     ->icon('heroicon-o-arrow-down-tray')

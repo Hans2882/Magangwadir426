@@ -18,6 +18,27 @@ class ListIas extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('api')
+                ->label('Lihat API')
+                ->icon('heroicon-o-code-bracket')
+                ->modalHeading('API Data IA')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup')
+                ->modalContent(function () {
+                    $filters = $this->tableFilters ?? [];
+
+                    return view('api.kerjasama', [
+                        'endpoint' => url('/api/ia'),
+                        'label' => 'IA',
+                        'filters' => array_filter([
+                            'prodi_id' => $filters['prodis']['values'] ?? [],
+                            'bidang_id' => $filters['bidang']['value'] ?? null,
+                            'negara_id' => $filters['negara']['value'] ?? null,
+                            'status' => $filters['status']['value'] ?? null,
+                        ], fn ($value) => $value !== null && $value !== '' && $value !== []),
+                    ]);
+                }),
+
             Action::make('export')
     ->label('Export Excel')
     ->icon('heroicon-o-arrow-down-tray')

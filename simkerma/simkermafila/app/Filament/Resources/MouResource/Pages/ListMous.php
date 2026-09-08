@@ -18,6 +18,29 @@ class ListMous extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('api')
+                ->label('Lihat API')
+                ->icon('heroicon-o-code-bracket')
+                ->modalHeading('API Data MoU')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup')
+                ->modalContent(function () {
+                    $filters = $this->tableFilters ?? [];
+                    $activeTab = $this->activeTab ?? 'All';
+
+                    return view('api.kerjasama', [
+                        'endpoint' => url('/api/mou'),
+                        'label' => 'MoU',
+                        'filters' => array_filter([
+                            'jenis' => $activeTab !== 'All' ? $activeTab : null,
+                            'tahun' => $filters['tahun']['value'] ?? null,
+                            'bidang_id' => $filters['bidang']['value'] ?? null,
+                            'negara_id' => $filters['negara']['value'] ?? null,
+                            'status' => $filters['status']['value'] ?? null,
+                        ], fn ($value) => $value !== null && $value !== ''),
+                    ]);
+                }),
+
             Action::make('export')
                 ->label('Export Excel')
                 ->icon('heroicon-o-arrow-down-tray')

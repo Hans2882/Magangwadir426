@@ -16,6 +16,24 @@ class ListMoas extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('api')
+                ->label('Lihat API')
+                ->icon('heroicon-o-code-bracket')
+                ->modalHeading('API Data MoA')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup')
+                ->modalContent(function () {
+                    $filters = $this->tableFilters ?? [];
+
+                    return view('api.kerjasama', [
+                        'endpoint' => url('/api/moa'),
+                        'label' => 'MoA',
+                        'filters' => array_filter([
+                            'negara_id' => $filters['negara']['value'] ?? null,
+                            'status' => $filters['status']['value'] ?? null,
+                        ], fn ($value) => $value !== null && $value !== ''),
+                    ]);
+                }),
 
             Action::make('export')
                 ->label('Export Excel')

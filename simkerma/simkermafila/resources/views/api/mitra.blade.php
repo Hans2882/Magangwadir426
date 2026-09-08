@@ -1,562 +1,367 @@
 <div
     x-data="{
+        endpoint: @js(url('/api/mitra')),
+        apiKey: @js(config('services.web_api.key')),
+        showApiKey: false,
+
         filters: @js($filters ?? []),
         activeTab: @js($activeTab ?? 'dalam_negeri'),
 
-    endpoint: @js(url('/api/mitra')),
-    apiKey: @js(config('services.web_api.key')),
-    showApiKey: false,
+        buildUrl(includeApiKey = false) {
+            const params = new URLSearchParams();
 
-    buildParams(includeApiKey = false) {
-
-        const params = new URLSearchParams();
-
-        /*
-        |--------------------------------------------------------------------------
-        | TAB
-        |--------------------------------------------------------------------------
-        */
-
-        params.append(
-            'tab',
-            this.activeTab === 'luar_negeri'
-                ? 'luar_negeri'
-                : 'dalam_negeri'
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | KATEGORI IKU
-        |--------------------------------------------------------------------------
-        */
-
-        const kategoriId =
-            this.filters?.kategori_id?.value ?? null;
-
-        if (
-            kategoriId !== null &&
-            kategoriId !== ''
-        ) {
-            params.append(
-                'kategori_id',
-                kategoriId
+            params.set(
+                'tab',
+                this.activeTab === 'luar_negeri'
+                    ? 'luar_negeri'
+                    : 'dalam_negeri'
             );
-        }
 
+            const simpleFilters = {
+                kategori_id: this.filters?.kategori_id?.value,
+                negara_id: this.filters?.negara_id?.value,
+                status_kerjasama: this.filters?.status_kerjasama?.value,
+            };
 
-        /*
-        |--------------------------------------------------------------------------
-        | NEGARA
-        |--------------------------------------------------------------------------
-        */
-
-        const negaraId =
-            this.filters?.negara_id?.value ?? null;
-
-        if (
-            negaraId !== null &&
-            negaraId !== ''
-        ) {
-            params.append(
-                'negara_id',
-                negaraId
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS KERJASAMA
-        |--------------------------------------------------------------------------
-        */
-
-        const statusKerjasama =
-            this.filters?.status_kerjasama?.value ?? null;
-
-        if (
-            statusKerjasama !== null &&
-            statusKerjasama !== ''
-        ) {
-            params.append(
-                'status_kerjasama',
-                statusKerjasama
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | JENIS DOKUMEN
-        |--------------------------------------------------------------------------
-        */
-
-        const jenisDokumen =
-            this.filters?.jenis_dokumen?.values ?? [];
-
-        if (Array.isArray(jenisDokumen)) {
-
-            jenisDokumen.forEach(item => {
-
-                if (
-                    item !== null &&
-                    item !== ''
-                ) {
-                    params.append(
-                        'jenis_dokumen[]',
-                        item
-                    );
+            Object.entries(simpleFilters).forEach(([key, value]) => {
+                if (value !== null && value !== undefined && value !== '') {
+                    params.set(key, value);
                 }
-
             });
 
-        }
+            const jenisDokumen =
+                this.filters?.jenis_dokumen?.values ?? [];
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | API KEY
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            includeApiKey &&
-            this.apiKey
-        ) {
-            params.append(
-                'api_key',
-                this.apiKey
-            );
-        }
-
-
-        return params;
-    },
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | FILTERED API URL
-    |--------------------------------------------------------------------------
-    */
-
-    getFilteredUrl() {
-
-        const params =
-            this.buildParams(false);
-
-        const query =
-            params.toString();
-
-        return this.endpoint +
-            (query ? '?' + query : '');
-    },
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | JSON URL
-    |--------------------------------------------------------------------------
-    */
-
-    getJsonUrl() {
-
-        const params =
-            this.buildParams(true);
-
-        return this.endpoint +
-            '?' +
-            params.toString();
-    },
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | COPY
-    |--------------------------------------------------------------------------
-    */
-
-    copyText(text, message) {
-
-        navigator.clipboard
-            .writeText(text)
-            .then(() => {
-
-                alert(message);
-
-            })
-            .catch(() => {
-
-                alert('Gagal menyalin.');
-
+            jenisDokumen.forEach(value => {
+                if (value !== null && value !== '') {
+                    params.append('jenis_dokumen[]', value);
+                }
             });
-    },
 
+            if (includeApiKey && this.apiKey) {
+                params.set('api_key', this.apiKey);
+            }
 
-    /*
-    |--------------------------------------------------------------------------
-    | OPEN JSON
-    |--------------------------------------------------------------------------
-    */
+            return this.endpoint + '?' + params.toString();
+        },
 
-    getJson() {
+        copyText(text, message) {
+            navigator.clipboard
+                .writeText(text)
+                .then(() => alert(message))
+                .catch(() => alert('Gagal menyalin.'));
+        },
 
-        window.open(
-            this.getJsonUrl(),
-            '_blank'
-        );
+        getJson() {
+            window.open(this.buildUrl(true), '_blank');
+        },
 
-    }
-}"
-```
+        get filteredUrl() {
+            return this.buildUrl(false);
+        },
 
+        get statusLabel() {
+            return {
+                none: 'Belum Ada Kerjasama',
+                active: 'Aktif',
+                expiring: 'Akan Berakhir',
+                expired: 'Berakhir',
+            }[this.filters?.status_kerjasama?.value] ?? 'Semua';
+        },
+
+        get documentLabel() {
+            const labels = {
+                1: 'MoU',
+                2: 'MoA',
+                3: 'PKS',
+                4: 'IA',
+                5: 'SPK',
+                6: 'LoC',
+                7: 'LoI',
+            };
+
+            const values =
+                this.filters?.jenis_dokumen?.values ?? [];
+
+            return values.length
+                ? values.map(value => labels[value] ?? value).join(', ')
+                : 'Semua';
+        }
+    }"
+    style="
+        font-size: 12px;
+        max-width: 100%;
+    "
 >
 
-```
-{{-- Judul --}}
-<div style="margin-bottom: 24px;">
+    {{-- HEADER --}}
+    <div style="margin-bottom: 12px;">
+        <h1 style="
+            margin: 0 0 3px 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+        ">
+            WebAPI Mitra
+        </h1>
 
-    <h1 style="
-        margin: 0 0 8px 0;
-        font-size: 24px;
-        font-weight: 600;
-        color: #111827;
-    ">
-        WebAPI Mitra
-    </h1>
-
-    <div style="
-        color: #6b7280;
-        font-size: 14px;
-    ">
-        Gunakan WebAPI berikut untuk mendapatkan data mitra.
+        <div style="
+            color: #6b7280;
+            font-size: 12px;
+        ">
+            Gunakan WebAPI berikut untuk mendapatkan data mitra.
+        </div>
     </div>
 
-</div>
 
-
-{{-- Tab Aktif --}}
-<div style="margin-bottom: 22px;">
-
-    <label style="
-        display: block;
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: #374151;
-    ">
-        Data Mitra
-    </label>
-
+    {{-- TAB --}}
     <div style="
-        display: inline-block;
-        padding: 7px 12px;
-        background: #eff6ff;
-        color: #1d4ed8;
-        border-radius: 7px;
-        font-size: 13px;
-        font-weight: 500;
-    "
-    >
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    ">
+        <strong style="color: #374151;">
+            Data:
+        </strong>
+
         <span
             x-text="
                 activeTab === 'luar_negeri'
                     ? 'Luar Negeri'
                     : 'Dalam Negeri'
             "
+            style="
+                padding: 4px 9px;
+                background: #eff6ff;
+                color: #1d4ed8;
+                border-radius: 5px;
+                font-size: 11px;
+                font-weight: 500;
+            "
         ></span>
     </div>
 
-</div>
+
+    {{-- ENDPOINT --}}
+    <div style="margin-bottom: 12px;">
+
+        <label style="
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+        ">
+            Endpoint WebAPI
+        </label>
+
+        <div style="display: flex; gap: 6px;">
+
+            <input
+                type="text"
+                :value="filteredUrl"
+                readonly
+                style="
+                    flex: 1;
+                    min-width: 0;
+                    height: 34px;
+                    padding: 0 9px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 5px;
+                    background: #f9fafb;
+                    color: #4b5563;
+                    font-size: 11px;
+                "
+            >
+
+            <button
+                type="button"
+                @click="copyText(filteredUrl, 'Tautan berhasil disalin.')"
+                style="
+                    height: 34px;
+                    padding: 0 10px;
+                    border: none;
+                    background: #2563eb;
+                    color: white;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 11px;
+                    white-space: nowrap;
+                "
+            >
+                Salin
+            </button>
+
+        </div>
+    </div>
 
 
-{{-- Endpoint --}}
-<div style="margin-bottom: 22px;">
-
-    <label style="
-        display: block;
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: #374151;
-    ">
-        Endpoint WebAPI
-    </label>
-
+    {{-- FILTER + API KEY --}}
     <div style="
-        display: flex;
-        gap: 8px;
-        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
     ">
 
-        <input
-            type="text"
-            :value="getFilteredUrl()"
-            readonly
-            style="
-                flex: 1;
-                min-width: 0;
-                height: 40px;
-                padding: 0 11px;
-                border: 1px solid #d1d5db;
-                border-radius: 7px;
-                background: #f9fafb;
-                color: #4b5563;
-                font-size: 13px;
-                outline: none;
-            "
-        >
+        {{-- FILTER --}}
+        <div>
 
-        <button
-            type="button"
-            @click="copyText(
-                getFilteredUrl(),
-                'Tautan berhasil disalin.'
-            )"
-            style="
-                height: 40px;
-                padding: 0 14px;
-                border: none;
-                background: #2563eb;
-                color: white;
-                border-radius: 7px;
-                cursor: pointer;
+            <label style="
+                display: block;
+                margin-bottom: 5px;
                 font-size: 12px;
-                white-space: nowrap;
-            "
-        >
-            Salin Tautan
-        </button>
-
-    </div>
-
-</div>
-
-
-{{-- Filter Aktif --}}
-<div style="margin-bottom: 22px;">
-
-    <label style="
-        display: block;
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: #374151;
-    ">
-        Filter Aktif
-    </label>
-
-    <div style="
-        padding: 13px 15px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 7px;
-        color: #4b5563;
-        font-size: 13px;
-        line-height: 1.8;
-    ">
-
-        <div>
-            <strong>Kategori IKU:</strong>
-
-            <span
-                x-text="
-                    filters?.kategori_id?.value
-                        ? filters.kategori_id.value
-                        : 'Semua'
-                "
-            ></span>
-        </div>
-
-        <div>
-            <strong>Negara:</strong>
-
-            <span
-                x-text="
-                    filters?.negara_id?.value
-                        ? filters.negara_id.value
-                        : 'Semua'
-                "
-            ></span>
-        </div>
-
-        <div>
-            <strong>Status Kerjasama:</strong>
-
-            <span
-                x-text="
-                    {
-                        none: 'Belum Ada Kerjasama',
-                        active: 'Aktif',
-                        expiring: 'Akan Berakhir',
-                        expired: 'Berakhir'
-                    }[
-                        filters?.status_kerjasama?.value
-                    ] ?? 'Semua'
-                "
-            ></span>
-        </div>
-
-        <div>
-            <strong>Jenis Dokumen:</strong>
-
-            <span
-                x-text="
-                    (() => {
-                        const values =
-                            filters?.jenis_dokumen?.values ?? [];
-
-                        const labels = {
-                            1: 'MoU',
-                            2: 'MoA',
-                            3: 'PKS',
-                            4: 'IA',
-                            5: 'SPK',
-                            6: 'LoC',
-                            7: 'LoI'
-                        };
-
-                        if (!values.length) {
-                            return 'Semua';
-                        }
-
-                        return values
-                            .map(value => labels[value] ?? value)
-                            .join(', ');
-                    })()
-                "
-            ></span>
-        </div>
-
-    </div>
-
-</div>
-
-
-{{-- API Key --}}
-<div style="margin-bottom: 22px;">
-
-    <label style="
-        display: block;
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: #374151;
-    ">
-        Web API Key
-    </label>
-
-    <div style="
-        display: flex;
-        gap: 8px;
-        width: 100%;
-    ">
-
-        <input
-            :type="showApiKey ? 'text' : 'password'"
-            x-model="apiKey"
-            readonly
-            style="
-                flex: 1;
-                min-width: 0;
-                height: 40px;
-                padding: 0 11px;
-                border: 1px solid #d1d5db;
-                border-radius: 7px;
-                background: #f9fafb;
-                color: #4b5563;
-                font-size: 13px;
-                outline: none;
-            "
-        >
-
-        <button
-            type="button"
-            @click="showApiKey = !showApiKey"
-            style="
-                height: 40px;
-                padding: 0 14px;
-                border: 1px solid #d1d5db;
-                background: #f3f4f6;
+                font-weight: 600;
                 color: #374151;
-                border-radius: 7px;
-                cursor: pointer;
+            ">
+                Filter Aktif
+            </label>
+
+            <div style="
+                padding: 9px 11px;
+                background: #f9fafb;
+                border: 1px solid #e5e7eb;
+                border-radius: 5px;
+                color: #4b5563;
+                font-size: 11px;
+                line-height: 1.6;
+            ">
+
+                <div>
+                    <strong>Kategori:</strong>
+                    <span x-text="filters?.kategori_id?.value || 'Semua'"></span>
+                </div>
+
+                <div>
+                    <strong>Negara:</strong>
+                    <span x-text="filters?.negara_id?.value || 'Semua'"></span>
+                </div>
+
+                <div>
+                    <strong>Status:</strong>
+                    <span x-text="statusLabel"></span>
+                </div>
+
+                <div>
+                    <strong>Dokumen:</strong>
+                    <span x-text="documentLabel"></span>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        {{-- API KEY --}}
+        <div>
+
+            <label style="
+                display: block;
+                margin-bottom: 5px;
                 font-size: 12px;
-                white-space: nowrap;
-            "
-            x-text="
-                showApiKey
-                    ? 'Sembunyikan'
-                    : 'Tampilkan'
-            "
-        ></button>
+                font-weight: 600;
+                color: #374151;
+            ">
+                Web API Key
+            </label>
+
+            <div style="display: flex; gap: 6px;">
+
+                <input
+                    :type="showApiKey ? 'text' : 'password'"
+                    x-model="apiKey"
+                    readonly
+                    style="
+                        flex: 1;
+                        min-width: 0;
+                        height: 34px;
+                        padding: 0 9px;
+                        border: 1px solid #d1d5db;
+                        border-radius: 5px;
+                        background: #f9fafb;
+                        color: #4b5563;
+                        font-size: 11px;
+                    "
+                >
+
+                <button
+                    type="button"
+                    @click="showApiKey = !showApiKey"
+                    x-text="showApiKey ? 'Hide' : 'Show'"
+                    style="
+                        height: 34px;
+                        padding: 0 9px;
+                        border: 1px solid #d1d5db;
+                        background: #f3f4f6;
+                        color: #374151;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 10px;
+                    "
+                ></button>
+
+                <button
+                    type="button"
+                    @click="copyText(apiKey, 'API Key berhasil disalin.')"
+                    style="
+                        height: 34px;
+                        padding: 0 9px;
+                        border: none;
+                        background: #2563eb;
+                        color: white;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 10px;
+                        white-space: nowrap;
+                    "
+                >
+                    Salin
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {{-- BUTTON JSON --}}
+    <div style="margin-bottom: 12px;">
 
         <button
             type="button"
-            @click="copyText(
-                apiKey,
-                'API Key berhasil disalin.'
-            )"
+            @click="getJson()"
             style="
-                height: 40px;
-                padding: 0 14px;
-                border: none;
+                height: 34px;
+                padding: 0 13px;
                 background: #2563eb;
                 color: white;
-                border-radius: 7px;
+                border: none;
+                border-radius: 5px;
+                font-size: 11px;
+                font-weight: 500;
                 cursor: pointer;
-                font-size: 12px;
-                white-space: nowrap;
             "
         >
-            Salin API Key
+            Dapatkan JSON
         </button>
 
     </div>
 
-</div>
 
-
-{{-- Dapatkan JSON --}}
-<div style="
-    margin-top: 5px;
-    margin-bottom: 20px;
-">
-
-    <button
-        type="button"
-        @click="getJson()"
-        style="
-            display: inline-block;
-            padding: 10px 16px;
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 7px;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-        "
-    >
-        Dapatkan JSON
-    </button>
-
-</div>
-
-
-{{-- Informasi --}}
-<div style="
-    padding: 13px 15px;
-    background: #eff6ff;
-    border-radius: 7px;
-    color: #1e40af;
-    font-size: 13px;
-    line-height: 1.5;
-">
-    Gunakan API Key pada parameter
-    <strong>api_key</strong>
-    ketika mengakses endpoint.
-</div>
+    {{-- INFO --}}
+    <div style="
+        padding: 8px 11px;
+        background: #eff6ff;
+        border-radius: 5px;
+        color: #1e40af;
+        font-size: 11px;
+        line-height: 1.4;
+    ">
+        Gunakan API Key pada parameter
+        <strong>api_key</strong>
+        ketika mengakses endpoint.
+    </div>
 
 </div>
