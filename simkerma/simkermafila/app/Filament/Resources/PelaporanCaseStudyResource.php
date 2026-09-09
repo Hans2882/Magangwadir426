@@ -18,7 +18,7 @@ class PelaporanCaseStudyResource extends Resource
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Pelaporan & Tracking';
+    protected static \UnitEnum|string|null $navigationGroup = 'Luaran Dokumen kerjasama';
 
     protected static ?string $navigationLabel = 'Pelaporan Case Study';
 
