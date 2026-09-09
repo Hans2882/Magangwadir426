@@ -44,6 +44,7 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 'Data Mitra',
                 'Data Kerjasama',
+                'Luaran Dokumen kerjasama',
                 'Pelaporan & Tracking',
                 'Inisiasi Kerjasama',
                 'Simmagang',
