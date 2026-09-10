@@ -36,6 +36,10 @@ class UserPanelProvider extends PanelProvider
                 \Filament\View\PanelsRenderHook::TOPBAR_START,
                 fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.logo")')
             )
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.topbar-button")')
+            )
             ->colors([
                 'primary' => Color::Indigo,
             ])
