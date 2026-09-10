@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MitraAwardCalculator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,6 +17,7 @@ class MitraAwardPeriod extends Model
         'tanggal_mulai',
         'tanggal_selesai',
         'is_active',
+        'konfigurasi_penilaian',
     ];
 
     protected $casts = [
@@ -23,22 +25,43 @@ class MitraAwardPeriod extends Model
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
         'is_active' => 'boolean',
+        'konfigurasi_penilaian' => 'array',
     ];
 
     protected static function booted(): void
     {
+        static::creating(function (self $period): void {
+            if (empty($period->konfigurasi_penilaian)) {
+                $period->konfigurasi_penilaian =
+                    MitraAwardCalculator::defaultConfig();
+            }
+        });
+
         static::saving(function (self $period): void {
+            if (empty($period->konfigurasi_penilaian)) {
+                $period->konfigurasi_penilaian =
+                    MitraAwardCalculator::defaultConfig();
+            }
+
             if ($period->is_active) {
                 static::query()
-                    ->when($period->exists, fn ($query) => $query->whereKeyNot($period->getKey()))
+                    ->when(
+                        $period->exists,
+                        fn ($query) => $query->whereKeyNot($period->getKey())
+                    )
                     ->where('is_active', true)
-                    ->update(['is_active' => false]);
+                    ->update([
+                        'is_active' => false,
+                    ]);
             }
         });
     }
 
     public function scores(): HasMany
     {
-        return $this->hasMany(MitraAwardScore::class);
+        return $this->hasMany(
+            MitraAwardScore::class,
+            'mitra_award_period_id'
+        );
     }
 }
