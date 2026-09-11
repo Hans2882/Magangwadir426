@@ -163,6 +163,22 @@ class PelaporanCaseStudyResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('parent.judul')
                         ->label('Dokumen Rujukan')
                         ->default('-')
+                        ->formatStateUsing(function ($state, $record) {
+                            if (!$record->parent) return '-';
+                            $tipe = $record->parent->jenisDokumen ? $record->parent->jenisDokumen->nama : 'Dokumen';
+                            return "{$tipe} - {$state}";
+                        })
+                        ->url(function ($record) {
+                            if (!$record->parent) return null;
+                            $panel = filament()->getCurrentPanel()->getId();
+                            return match ($record->parent->jenis_dokumen_id) {
+                                1 => route("filament.{$panel}.resources.data-mou.view", ['record' => $record->parent_id]),
+                                3 => route("filament.{$panel}.resources.data-pks-spk.view", ['record' => $record->parent_id]),
+                                4 => route("filament.{$panel}.resources.data-ia.view", ['record' => $record->parent_id]),
+                                default => null,
+                            };
+                        })
+                        ->color('primary')
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')
                         ->label('Nama Mitra')
