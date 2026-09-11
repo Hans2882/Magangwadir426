@@ -2,61 +2,51 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\PelaporanKaryaTulisIlmiahResource\Pages;
+use App\Filament\Resources\JurnalIlmiahResource\Pages;
 use App\Models\Kerjasama;
 use Filament\Forms;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
-class PelaporanKaryaTulisIlmiahResource extends Resource
+class JurnalIlmiahResource extends Resource
 {
     protected static ?string $model = Kerjasama::class;
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-academic-cap';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Pelaporan & Tracking';
+    protected static \UnitEnum|string|null $navigationGroup = 'Karya Tulis Ilmiah';
 
-    protected static ?string $navigationLabel = 'Pelaporan Karya Tulis Ilmiah';
+    protected static ?string $navigationLabel = 'Jurnal Ilmiah';
 
-    protected static ?string $modelLabel = 'Pelaporan Karya Tulis Ilmiah';
+    protected static ?string $modelLabel = 'Jurnal Ilmiah';
 
-    protected static ?string $pluralModelLabel = 'Pelaporan Karya Tulis Ilmiah';
+    protected static ?string $pluralModelLabel = 'Jurnal Ilmiah';
 
-    protected static ?string $slug = 'pelaporan-karya-tulis-ilmiah';
+    protected static ?string $slug = 'jurnal-ilmiah';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 1;
 
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['dokumenTerkait.jenisDokumen'])
-            ->where('jenis_dokumen_id', 9);
+            ->with(['mitra', 'dokumenTerkait.jenisDokumen'])
+            ->where('jenis_dokumen_id', 9); // 9 = Jurnal Ilmiah
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Forms\Components\TextInput::make('nama_jurnal')
-                ->label('Nama Jurnal')
-                ->required(),
-            Forms\Components\TextInput::make('volume')
-                ->label('Volume')
-                ->required(),
-            Forms\Components\TextInput::make('issue')
-                ->label('Issue')
-                ->required(),
-            Forms\Components\DatePicker::make('tanggal_publikasi')
-                ->label('Tanggal Publikasi')
-                ->required(),
-            Forms\Components\TextInput::make('link_doi')
-                ->label('Link/DOI')
-                ->url()
-                ->maxLength(500),
+            Forms\Components\TextInput::make('nama_jurnal')->label('Nama Jurnal')->required(),
+            Forms\Components\TextInput::make('volume')->label('Volume')->required(),
+            Forms\Components\TextInput::make('issue')->label('Issue')->required(),
+            Forms\Components\DatePicker::make('tanggal_publikasi')->label('Tanggal Publikasi')->required(),
+            Forms\Components\TextInput::make('link_doi')->label('Link DOI')->url()->maxLength(500),
             Forms\Components\Select::make('dokumenTerkait')
-                ->label('MoU/PKS/IA')
+                ->label('Dokumen Terkait (MoU/PKS/IA)')
                 ->relationship('dokumenTerkait', 'judul', fn (Builder $query) => $query->whereIn('jenis_dokumen_id', [1, 3, 4]))
                 ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->jenisDokumen?->nama} - {$record->judul}")
                 ->multiple()
@@ -71,28 +61,28 @@ class PelaporanKaryaTulisIlmiahResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            \Filament\Schemas\Components\Section::make('Detail Pelaporan Karya Tulis Ilmiah')
+            \Filament\Schemas\Components\Section::make('Detail Jurnal Ilmiah')->columnSpan('full')
                 ->schema([
                     \Filament\Infolists\Components\TextEntry::make('nama_jurnal')->label('Nama Jurnal'),
                     \Filament\Infolists\Components\TextEntry::make('volume')->label('Volume'),
                     \Filament\Infolists\Components\TextEntry::make('issue')->label('Issue'),
                     \Filament\Infolists\Components\TextEntry::make('tanggal_publikasi')->label('Tanggal Publikasi')->date('d F Y'),
-                    \Filament\Infolists\Components\TextEntry::make('link_doi')->label('Link/DOI')->url(fn ($state) => $state, true)->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('link_doi')->label('Link DOI')->url(fn ($state) => $state, true)->default('-'),
                 ])->columns(2),
             \Filament\Schemas\Components\Section::make('Hubungan Dokumen')
                 ->schema([
-                    static::relatedDocumentsEntry('MoU', [1], MouResource::class),
-                    static::relatedDocumentsEntry('PKS / SPK', [3, 5], PksSpkResource::class),
-                    static::relatedDocumentsEntry('IA', [4], IaResource::class),
+                    static::relatedDocumentsEntry('MoU', [1], \App\Filament\Resources\MouResource::class),
+                    static::relatedDocumentsEntry('PKS / SPK', [3, 5], \App\Filament\Resources\PksSpkResource::class),
+                    static::relatedDocumentsEntry('IA', [4], \App\Filament\Resources\IaResource::class),
                 ]),
         ]);
     }
 
-    protected static function relatedDocumentsEntry(string $label, array $types, string $resource): \Filament\Infolists\Components\RepeatableEntry
+    protected static function relatedDocumentsEntry(string $label, array $documentTypes, string $resource): \Filament\Infolists\Components\RepeatableEntry
     {
         return \Filament\Infolists\Components\RepeatableEntry::make('dokumenTerkait')
             ->label($label)
-            ->state(fn ($record) => $record->dokumenTerkait->whereIn('jenis_dokumen_id', $types)->values())
+            ->state(fn ($record) => $record->dokumenTerkait->whereIn('jenis_dokumen_id', $documentTypes)->values())
             ->contained()
             ->grid(3)
             ->schema([
@@ -108,11 +98,18 @@ class PelaporanKaryaTulisIlmiahResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('nama_jurnal')->label('Nama Jurnal')->searchable()->limit(50),
+                Tables\Columns\TextColumn::make('nama_jurnal')
+                    ->label('Nama Jurnal')
+                    ->searchable()
+                    ->limit(50)
+                    ->tooltip(fn ($record) => $record->nama_jurnal),
                 Tables\Columns\TextColumn::make('volume')->label('Volume'),
                 Tables\Columns\TextColumn::make('issue')->label('Issue'),
-                Tables\Columns\TextColumn::make('tanggal_publikasi')->label('Tanggal Publikasi')->date('d M Y')->sortable(),
-                Tables\Columns\TextColumn::make('link_doi')->label('Link/DOI')->url(fn ($state) => $state, true)->limit(40)->default('-'),
+                Tables\Columns\TextColumn::make('tanggal_publikasi')->label('Publikasi')->date('d M Y')->sortable(),
+                Tables\Columns\TextColumn::make('kerjasamaReferensi.judul')->label('Referensi')->default('-')->limit(30),
+            ])
+            ->filters([
+                //
             ])
             ->actions([
                 \Filament\Actions\ViewAction::make(),
@@ -124,10 +121,10 @@ class PelaporanKaryaTulisIlmiahResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPelaporanKaryaTulisIlmiahs::route('/'),
-            'create' => Pages\CreatePelaporanKaryaTulisIlmiah::route('/create'),
-            'view' => Pages\ViewPelaporanKaryaTulisIlmiah::route('/{record}'),
-            'edit' => Pages\EditPelaporanKaryaTulisIlmiah::route('/{record}/edit'),
+            'index' => Pages\ListJurnalIlmiahs::route('/'),
+            'create' => Pages\CreateJurnalIlmiah::route('/create'),
+            'view' => Pages\ViewJurnalIlmiah::route('/{record}'),
+            'edit' => Pages\EditJurnalIlmiah::route('/{record}/edit'),
         ];
     }
 }
