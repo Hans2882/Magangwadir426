@@ -38,6 +38,24 @@ class Kerjasama extends Model
         'link_perbaikan',
         'bukti_kegiatan',
         'link_laporan_kegiatan',
+        'nama_jurnal',
+        'volume',
+        'issue',
+        'tanggal_publikasi',
+        'link_doi',
+        'judul_karya',
+        'penulis',
+        'jenis_karya',
+        'penerbit',
+        'isbn_issn',
+        'tahun_terbit',
+        'judul_penelitian',
+        'peneliti',
+        'mitra',
+        'tanggal',
+        'ringkasan',
+        'link_laporan',
+        'kerjasama_id',
         'pks_id',
         'status_workflow',
         'jenis_pengajuan',
@@ -47,6 +65,8 @@ class Kerjasama extends Model
     protected $casts = [
         'tanggal_awal' => 'date',
         'tanggal_akhir' => 'date',
+        'tanggal_publikasi' => 'date',
+        'tanggal' => 'date',
         'is_mitra_anonim' => 'boolean',
     ];
 
@@ -83,6 +103,31 @@ class Kerjasama extends Model
     public function pks(): BelongsTo
     {
         return $this->belongsTo(Kerjasama::class, 'pks_id');
+    }
+
+    public function kerjasamaReferensi(): BelongsTo
+    {
+        return $this->belongsTo(Kerjasama::class, 'kerjasama_id');
+    }
+
+    public function dokumenTerkait(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            Kerjasama::class,
+            'karya_tulis_ilmiah_kerjasama',
+            'karya_tulis_ilmiah_id',
+            'kerjasama_id'
+        );
+    }
+
+    public function karyaTulisIlmiah(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            Kerjasama::class,
+            'karya_tulis_ilmiah_kerjasama',
+            'kerjasama_id',
+            'karya_tulis_ilmiah_id'
+        );
     }
 
     public function prodis(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
