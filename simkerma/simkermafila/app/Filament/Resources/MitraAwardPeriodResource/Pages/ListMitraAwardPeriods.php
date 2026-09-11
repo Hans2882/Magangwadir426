@@ -8,10 +8,15 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListMitraAwardPeriods extends ListRecords
 {
-    protected static string $resource = MitraAwardPeriodResource::class;
+    protected static string $resource =
+        MitraAwardPeriodResource::class;
 
     protected function getHeaderActions(): array
     {
-        return [Actions\CreateAction::make()->label('Buat Periode')->icon('heroicon-o-plus')];
+        return [
+            Actions\CreateAction::make()
+                ->label('Buat Periode')
+                ->icon('heroicon-o-plus'),
+        ];
     }
 }

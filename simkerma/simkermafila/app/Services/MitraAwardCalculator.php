@@ -10,109 +10,182 @@ use App\Models\UsulanKerjasama;
 class MitraAwardCalculator
 {
     /**
-     * Konfigurasi default penilaian.
+     * Semua kriteria penilaian.
+     */
+    public const CRITERIA = [
+        'dokumen_score',
+        'kurikulum',
+        'magang',
+        'dosen_industri',
+        'rekrutmen',
+        'penelitian_cash',
+        'penelitian_kind',
+        'hilirisasi',
+        'khalayak_pkm',
+        'publikasi_bersama',
+        'co_hosting',
+        'pelatihan_sertifikasi',
+        'kajian_tenaga_ahli',
+        'hibah_alat',
+        'reputasi',
+        'perluasan_jejaring',
+    ];
+
+    /**
+     * Label kriteria untuk kebutuhan UI.
+     */
+    public const CRITERIA_LABELS = [
+        'dokumen_score' => 'Ketersediaan Dokumen Kerja Sama',
+        'kurikulum' => 'Kurikulum',
+        'magang' => 'Magang',
+        'dosen_industri' => 'Dosen Industri',
+        'rekrutmen' => 'Rekrutmen',
+        'penelitian_cash' => 'Penelitian kerja sama dengan kontribusi in-cash',
+        'penelitian_kind' => 'Penelitian kerja sama dengan kontribusi in-kind',
+        'hilirisasi' => 'Hilirisasi hasil penelitian',
+        'khalayak_pkm' => 'Khalayak sasaran PkM',
+        'publikasi_bersama' => 'Publikasi bersama',
+        'co_hosting' => 'Co-hosting pertemuan ilmiah',
+        'pelatihan_sertifikasi' => 'Proyek pelatihan/sertifikasi',
+        'kajian_tenaga_ahli' => 'Proyek kajian/tenaga ahli',
+        'hibah_alat' => 'Hibah alat/sarana/beasiswa',
+        'reputasi' => 'Reputasi',
+        'perluasan_jejaring' => 'Perluasan jejaring',
+    ];
+
+    /**
+     * Satuan setiap kriteria.
+     */
+    public const CRITERIA_UNITS = [
+        'dokumen_score' => 'dok',
+        'kurikulum' => 'kali workshop',
+        'magang' => 'jumlah mahasiswa',
+        'dosen_industri' => 'jumlah dosen',
+        'rekrutmen' => 'jumlah alumni',
+        'penelitian_cash' => 'Rp',
+        'penelitian_kind' => 'setara Rp',
+        'hilirisasi' => 'jumlah produk/jasa',
+        'khalayak_pkm' => 'jumlah masyarakat',
+        'publikasi_bersama' => 'jumlah artikel',
+        'co_hosting' => 'kali pertemuan',
+        'pelatihan_sertifikasi' => 'jumlah peserta',
+        'kajian_tenaga_ahli' => 'Rp',
+        'hibah_alat' => 'setara Rp',
+        'reputasi' => 'Likert',
+        'perluasan_jejaring' => 'Likert',
+    ];
+
+    /**
+     * Default konfigurasi.
      *
-     * Bobot menggunakan format desimal:
+     * Bobot disimpan sebagai desimal:
      *
      * 5%   = 0.05
      * 7.5% = 0.075
      * 10%  = 0.10
-     *
-     * Skala:
-     * - count  = berdasarkan jumlah/nilai 0-4
-     * - money  = berdasarkan threshold nominal
      */
     public const DEFAULT_CONFIG = [
         'bobot' => [
+
             'dokumen_score' => 0.05,
+
             'kurikulum' => 0.075,
             'magang' => 0.10,
             'dosen_industri' => 0.075,
             'rekrutmen' => 0.10,
+
             'penelitian_cash' => 0.10,
             'penelitian_kind' => 0.025,
             'hilirisasi' => 0.09,
             'khalayak_pkm' => 0.025,
             'publikasi_bersama' => 0.075,
             'co_hosting' => 0.015,
+
             'pelatihan_sertifikasi' => 0.06,
             'kajian_tenaga_ahli' => 0.06,
             'hibah_alat' => 0.05,
+
             'reputasi' => 0.05,
             'perluasan_jejaring' => 0.05,
         ],
 
         'skala' => [
-            /*
-             * Count score
+
+            /**
+             * Dokumen otomatis dihitung berdasarkan data Kerjasama.
+             */
+            'dokumen_score' => [
+                'type' => 'document',
+                'labels' => [
+                    0 => 'Belum Memiliki Dokumen Kerja Sama',
+                    1 => 'Sudah Melakukan Inisiasi Kerja Sama',
+                    2 => 'IA',
+                    3 => 'PKS',
+                    4 => 'MoU',
+                ],
+            ],
+
+            /**
+             * Count.
              *
-             * Nilai langsung dibatasi 0 - 4.
+             * thresholds:
+             *
+             * 0 = score 0
+             * >0 sampai 1 = score 1
+             * >1 sampai 2 = score 2
+             * >2 sampai 3 = score 3
+             * >3 = score 4
+             *
+             * Karena nilai normal biasanya integer,
+             * hasilnya menjadi 0,1,2,3,4.
              */
             'kurikulum' => [
-                'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
-            ],
+    'type' => 'count',
+    'thresholds' => [0, 1, 2, 3],
+],
 
             'magang' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
             'dosen_industri' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
             'rekrutmen' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
             'hilirisasi' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
             'khalayak_pkm' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
             'publikasi_bersama' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
             'co_hosting' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
             'pelatihan_sertifikasi' => [
                 'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
+                'thresholds' => [0, 1, 2, 3],
             ],
 
-            'reputasi' => [
-                'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
-            ],
-
-            'perluasan_jejaring' => [
-                'type' => 'count',
-                'values' => [0, 1, 2, 3, 4],
-            ],
-
-            /*
-             * Money score
-             *
-             * Contoh:
-             *
-             * 0              = score 0
-             * > 0 - 2 juta   = score 1
-             * > 2 - 5 juta   = score 2
-             * > 5 - 10 juta  = score 3
-             * > 10 juta      = score 4
+            /**
+             * Money.
              */
             'penelitian_cash' => [
                 'type' => 'money',
@@ -153,6 +226,35 @@ class MitraAwardCalculator
                     100_000_000,
                 ],
             ],
+
+            /**
+             * Likert.
+             *
+             * Nilai 0-4 langsung menjadi score.
+             */
+            'reputasi' => [
+                'type' => 'likert',
+                'thresholds' => [0, 1, 2, 3],
+                'labels' => [
+                    0 => 'Tidak Bereputasi',
+                    1 => 'Bereputasi Rendah',
+                    2 => 'Bereputasi Sedang',
+                    3 => 'Bereputasi Tinggi',
+                    4 => 'Bereputasi Sangat Tinggi',
+                ],
+            ],
+
+            'perluasan_jejaring' => [
+                'type' => 'likert',
+                'thresholds' => [0, 1, 2, 3],
+                'labels' => [
+                    0 => 'Tidak Berpengaruh',
+                    1 => 'Berpengaruh Sedikit',
+                    2 => 'Berpengaruh Sedang',
+                    3 => 'Berpengaruh Banyak',
+                    4 => 'Berpengaruh Sangat Banyak',
+                ],
+            ],
         ],
     ];
 
@@ -165,7 +267,23 @@ class MitraAwardCalculator
     }
 
     /**
-     * Menghitung total score mitra berdasarkan periode.
+     * Label kriteria.
+     */
+    public static function criteriaLabels(): array
+    {
+        return self::CRITERIA_LABELS;
+    }
+
+    /**
+     * Unit kriteria.
+     */
+    public static function criteriaUnits(): array
+    {
+        return self::CRITERIA_UNITS;
+    }
+
+    /**
+     * Menghitung total score.
      */
     public function calculate(MitraAwardScore $score): float
     {
@@ -174,111 +292,49 @@ class MitraAwardCalculator
         $weights = $config['bobot'] ?? [];
         $scale = $config['skala'] ?? [];
 
-        $normalized = [
-            'dokumen_score' => $this->countScore(
-                (int) $score->dokumen_score
-            ),
+        $normalized = [];
 
-            'kurikulum' => $this->calculateCriterionScore(
-                'kurikulum',
-                (float) $score->kurikulum,
+        foreach (self::CRITERIA as $criterion) {
+
+            /**
+             * Dokumen dihitung otomatis.
+             */
+            if ($criterion === 'dokumen_score') {
+                $value = (int) $score->dokumen_score;
+
+                $normalized[$criterion] = $this->calculateCriterionScore(
+                    $criterion,
+                    $value,
+                    $scale
+                );
+
+                continue;
+            }
+
+            $value = (float) ($score->{$criterion} ?? 0);
+
+            $normalized[$criterion] = $this->calculateCriterionScore(
+                $criterion,
+                $value,
                 $scale
-            ),
+            );
+        }
 
-            'magang' => $this->calculateCriterionScore(
-                'magang',
-                (float) $score->magang,
-                $scale
-            ),
-
-            'dosen_industri' => $this->calculateCriterionScore(
-                'dosen_industri',
-                (float) $score->dosen_industri,
-                $scale
-            ),
-
-            'rekrutmen' => $this->calculateCriterionScore(
-                'rekrutmen',
-                (float) $score->rekrutmen,
-                $scale
-            ),
-
-            'penelitian_cash' => $this->calculateCriterionScore(
-                'penelitian_cash',
-                (float) $score->penelitian_cash,
-                $scale
-            ),
-
-            'penelitian_kind' => $this->calculateCriterionScore(
-                'penelitian_kind',
-                (float) $score->penelitian_kind,
-                $scale
-            ),
-
-            'hilirisasi' => $this->calculateCriterionScore(
-                'hilirisasi',
-                (float) $score->hilirisasi,
-                $scale
-            ),
-
-            'khalayak_pkm' => $this->calculateCriterionScore(
-                'khalayak_pkm',
-                (float) $score->khalayak_pkm,
-                $scale
-            ),
-
-            'publikasi_bersama' => $this->calculateCriterionScore(
-                'publikasi_bersama',
-                (float) $score->publikasi_bersama,
-                $scale
-            ),
-
-            'co_hosting' => $this->calculateCriterionScore(
-                'co_hosting',
-                (float) $score->co_hosting,
-                $scale
-            ),
-
-            'pelatihan_sertifikasi' => $this->calculateCriterionScore(
-                'pelatihan_sertifikasi',
-                (float) $score->pelatihan_sertifikasi,
-                $scale
-            ),
-
-            'kajian_tenaga_ahli' => $this->calculateCriterionScore(
-                'kajian_tenaga_ahli',
-                (float) $score->kajian_tenaga_ahli,
-                $scale
-            ),
-
-            'hibah_alat' => $this->calculateCriterionScore(
-                'hibah_alat',
-                (float) $score->hibah_alat,
-                $scale
-            ),
-
-            'reputasi' => $this->calculateCriterionScore(
-                'reputasi',
-                (float) $score->reputasi,
-                $scale
-            ),
-
-            'perluasan_jejaring' => $this->calculateCriterionScore(
-                'perluasan_jejaring',
-                (float) $score->perluasan_jejaring,
-                $scale
-            ),
-        ];
-
-        /*
-         * Hitung weighted score.
+        /**
+         * Weighted score.
          *
-         * normalized maksimal = 4
-         * total weighted maksimal = 4
+         * Score maksimum = 4.
          *
-         * Kemudian dikali 25 agar:
+         * Contoh:
          *
-         * 4 x 25 = 100
+         * normalized = 4
+         * weight     = 0.10
+         *
+         * kontribusi = 4 x 0.10 = 0.40
+         *
+         * total maksimum = 4.
+         *
+         * Kemudian dikali 25 sehingga maksimum = 100.
          */
         $weightedScore = 0;
 
@@ -296,11 +352,6 @@ class MitraAwardCalculator
 
     /**
      * Mengambil konfigurasi yang digunakan oleh score.
-     *
-     * Konfigurasi periode akan digabung dengan default.
-     *
-     * Ini membuat konfigurasi lama tetap aman apabila
-     * ada bagian konfigurasi yang belum tersedia.
      */
     public function getConfig(MitraAwardScore $score): array
     {
@@ -310,6 +361,10 @@ class MitraAwardCalculator
 
         $customConfig = $period?->konfigurasi_penilaian ?? [];
 
+        if (! is_array($customConfig)) {
+            $customConfig = [];
+        }
+
         return array_replace_recursive(
             self::DEFAULT_CONFIG,
             $customConfig
@@ -317,7 +372,7 @@ class MitraAwardCalculator
     }
 
     /**
-     * Menghitung score sebuah kriteria berdasarkan konfigurasi.
+     * Menghitung score sebuah kriteria.
      */
     protected function calculateCriterionScore(
         string $criterion,
@@ -326,57 +381,65 @@ class MitraAwardCalculator
     ): int {
         $configuration = $scale[$criterion] ?? null;
 
-        /*
-         * Jika konfigurasi tidak ditemukan,
-         * gunakan perilaku count 0-4.
-         */
         if (! $configuration) {
             return $this->countScore((int) $value);
         }
 
         $type = $configuration['type'] ?? 'count';
 
-        if ($type === 'money') {
-            return $this->cashScore(
+        return match ($type) {
+            'money' => $this->thresholdScore(
+                $value,
+                $configuration['thresholds'] ?? []
+            ),
+
+            'count' => $this->thresholdScore(
                 $value,
                 $configuration['thresholds'] ?? [0, 1, 2, 3]
-            );
-        }
+            ),
 
-        return $this->countScore((int) $value);
+            'likert' => $this->thresholdScore(
+                $value,
+                $configuration['thresholds'] ?? [0, 1, 2, 3]
+            ),
+
+            'document' => $this->countScore((int) $value),
+
+            default => $this->countScore((int) $value),
+        };
     }
 
     /**
-     * Score untuk kriteria berbasis jumlah.
+     * Score count standar 0-4.
      */
     public function countScore(int $value): int
     {
-        return max(0, min(4, $value));
+        return max(
+            0,
+            min(4, $value)
+        );
     }
 
     /**
-     * Score untuk kriteria berbasis nominal.
+     * Menghitung score berdasarkan threshold.
      *
      * Contoh:
      *
      * thresholds:
-     * [
-     *     0,
-     *     2_000_000,
-     *     5_000_000,
-     *     10_000_000,
-     * ]
+     * [0, 1, 2, 3]
      *
-     * Hasil:
+     * hasil:
      *
-     * <= 0                  => 0
-     * > 0 sampai <= 2 juta  => 1
-     * > 2 sampai <= 5 juta  => 2
-     * > 5 sampai <= 10 juta => 3
-     * > 10 juta              => 4
+     * <= 0  = 0
+     * <= 1  = 1
+     * <= 2  = 2
+     * <= 3  = 3
+     * > 3   = 4
      */
-    public function cashScore(float $value, array $thresholds): int
-    {
+    public function thresholdScore(
+        float $value,
+        array $thresholds
+    ): int {
         if (empty($thresholds)) {
             return 0;
         }
@@ -403,7 +466,20 @@ class MitraAwardCalculator
     }
 
     /**
-     * Mengambil score dokumen berdasarkan data kerjasama mitra.
+     * Alias lama agar kode lain tetap kompatibel.
+     */
+    public function cashScore(
+        float $value,
+        array $thresholds
+    ): int {
+        return $this->thresholdScore(
+            $value,
+            $thresholds
+        );
+    }
+
+    /**
+     * Score dokumen berdasarkan data kerjasama mitra.
      */
     public function getDocumentScore(?Mitra $mitra): int
     {
@@ -415,14 +491,14 @@ class MitraAwardCalculator
             ->where('mitra_id', $mitra->getKey())
             ->pluck('jenis_dokumen_id');
 
-        /*
+        /**
          * MoU
          */
         if ($documentTypes->contains(1)) {
             return 4;
         }
 
-        /*
+        /**
          * PKS / SPK
          */
         if (
@@ -437,22 +513,23 @@ class MitraAwardCalculator
             return 3;
         }
 
-        /*
+        /**
          * IA
          */
         if ($documentTypes->contains(4)) {
             return 2;
         }
 
-        /*
-         * Dokumen lain
+        /**
+         * Dokumen lain.
          */
         if ($documentTypes->isNotEmpty()) {
             return 1;
         }
 
-        /*
-         * Belum ada dokumen, tetapi ada usulan kerjasama.
+        /**
+         * Belum ada dokumen,
+         * tetapi sudah ada usulan kerja sama.
          */
         return UsulanKerjasama::query()
             ->where('mitra_id', $mitra->getKey())
@@ -462,9 +539,7 @@ class MitraAwardCalculator
     }
 
     /**
-     * Validasi total bobot.
-     *
-     * Total harus 1.0 = 100%.
+     * Validasi total bobot harus 100%.
      */
     public function validateWeights(array $weights): bool
     {
@@ -476,10 +551,11 @@ class MitraAwardCalculator
     }
 
     /**
-     * Mengembalikan total bobot dalam persen.
+     * Total bobot dalam persen.
      */
-    public function getWeightPercentage(array $weights): float
-    {
+    public function getWeightPercentage(
+        array $weights
+    ): float {
         return round(
             array_sum(
                 array_map('floatval', $weights)
