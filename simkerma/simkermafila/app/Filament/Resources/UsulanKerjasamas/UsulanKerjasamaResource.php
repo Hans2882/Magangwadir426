@@ -18,13 +18,13 @@ class UsulanKerjasamaResource extends Resource
 {
     protected static ?string $model = UsulanKerjasama::class;
 
-    protected static ?string $navigationLabel = 'Inisiasi Kerjasama';
+    protected static ?string $navigationLabel = 'Pengajuan Berita Acara';
     
-    protected static ?string $pluralModelLabel = 'Inisiasi Kerjasama';
+    protected static ?string $pluralModelLabel = 'Pengajuan Berita Acara';
     
-    protected static ?string $modelLabel = 'Inisiasi Kerjasama';
+    protected static ?string $modelLabel = 'Pengajuan Berita Acara';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Inisiasi Kerjasama';
+    protected static \UnitEnum|string|null $navigationGroup = 'Pengajuan Berita Acara';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
