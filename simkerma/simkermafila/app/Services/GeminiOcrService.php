@@ -37,6 +37,9 @@ class GeminiOcrService
                 . "- tanggal_akhir (Date in YYYY-MM-DD format, the end date if mentioned, otherwise null)\n"
                 . "- judul (String, the specific title or subject of the agreement or activity. For agreements, include text AFTER 'TENTANG'. For reports, include the main activity title)\n"
                 . "- nama_mitra (String, the name of the external partner organization or university)\n"
+                . "- nama_provinsi (String, the name of the province mentioned in the document for the partner's location)\n"
+                . "- nama_kota (String, the name of the city mentioned in the document for the partner's location)\n"
+                . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
                 . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document)\n"
                 . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)";
 
@@ -143,6 +146,7 @@ class GeminiOcrService
                     if (!empty($data['tanggal_awal'])) $set('tanggal_awal', $data['tanggal_awal']);
                     if (!empty($data['tanggal_akhir'])) $set('tanggal_akhir', $data['tanggal_akhir']);
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
+                    if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
                     if (!empty($data['nama_mitra'])) {
                         $mitra = \App\Models\Mitra::where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
                         if ($mitra) {
@@ -156,6 +160,32 @@ class GeminiOcrService
                                 
                             if ($parentDoc) {
                                 $set('parent_id', $parentDoc->id);
+                            }
+                        }
+                    }
+                    if (!empty($data['nama_provinsi'])) {
+                        $provinsi = \App\Models\MasterProvinsi::where('nama_provinsi', 'like', '%' . $data['nama_provinsi'] . '%')->first();
+                        if ($provinsi) {
+                            $set('provinsi_id', $provinsi->id);
+                            
+                            // If province is found and city is provided, search city within that province
+                            if (!empty($data['nama_kota'])) {
+                                $kota = \App\Models\MasterKota::where('provinsi_id', $provinsi->id)
+                                    ->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')
+                                    ->first();
+                                if ($kota) {
+                                    $set('kota_id', $kota->id);
+                                }
+                            }
+                        }
+                    } elseif (!empty($data['nama_kota'])) {
+                        // If no province was found/extracted, just try to find the city directly
+                        $kota = \App\Models\MasterKota::where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
+                        if ($kota) {
+                            $set('kota_id', $kota->id);
+                            // Auto-set the province from the city if we found the city directly
+                            if ($kota->provinsi_id) {
+                                $set('provinsi_id', $kota->provinsi_id);
                             }
                         }
                     }
