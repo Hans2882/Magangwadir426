@@ -144,8 +144,20 @@ class GeminiOcrService
                     if (!empty($data['tanggal_akhir'])) $set('tanggal_akhir', $data['tanggal_akhir']);
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['nama_mitra'])) {
-                        $mitra = \App\Models\Mitra::where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%', 'and')->first();
-                        if ($mitra) $set('mitra_id', $mitra->id);
+                        $mitra = \App\Models\Mitra::where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
+                        if ($mitra) {
+                            $set('mitra_id', $mitra->id);
+                            
+                            // Auto-select the most recent MoU, PKS, or IA for this Mitra
+                            $parentDoc = \App\Models\Kerjasama::where('mitra_id', $mitra->id)
+                                ->whereIn('jenis_dokumen_id', [1, 3, 4]) // MoU, PKS, IA
+                                ->latest()
+                                ->first();
+                                
+                            if ($parentDoc) {
+                                $set('parent_id', $parentDoc->id);
+                            }
+                        }
                     }
                     if (!empty($data['prodis']) && is_array($data['prodis'])) {
                         $prodiIds = [];
