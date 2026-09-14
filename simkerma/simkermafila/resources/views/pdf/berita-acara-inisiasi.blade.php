@@ -7,7 +7,7 @@
         body {
             font-family: "Times New Roman", Times, serif;
             font-size: 12pt;
-            line-height: 1.5;
+            line-height: 1.0;
             margin: 0;
             padding: 30px 40px;
         }
@@ -25,7 +25,8 @@
             width: 90px;
         }
         .header-text {
-            margin-left: 100px;
+            /* removed margin-left to center perfectly */
+            line-height: 1.0;
         }
         .kementerian {
             font-size: 14pt;
@@ -107,9 +108,9 @@
         @endif
         
         <div class="header-text">
-            <p class="kementerian">KEMENTERIAN PENDIDIKAN, KEBUDAYAAN,<br>RISET DAN TEKNOLOGI</p>
+            <p class="kementerian">KEMENTERIAN PENDIDIKAN TINGGI, SAINS,<br>DAN TEKNOLOGI</p>
             <p class="polinema">POLITEKNIK NEGERI MALANG</p>
-            <p class="alamat">Jl. Soekarno Hatta No.9 Malang 65141<br>Telp (0341) 404424 - 404425 Fax (0341) 404420<br>http://www.polinema.ac.id</p>
+            <p class="alamat">Jalan Soekarno Hatta Nomor 9 Jatimulyo, Lowokwaru, Malang 65141<br>Telepon (0341) 404424, 404425, Faksimile (0341) 404420<br>Laman www.polinema.ac.id</p>
         </div>
     </div>
 
@@ -236,6 +237,8 @@
             </tr>
         </table>
     </div>
+
+    <div class="footer-line" style="position: fixed; bottom: 0px; left: 0px; right: 0px; border-bottom: 3px solid black;"></div>
 
 </body>
 </html>
