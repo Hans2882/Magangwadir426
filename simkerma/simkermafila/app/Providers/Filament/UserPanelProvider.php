@@ -48,7 +48,7 @@ class UserPanelProvider extends PanelProvider
                 'Data Kerjasama',
                 'Luaran Dokumen kerjasama',
                 'Pelaporan & Tracking',
-                'Inisiasi Kerjasama',
+                'Pengajuan Berita Acara',
                 'Simmagang',
                 'Mitra Awards',
             ])
