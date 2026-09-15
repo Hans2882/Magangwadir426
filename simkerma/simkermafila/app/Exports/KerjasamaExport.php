@@ -47,11 +47,18 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
                     // Path Google Drive -> ubah menjadi URL view
                     /** @var FilesystemAdapter $googleDisk */
                     $googleDisk = Storage::disk('google');
+
                     /** @var \Masbug\Flysystem\GoogleDriveAdapter $googleDriveAdapter */
                     $googleDriveAdapter = $googleDisk->getAdapter();
+
                     $driveUrl = (string) $googleDriveAdapter->getUrl($documentPath);
+
                     $queryString = parse_url($driveUrl, PHP_URL_QUERY);
-                    parse_str(is_string($queryString) ? $queryString : '', $query);
+
+                    parse_str(
+                        is_string($queryString) ? $queryString : '',
+                        $query
+                    );
 
                     if (!empty($query['id'])) {
                         $link = "https://drive.google.com/file/d/{$query['id']}/view";
@@ -62,106 +69,214 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             }
         }
 
-        return [
-            $item->jenisDokumen?->nama,
+        $jenisDokumen = strtoupper(
+            trim((string) ($item->jenisDokumen?->nama ?? ''))
+        );
+
+        /*
+         * MOA / MOU / PKS / IA
+         *
+         * MoU  -> tidak menampilkan Program Studi
+         * PKS  -> menampilkan Jurusan
+         * IA   -> menampilkan Jurusan
+         *
+         * Dokumen lainnya -> tetap menggunakan Program Studi
+         */
+        $data = [
+            $jenisDokumen,
             $item->judul,
             $item->mitra?->nama_mitra,
             $item->jenis,
-            $item->prodis->pluck('nama_prodi')->implode(', '),
-            $item->bidang?->bidang_kerjasama,
-            $item->nomor_dokumen,
-            $item->tahun,
-            optional($item->tanggal_awal)->format('d/m/Y'),
-            optional($item->tanggal_akhir)->format('d/m/Y'),
-            $item->status,
-            $link,
         ];
+
+        if ($jenisDokumen === 'MOU' || $jenisDokumen === 'MoU') {
+            // MoU tidak menggunakan Program Studi
+        } elseif (in_array($jenisDokumen, ['PKS', 'IA'])) {
+            // PKS dan IA menggunakan Jurusan
+            $data[] = $item->jurusans
+                ?->pluck('nama_jurusan')
+                ?->implode(', ') ?? '';
+        } else {
+            // Dokumen lainnya tetap menggunakan Program Studi
+            $data[] = $item->prodis
+                ?->pluck('nama_prodi')
+                ?->implode(', ') ?? '';
+        }
+
+        $data[] = $item->bidang?->bidang_kerjasama;
+        $data[] = $item->nomor_dokumen;
+        $data[] = $item->tahun;
+        $data[] = optional($item->tanggal_awal)->format('d/m/Y');
+        $data[] = optional($item->tanggal_akhir)->format('d/m/Y');
+        $data[] = $item->status;
+        $data[] = $link;
+
+        return $data;
     }
 
     public function headings(): array
-{
-    return [
-        'Jenis Dokumen',
-        'Judul',
-        'Nama Mitra',
-        'Jenis Kerjasama',
-        'Program Studi',
-        'Bidang',
-        'Nomor Dokumen',
-        'Tahun',
-        'Tanggal Awal',
-        'Tanggal Akhir',
-        'Status',
-        'Dokumen',
-    ];
-}
+    {
+        /*
+         * Karena headings() tidak menerima $item,
+         * kita buat heading berdasarkan query yang akan diexport.
+         *
+         * Jika export hanya berisi satu jenis dokumen,
+         * heading dapat dibuat sesuai jenis dokumen tersebut.
+         */
+        $jenisDokumen = $this->getJenisDokumenExport();
 
-public function registerEvents(): array
-{
-    return [
-        AfterSheet::class => function (AfterSheet $event) {
+        $headings = [
+            'Jenis Dokumen',
+            'Judul',
+            'Nama Mitra',
+            'Jenis Kerjasama',
+        ];
 
-            $sheet = $event->sheet->getDelegate();
+        if ($jenisDokumen === 'MOU') {
+            // MoU -> tidak ada Program Studi / Jurusan
+        } elseif (in_array($jenisDokumen, ['PKS', 'IA'])) {
+            // PKS & IA -> Jurusan
+            $headings[] = 'Jurusan';
+        } else {
+            // Dokumen lain -> Program Studi
+            $headings[] = 'Program Studi';
+        }
 
-            $highestRow = $sheet->getHighestRow();
+        $headings[] = 'Bidang';
+        $headings[] = 'Nomor Dokumen';
+        $headings[] = 'Tahun';
+        $headings[] = 'Tanggal Awal';
+        $headings[] = 'Tanggal Akhir';
+        $headings[] = 'Status';
+        $headings[] = 'Dokumen';
 
-            // Hyperlink "Lihat PDF"
-            for ($row = 2; $row <= $highestRow; $row++) {
+        return $headings;
+    }
 
-                $url = $sheet->getCell("L{$row}")->getValue();
+    /**
+     * Mengambil jenis dokumen dari query export.
+     *
+     * Jika export hanya berisi satu jenis dokumen,
+     * maka heading bisa dibuat secara dinamis.
+     */
+    protected function getJenisDokumenExport(): ?string
+    {
+        $model = clone $this->query;
 
-                if (is_string($url) && $url !== '') {
+        $item = $model
+            ->with('jenisDokumen')
+            ->first();
 
-                    $sheet->setCellValue("L{$row}", "Lihat PDF");
+        if (!$item) {
+            return null;
+        }
 
-                    $sheet->getCell("L{$row}")
-                        ->getHyperlink()
-                        ->setUrl($url);
+        return strtoupper(
+            trim((string) ($item->jenisDokumen?->nama ?? ''))
+        );
+    }
 
-                    $sheet->getStyle("L{$row}")
-                        ->getFont()
-                        ->setUnderline(true);
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
 
-                    $sheet->getStyle("L{$row}")
-                        ->getFont()
-                        ->getColor()
-                        ->setARGB('FF0000FF');
+                $sheet = $event->sheet->getDelegate();
+
+                $highestRow = $sheet->getHighestRow();
+                $highestColumn = $sheet->getHighestColumn();
+
+                // Cari kolom Dokumen berdasarkan heading
+                $documentColumn = null;
+
+                foreach ($sheet->rangeToArray(
+                    "A1:{$highestColumn}1",
+                    null,
+                    true,
+                    false
+                )[0] as $index => $heading) {
+
+                    if ($heading === 'Dokumen') {
+                        $documentColumn =
+                            \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(
+                                $index + 1
+                            );
+
+                        break;
+                    }
                 }
-            }
 
-            // Wrap text semua kolom
-            $sheet->getStyle('A1:L' . $highestRow)
-                ->getAlignment()
-                ->setWrapText(true);
+                // Hyperlink "Lihat PDF"
+                if ($documentColumn) {
+                    for ($row = 2; $row <= $highestRow; $row++) {
 
-            // Vertical align top
-            $sheet->getStyle('A1:L' . $highestRow)
-                ->getAlignment()
-                ->setVertical(Alignment::VERTICAL_TOP);
+                        $url = $sheet
+                            ->getCell("{$documentColumn}{$row}")
+                            ->getValue();
 
-            // Tinggi baris otomatis
-            for ($row = 2; $row <= $highestRow; $row++) {
-                $sheet->getRowDimension($row)->setRowHeight(-1);
-            }
-        },
-    ];
-}
+                        if (is_string($url) && $url !== '') {
 
-public function columnWidths(): array
-{
-    return [
-        'A' => 20,
-        'B' => 50, // Judul
-        'C' => 35,
-        'D' => 18,
-        'E' => 30,
-        'F' => 25,
-        'G' => 35,
-        'H' => 10,
-        'I' => 15,
-        'J' => 15,
-        'K' => 15,
-        'L' => 15,
-    ];
-}
+                            $sheet->setCellValue(
+                                "{$documentColumn}{$row}",
+                                "Lihat PDF"
+                            );
+
+                            $sheet
+                                ->getCell("{$documentColumn}{$row}")
+                                ->getHyperlink()
+                                ->setUrl($url);
+
+                            $sheet
+                                ->getStyle("{$documentColumn}{$row}")
+                                ->getFont()
+                                ->setUnderline(true);
+
+                            $sheet
+                                ->getStyle("{$documentColumn}{$row}")
+                                ->getFont()
+                                ->getColor()
+                                ->setARGB('FF0000FF');
+                        }
+                    }
+                }
+
+                // Wrap text semua kolom
+                $sheet
+                    ->getStyle("A1:{$highestColumn}{$highestRow}")
+                    ->getAlignment()
+                    ->setWrapText(true);
+
+                // Vertical align top
+                $sheet
+                    ->getStyle("A1:{$highestColumn}{$highestRow}")
+                    ->getAlignment()
+                    ->setVertical(Alignment::VERTICAL_TOP);
+
+                // Tinggi baris otomatis
+                for ($row = 2; $row <= $highestRow; $row++) {
+                    $sheet
+                        ->getRowDimension($row)
+                        ->setRowHeight(-1);
+                }
+            },
+        ];
+    }
+
+    public function columnWidths(): array
+    {
+        return [
+            'A' => 20, // Jenis Dokumen
+            'B' => 50, // Judul
+            'C' => 35, // Nama Mitra
+            'D' => 18, // Jenis Kerjasama
+            'E' => 30, // Prodi / Jurusan
+            'F' => 25, // Bidang
+            'G' => 35, // Nomor Dokumen
+            'H' => 10, // Tahun
+            'I' => 15, // Tanggal Awal
+            'J' => 15, // Tanggal Akhir
+            'K' => 15, // Status
+            'L' => 15, // Dokumen
+        ];
+    }
 }
