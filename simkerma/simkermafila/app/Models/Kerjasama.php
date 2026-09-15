@@ -22,6 +22,7 @@ class Kerjasama extends Model
 
     protected $fillable = [
         'parent_id',
+        'feedback',
         'mitra_id',
         'provinsi_id',
         'kota_id',

@@ -18,7 +18,7 @@ class PelaporanCaseStudyResource extends Resource
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Pelaporan & Tracking';
+    protected static \UnitEnum|string|null $navigationGroup = 'Luaran Dokumen kerjasama';
 
     protected static ?string $navigationLabel = 'Pelaporan Case Study';
 
@@ -76,7 +76,29 @@ class PelaporanCaseStudyResource extends Resource
                 ->relationship('mitra', 'nama_mitra')
                 ->searchable()
                 ->preload()
-                ->required(),
+                ->required()
+                ->live()
+                ->afterStateUpdated(fn ($set) => $set('parent_id', null)),
+            Forms\Components\Select::make('parent_id')
+                ->label('Dokumen Rujukan (MoU / PKS / IA)')
+                ->required()
+                ->options(function ($get) {
+                    $mitraId = $get('mitra_id');
+                    if (! $mitraId) {
+                        return [];
+                    }
+                    return \App\Models\Kerjasama::query()
+                        ->where('mitra_id', $mitraId)
+                        ->whereIn('jenis_dokumen_id', [1, 3, 4]) // MoU, PKS, IA
+                        ->with('jenisDokumen')
+                        ->get()
+                        ->mapWithKeys(function ($item) {
+                            $tipe = $item->jenisDokumen ? $item->jenisDokumen->nama : 'Dokumen';
+                            return [$item->id => "{$tipe} - {$item->judul}"];
+                        });
+                })
+                ->searchable()
+                ->preload(),
             Forms\Components\Toggle::make('is_mitra_anonim')
                 ->label('Sembunyikan Nama Mitra untuk Publik (Anonymize)'),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(8),
@@ -100,7 +122,7 @@ class PelaporanCaseStudyResource extends Resource
                     }
                 }),
             Forms\Components\Hidden::make('nomor_dokumen')
-                ->dehydrateStateUsing(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                ->dehydrateStateUsing(function ($get) {
                     return trim($get('nomor_dokumen_polinema') ?? '');
                 }),
             Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Pelaksanaan')->required(),
@@ -116,6 +138,11 @@ class PelaporanCaseStudyResource extends Resource
                 ->multiple()
                 ->searchable()
                 ->preload(),
+            Forms\Components\Textarea::make('feedback')
+                ->label('Feedback / Catatan Evaluasi')
+                ->rows(4)
+                ->columnSpanFull()
+                ->hiddenOn('create'),
         ]);
     }
 
@@ -132,6 +159,26 @@ class PelaporanCaseStudyResource extends Resource
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('judul')
                         ->label('Judul Laporan / Kegiatan')
+                        ->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('parent.judul')
+                        ->label('Dokumen Rujukan')
+                        ->default('-')
+                        ->formatStateUsing(function ($state, $record) {
+                            if (!$record->parent) return '-';
+                            $tipe = $record->parent->jenisDokumen ? $record->parent->jenisDokumen->nama : 'Dokumen';
+                            return "{$tipe} - {$state}";
+                        })
+                        ->url(function ($record) {
+                            if (!$record->parent) return null;
+                            $panel = filament()->getCurrentPanel()->getId();
+                            return match ($record->parent->jenis_dokumen_id) {
+                                1 => route("filament.{$panel}.resources.data-mou.view", ['record' => $record->parent_id]),
+                                3 => route("filament.{$panel}.resources.data-pks-spk.view", ['record' => $record->parent_id]),
+                                4 => route("filament.{$panel}.resources.data-ia.view", ['record' => $record->parent_id]),
+                                default => null,
+                            };
+                        })
+                        ->color('primary')
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')
                         ->label('Nama Mitra')
@@ -166,6 +213,10 @@ class PelaporanCaseStudyResource extends Resource
                         ->color('primary')
                         ->badge()
                         ->icon('heroicon-o-document-arrow-down')
+                        ->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('feedback')
+                        ->label('Feedback / Catatan Evaluasi')
+                        ->default('-')
                         ->columnSpanFull(),
                 ])->columns(2),
         ]);
