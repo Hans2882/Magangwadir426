@@ -35,22 +35,29 @@ class MitraAwardScore extends Model
     protected $casts = [
         'mitra_award_period_id' => 'integer',
         'mitra_id' => 'integer',
+
         'dokumen_score' => 'integer',
+
         'kurikulum' => 'integer',
         'magang' => 'integer',
         'dosen_industri' => 'integer',
         'rekrutmen' => 'integer',
+
         'penelitian_cash' => 'float',
         'penelitian_kind' => 'float',
+
         'hilirisasi' => 'integer',
         'khalayak_pkm' => 'integer',
         'publikasi_bersama' => 'integer',
         'co_hosting' => 'integer',
         'pelatihan_sertifikasi' => 'integer',
+
         'kajian_tenaga_ahli' => 'float',
         'hibah_alat' => 'float',
+
         'reputasi' => 'integer',
         'perluasan_jejaring' => 'integer',
+
         'total_score' => 'float',
         'ranking' => 'integer',
     ];
@@ -59,26 +66,56 @@ class MitraAwardScore extends Model
     {
         static::saving(function (self $score): void {
             $calculator = app(MitraAwardCalculator::class);
-            $score->dokumen_score = $calculator->getDocumentScore($score->mitra()->first());
+
+            /*
+             * Hitung score dokumen secara otomatis.
+             */
+            $score->dokumen_score = $calculator->getDocumentScore(
+                $score->mitra()->first()
+            );
+
+            /*
+             * Pastikan period tersedia.
+             *
+             * Kita sengaja load relation agar calculator
+             * menggunakan konfigurasi periode yang sama.
+             */
+            $score->loadMissing('period');
+
+            /*
+             * Hitung total berdasarkan konfigurasi periode.
+             */
             $score->total_score = $calculator->calculate($score);
         });
 
         static::saved(function (self $score): void {
-            app(MitraAwardRanking::class)->recalculate($score->mitra_award_period_id);
+            app(MitraAwardRanking::class)
+                ->recalculate(
+                    $score->mitra_award_period_id
+                );
         });
 
         static::deleted(function (self $score): void {
-            app(MitraAwardRanking::class)->recalculate($score->mitra_award_period_id);
+            app(MitraAwardRanking::class)
+                ->recalculate(
+                    $score->mitra_award_period_id
+                );
         });
     }
 
     public function mitra(): BelongsTo
     {
-        return $this->belongsTo(Mitra::class, 'mitra_id');
+        return $this->belongsTo(
+            Mitra::class,
+            'mitra_id'
+        );
     }
 
     public function period(): BelongsTo
     {
-        return $this->belongsTo(MitraAwardPeriod::class, 'mitra_award_period_id');
+        return $this->belongsTo(
+            MitraAwardPeriod::class,
+            'mitra_award_period_id'
+        );
     }
 }

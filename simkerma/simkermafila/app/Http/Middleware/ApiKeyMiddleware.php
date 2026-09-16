@@ -13,7 +13,8 @@ class ApiKeyMiddleware
         Request $request,
         Closure $next
     ): Response {
-        $apiKey = $request->header('X-API-KEY');
+        $apiKey = $request->header('X-API-KEY')
+            ?? $request->query('api_key');
 
         if (!$apiKey) {
             return response()->json([
@@ -22,12 +23,17 @@ class ApiKeyMiddleware
             ], 401);
         }
 
-        $valid = ApiKey::query()
+        $validInDatabase = ApiKey::query()
             ->where('key', $apiKey)
             ->where('is_active', true)
             ->exists();
 
-        if (!$valid) {
+        $configuredKey = config('services.web_api.key');
+        $validInConfig = is_string($configuredKey)
+            && $configuredKey !== ''
+            && hash_equals($configuredKey, $apiKey);
+
+        if (!$validInDatabase && !$validInConfig) {
             return response()->json([
                 'success' => false,
                 'message' => 'API Key tidak valid.',
