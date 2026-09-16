@@ -156,6 +156,12 @@ class PksSpkResource extends Resource
                 ->multiple()
                 ->preload()
                 ->searchable(),
+            Forms\Components\Select::make('jurusans')
+                ->label('Jurusan')
+                ->relationship('jurusans', 'nama_jurusan')
+                ->multiple()
+                ->preload()
+                ->searchable(),
             Forms\Components\Hidden::make('jenis')->default('Dalam Negeri'),
             Forms\Components\Select::make('jenis_dokumen_id')
                 ->label('Jenis Dokumen')

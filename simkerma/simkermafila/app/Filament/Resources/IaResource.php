@@ -122,6 +122,12 @@ class IaResource extends Resource
                 ->multiple()
                 ->preload()
                 ->searchable(),
+            Forms\Components\Select::make('jurusans')
+                ->label('Jurusan')
+                ->relationship('jurusans', 'nama_jurusan')
+                ->multiple()
+                ->preload()
+                ->searchable(),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(4),
             Forms\Components\Select::make('status_workflow')
                 ->label('Status Proses')
