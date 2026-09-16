@@ -4,17 +4,22 @@ namespace App\Exports;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use Illuminate\Support\Facades\Storage;
 
-class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvents, WithColumnWidths
+class KerjasamaExport implements
+    FromQuery,
+    WithHeadings,
+    WithMapping,
+    WithEvents,
+    WithColumnWidths
 {
     use Exportable;
 
@@ -31,32 +36,53 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
     }
 
     /**
+     * Mapping data untuk setiap baris Excel.
+     *
      * @param \App\Models\Kerjasama $item
      */
     public function map(mixed $item): array
     {
+        /*
+         * ============================================================
+         * LINK DOKUMEN
+         * ============================================================
+         */
+
         $link = '';
+
         $documentPath = (string) ($item->link_dokumen ?? '');
 
         if ($documentPath !== '' && $documentPath !== '-') {
             try {
+                /*
+                 * Jika sudah berupa URL, gunakan langsung.
+                 */
                 if (str_starts_with($documentPath, 'http')) {
-                    // Sudah URL, gunakan apa adanya
                     $link = $documentPath;
                 } else {
-                    // Path Google Drive -> ubah menjadi URL view
+                    /*
+                     * Jika berupa path Google Drive,
+                     * ubah menjadi URL view Google Drive.
+                     */
                     /** @var FilesystemAdapter $googleDisk */
                     $googleDisk = Storage::disk('google');
 
                     /** @var \Masbug\Flysystem\GoogleDriveAdapter $googleDriveAdapter */
                     $googleDriveAdapter = $googleDisk->getAdapter();
 
-                    $driveUrl = (string) $googleDriveAdapter->getUrl($documentPath);
+                    $driveUrl = (string) $googleDriveAdapter->getUrl(
+                        $documentPath
+                    );
 
-                    $queryString = parse_url($driveUrl, PHP_URL_QUERY);
+                    $queryString = parse_url(
+                        $driveUrl,
+                        PHP_URL_QUERY
+                    );
 
                     parse_str(
-                        is_string($queryString) ? $queryString : '',
+                        is_string($queryString)
+                            ? $queryString
+                            : '',
                         $query
                     );
 
@@ -65,23 +91,30 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
                     }
                 }
             } catch (\Throwable $e) {
+                /*
+                 * Jika gagal mendapatkan URL,
+                 * export tetap dilanjutkan tanpa link.
+                 */
                 $link = '';
             }
         }
+
+        /*
+         * ============================================================
+         * JENIS DOKUMEN
+         * ============================================================
+         */
 
         $jenisDokumen = strtoupper(
             trim((string) ($item->jenisDokumen?->nama ?? ''))
         );
 
         /*
-         * MOA / MOU / PKS / IA
-         *
-         * MoU  -> tidak menampilkan Program Studi
-         * PKS  -> menampilkan Jurusan
-         * IA   -> menampilkan Jurusan
-         *
-         * Dokumen lainnya -> tetap menggunakan Program Studi
+         * ============================================================
+         * DATA DASAR
+         * ============================================================
          */
+
         $data = [
             $jenisDokumen,
             $item->judul,
@@ -89,19 +122,61 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             $item->jenis,
         ];
 
-        if ($jenisDokumen === 'MOU' || $jenisDokumen === 'MoU') {
-            // MoU tidak menggunakan Program Studi
+        /*
+         * ============================================================
+         * PROGRAM STUDI & JURUSAN
+         * ============================================================
+         *
+         * MoU:
+         *   Tidak ada Program Studi maupun Jurusan.
+         *
+         * PKS:
+         *   Program Studi + Jurusan.
+         *
+         * IA:
+         *   Program Studi + Jurusan.
+         *
+         * Dokumen lainnya:
+         *   Program Studi saja.
+         */
+
+        if ($jenisDokumen === 'MOU') {
+            /*
+             * MoU tidak menggunakan Prodi maupun Jurusan.
+             */
         } elseif (in_array($jenisDokumen, ['PKS', 'IA'])) {
-            // PKS dan IA menggunakan Jurusan
+
+            /*
+             * PKS dan IA menggunakan:
+             *
+             * 1. Program Studi
+             * 2. Jurusan
+             */
+
+            $data[] = $item->prodis
+                ?->pluck('nama_prodi')
+                ?->implode(', ') ?? '';
+
             $data[] = $item->jurusans
                 ?->pluck('nama_jurusan')
                 ?->implode(', ') ?? '';
+
         } else {
-            // Dokumen lainnya tetap menggunakan Program Studi
+
+            /*
+             * Dokumen lainnya hanya menggunakan Program Studi.
+             */
+
             $data[] = $item->prodis
                 ?->pluck('nama_prodi')
                 ?->implode(', ') ?? '';
         }
+
+        /*
+         * ============================================================
+         * DATA LANJUTAN
+         * ============================================================
+         */
 
         $data[] = $item->bidang?->bidang_kerjasama;
         $data[] = $item->nomor_dokumen;
@@ -114,17 +189,19 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
         return $data;
     }
 
+    /**
+     * Heading Excel.
+     */
     public function headings(): array
     {
         /*
-         * Karena headings() tidak menerima $item,
-         * kita buat heading berdasarkan query yang akan diexport.
-         *
-         * Jika export hanya berisi satu jenis dokumen,
-         * heading dapat dibuat sesuai jenis dokumen tersebut.
+         * Ambil jenis dokumen dari data yang akan diexport.
          */
         $jenisDokumen = $this->getJenisDokumenExport();
 
+        /*
+         * Heading dasar.
+         */
         $headings = [
             'Jenis Dokumen',
             'Judul',
@@ -132,16 +209,54 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             'Jenis Kerjasama',
         ];
 
+        /*
+         * ============================================================
+         * PROGRAM STUDI & JURUSAN
+         * ============================================================
+         *
+         * MoU:
+         *   Tidak ada Prodi / Jurusan.
+         *
+         * PKS:
+         *   Program Studi + Jurusan.
+         *
+         * IA:
+         *   Program Studi + Jurusan.
+         *
+         * Dokumen lainnya:
+         *   Program Studi saja.
+         */
+
         if ($jenisDokumen === 'MOU') {
-            // MoU -> tidak ada Program Studi / Jurusan
+
+            /*
+             * MoU tidak memiliki Prodi maupun Jurusan.
+             */
+
         } elseif (in_array($jenisDokumen, ['PKS', 'IA'])) {
-            // PKS & IA -> Jurusan
+
+            /*
+             * PKS dan IA memiliki dua kolom:
+             *
+             * Program Studi
+             * Jurusan
+             */
+
+            $headings[] = 'Program Studi';
             $headings[] = 'Jurusan';
+
         } else {
-            // Dokumen lain -> Program Studi
+
+            /*
+             * Dokumen lainnya hanya memiliki Program Studi.
+             */
+
             $headings[] = 'Program Studi';
         }
 
+        /*
+         * Heading berikutnya.
+         */
         $headings[] = 'Bidang';
         $headings[] = 'Nomor Dokumen';
         $headings[] = 'Tahun';
@@ -156,8 +271,7 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
     /**
      * Mengambil jenis dokumen dari query export.
      *
-     * Jika export hanya berisi satu jenis dokumen,
-     * maka heading bisa dibuat secara dinamis.
+     * Digunakan untuk menentukan struktur heading.
      */
     protected function getJenisDokumenExport(): ?string
     {
@@ -176,6 +290,9 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
         );
     }
 
+    /**
+     * Event setelah sheet selesai dibuat.
+     */
     public function registerEvents(): array
     {
         return [
@@ -186,17 +303,24 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
                 $highestRow = $sheet->getHighestRow();
                 $highestColumn = $sheet->getHighestColumn();
 
-                // Cari kolom Dokumen berdasarkan heading
+                /*
+                 * ====================================================
+                 * CARI KOLOM DOKUMEN
+                 * ====================================================
+                 */
+
                 $documentColumn = null;
 
-                foreach ($sheet->rangeToArray(
-                    "A1:{$highestColumn}1",
-                    null,
-                    true,
-                    false
-                )[0] as $index => $heading) {
-
+                foreach (
+                    $sheet->rangeToArray(
+                        "A1:{$highestColumn}1",
+                        null,
+                        true,
+                        false
+                    )[0] as $index => $heading
+                ) {
                     if ($heading === 'Dokumen') {
+
                         $documentColumn =
                             \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(
                                 $index + 1
@@ -206,8 +330,14 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
                     }
                 }
 
-                // Hyperlink "Lihat PDF"
+                /*
+                 * ====================================================
+                 * HYPERLINK "LIHAT PDF"
+                 * ====================================================
+                 */
+
                 if ($documentColumn) {
+
                     for ($row = 2; $row <= $highestRow; $row++) {
 
                         $url = $sheet
@@ -216,21 +346,33 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
 
                         if (is_string($url) && $url !== '') {
 
+                            /*
+                             * Ubah isi cell menjadi "Lihat PDF".
+                             */
                             $sheet->setCellValue(
                                 "{$documentColumn}{$row}",
-                                "Lihat PDF"
+                                'Lihat PDF'
                             );
 
+                            /*
+                             * Tambahkan hyperlink.
+                             */
                             $sheet
                                 ->getCell("{$documentColumn}{$row}")
                                 ->getHyperlink()
                                 ->setUrl($url);
 
+                            /*
+                             * Underline.
+                             */
                             $sheet
                                 ->getStyle("{$documentColumn}{$row}")
                                 ->getFont()
                                 ->setUnderline(true);
 
+                            /*
+                             * Warna hyperlink.
+                             */
                             $sheet
                                 ->getStyle("{$documentColumn}{$row}")
                                 ->getFont()
@@ -240,20 +382,42 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
                     }
                 }
 
-                // Wrap text semua kolom
+                /*
+                 * ====================================================
+                 * WRAP TEXT
+                 * ====================================================
+                 */
+
                 $sheet
-                    ->getStyle("A1:{$highestColumn}{$highestRow}")
+                    ->getStyle(
+                        "A1:{$highestColumn}{$highestRow}"
+                    )
                     ->getAlignment()
                     ->setWrapText(true);
 
-                // Vertical align top
-                $sheet
-                    ->getStyle("A1:{$highestColumn}{$highestRow}")
-                    ->getAlignment()
-                    ->setVertical(Alignment::VERTICAL_TOP);
+                /*
+                 * ====================================================
+                 * VERTICAL ALIGN TOP
+                 * ====================================================
+                 */
 
-                // Tinggi baris otomatis
+                $sheet
+                    ->getStyle(
+                        "A1:{$highestColumn}{$highestRow}"
+                    )
+                    ->getAlignment()
+                    ->setVertical(
+                        Alignment::VERTICAL_TOP
+                    );
+
+                /*
+                 * ====================================================
+                 * AUTO HEIGHT ROW
+                 * ====================================================
+                 */
+
                 for ($row = 2; $row <= $highestRow; $row++) {
+
                     $sheet
                         ->getRowDimension($row)
                         ->setRowHeight(-1);
@@ -262,6 +426,9 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
         ];
     }
 
+    /**
+     * Lebar kolom Excel.
+     */
     public function columnWidths(): array
     {
         return [
@@ -269,14 +436,15 @@ class KerjasamaExport implements FromQuery, WithHeadings, WithMapping, WithEvent
             'B' => 50, // Judul
             'C' => 35, // Nama Mitra
             'D' => 18, // Jenis Kerjasama
-            'E' => 30, // Prodi / Jurusan
-            'F' => 25, // Bidang
-            'G' => 35, // Nomor Dokumen
-            'H' => 10, // Tahun
-            'I' => 15, // Tanggal Awal
-            'J' => 15, // Tanggal Akhir
-            'K' => 15, // Status
-            'L' => 15, // Dokumen
+            'E' => 30, // Program Studi
+            'F' => 30, // Jurusan
+            'G' => 25, // Bidang
+            'H' => 35, // Nomor Dokumen
+            'I' => 10, // Tahun
+            'J' => 15, // Tanggal Awal
+            'K' => 15, // Tanggal Akhir
+            'L' => 15, // Status
+            'M' => 15, // Dokumen
         ];
     }
 }
