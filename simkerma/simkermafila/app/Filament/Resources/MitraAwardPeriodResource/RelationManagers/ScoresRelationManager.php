@@ -5,6 +5,9 @@ namespace App\Filament\Resources\MitraAwardPeriodResource\RelationManagers;
 use App\Models\Mitra;
 use App\Models\MitraAwardScore;
 use App\Services\MitraAwardCalculator;
+use App\Exports\MitraAwardScoreExport;
+use Filament\Actions\Action;
+use Maatwebsite\Excel\Facades\Excel;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -536,7 +539,7 @@ class ScoresRelationManager extends RelationManager
             ->striped()
 ->paginated([10, 25, 50])
 ->extraAttributes([
-    'class' => 'text-sm',
+    'class' => 'text-sm [&_.fi-ta-row>td]:py-2',
 ])
 
             ->columns([
@@ -623,18 +626,31 @@ class ScoresRelationManager extends RelationManager
             ])
 
             ->headerActions([
-                CreateAction::make()
-                    ->label('Buat Mitra Award Score')
-                    ->icon('heroicon-o-plus')
-                    ->modalHeading('Buat Mitra Award Score')
-                    ->modalDescription(
-                        'Isi penilaian secara bertahap. Skor akhir akan dihitung otomatis.'
-                    )
-                    ->modalWidth('7xl')
-                    ->mutateFormDataUsing(
-                        fn (array $data): array => $this->prepareScoreData($data)
-                    ),
-            ])
+    Action::make('exportExcel')
+        ->label('Export Excel')
+        ->icon('heroicon-o-arrow-down-tray')
+        ->color('success')
+        ->action(function () {
+            return Excel::download(
+                new MitraAwardScoreExport(
+                    $this->ownerRecord->getKey()
+                ),
+                'mitra-award-' . $this->ownerRecord->getKey() . '.xlsx'
+            );
+        }),
+
+    CreateAction::make()
+        ->label('Buat Mitra Award Score')
+        ->icon('heroicon-o-plus')
+        ->modalHeading('Buat Mitra Award Score')
+        ->modalDescription(
+            'Isi penilaian secara bertahap. Skor akhir akan dihitung otomatis.'
+        )
+        ->modalWidth('7xl')
+        ->mutateFormDataUsing(
+            fn (array $data): array => $this->prepareScoreData($data)
+        ),
+])
 
             ->recordActions([
                 EditAction::make()
