@@ -10,11 +10,16 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\Wizard;
+use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rule;
 
 class ScoresRelationManager extends RelationManager
@@ -28,160 +33,493 @@ class ScoresRelationManager extends RelationManager
         return false;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | FORM
+    |--------------------------------------------------------------------------
+    */
+
     public function form(Schema $schema): Schema
     {
         return $schema->schema([
-            /*
-             * ============================================================
-             * MITRA + DOKUMEN
-             * ============================================================
-             */
-            Section::make('Ketersediaan Dokumen')
-                ->description('Level dokumen dihitung otomatis berdasarkan dokumen kerja sama mitra.')
-                ->schema([
-                    Forms\Components\Select::make('mitra_id')
-                        ->label('Mitra')
-                        ->relationship('mitra', 'nama_mitra')
-                        ->searchable()
-                        ->preload()
-                        ->required()
-                        ->rule(function (?MitraAwardScore $record) {
-                            return Rule::unique('mitra_award_scores', 'mitra_id')
-                                ->where(
-                                    fn ($query) => $query->where(
-                                        'mitra_award_period_id',
-                                        $this->ownerRecord->getKey()
+            Wizard::make([
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 1 — MITRA
+                |--------------------------------------------------------------------------
+                */
+                Step::make('Mitra')
+                    ->icon('heroicon-o-building-office-2')
+                    ->description('Pilih mitra yang akan dinilai.')
+                    ->schema([
+                        Section::make('Identitas Mitra')
+                            ->description(
+                                'Setiap mitra hanya dapat dimasukkan satu kali pada periode award ini.'
+                            )
+                            ->schema([
+                                Forms\Components\Select::make('mitra_id')
+                                    ->label('Mitra')
+                                    ->placeholder('Pilih atau cari nama mitra...')
+                                    ->relationship('mitra', 'nama_mitra')
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->native(false)
+                                    ->live()
+                                    ->rule(
+                                        fn (?MitraAwardScore $record) => Rule::unique(
+                                            'mitra_award_scores',
+                                            'mitra_id'
+                                        )
+                                            ->where(
+                                                fn ($query) => $query->where(
+                                                    'mitra_award_period_id',
+                                                    $this->ownerRecord->getKey()
+                                                )
+                                            )
+                                            ->ignore($record?->getKey())
                                     )
+                                    ->afterStateUpdated(
+                                        function ($state, Set $set): void {
+                                            $set(
+                                                'dokumen_score',
+                                                $this->documentScore($state)
+                                            );
+                                        }
+                                    )
+                                    ->helperText('Cari berdasarkan nama mitra.')
+                                    ->columnSpanFull(),
+
+                                Grid::make([
+                                    'default' => 1,
+                                    'md' => 3,
+                                ])
+                                    ->schema([
+                                        Forms\Components\Placeholder::make(
+                                            'selected_category'
+                                        )
+                                            ->label('Kategori IKU')
+                                            ->content(
+                                                fn (Get $get): string => $this->mitraCategory(
+                                                    $get('mitra_id')
+                                                )
+                                            ),
+
+                                        Forms\Components\Placeholder::make(
+                                            'selected_country'
+                                        )
+                                            ->label('Negara')
+                                            ->content(
+                                                fn (Get $get): string => $this->mitraCountry(
+                                                    $get('mitra_id')
+                                                )
+                                            ),
+
+                                        Forms\Components\Placeholder::make(
+                                            'selected_document_score'
+                                        )
+                                            ->label('Skor Dokumen')
+                                            ->content(
+                                                fn (Get $get): string => $this->documentScore(
+                                                    $get('mitra_id')
+                                                ) . ' / 4'
+                                            ),
+                                    ])
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(1)
+                            ->compact()
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull(),
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 2 — DOKUMEN
+                |--------------------------------------------------------------------------
+                */
+                Step::make('Dokumen')
+                    ->icon('heroicon-o-document-check')
+                    ->description('Dokumen kerja sama dideteksi otomatis.')
+                    ->schema([
+                        Section::make('Dokumen Kerja Sama')
+                            ->description(
+                                'Skor dokumen dihitung otomatis dari dokumen terbaik yang dimiliki mitra.'
+                            )
+                            ->schema([
+                                Grid::make([
+                                    'default' => 1,
+                                    'md' => 2,
+                                ])
+                                    ->schema([
+                                        Forms\Components\Placeholder::make(
+                                            'document_level'
+                                        )
+                                            ->label('Jenis / Level Dokumen')
+                                            ->content(
+                                                fn (Get $get): string => $this->documentLevel(
+                                                    $get('mitra_id')
+                                                )
+                                            ),
+
+                                        Forms\Components\Placeholder::make(
+                                            'document_score_display'
+                                        )
+                                            ->label('Skor Dokumen')
+                                            ->content(
+                                                fn (Get $get): string => $this->documentScore(
+                                                    $get('mitra_id')
+                                                ) . ' / 4'
+                                            ),
+                                    ])
+                                    ->columnSpanFull(),
+
+                                Forms\Components\Placeholder::make(
+                                    'document_explanation'
                                 )
-                                ->ignore($record?->getKey());
-                        })
-                        ->live()
-                        ->afterStateUpdated(function ($state, Forms\Set $set) {
-                            $mitra = $state ? Mitra::find($state) : null;
+                                    ->label('Keterangan')
+                                    ->content(
+                                        fn (Get $get): string => $this->documentExplanation(
+                                            $get('mitra_id')
+                                        )
+                                    )
+                                    ->columnSpanFull(),
 
-                            if (! $mitra) {
-                                return;
-                            }
+                                Forms\Components\Hidden::make('dokumen_score')
+                                    ->default(0)
+                                    ->dehydrated(true),
+                            ])
+                            ->columns(1)
+                            ->compact()
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull(),
 
-                            $calculator = app(MitraAwardCalculator::class);
-                            $documentScore = $calculator->getDocumentScore($mitra);
-
-                            $set('document_score_preview', $documentScore);
-                        }),
-
-                    Forms\Components\Placeholder::make('document_level')
-                        ->label('Jenis dokumen terdeteksi')
-                        ->content(
-                            fn (Get $get): string => $this->documentLevel(
-                                $get('mitra_id')
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 3 — AKADEMIK
+                |--------------------------------------------------------------------------
+                */
+                Step::make('Akademik')
+                    ->icon('heroicon-o-academic-cap')
+                    ->description('Isi aktivitas kemitraan bidang akademik.')
+                    ->schema([
+                        Section::make('Kemitraan Akademik')
+                            ->description(
+                                'Masukkan jumlah aktivitas aktual.'
                             )
-                        ),
+                            ->schema([
+                                $this->countField(
+                                    'kurikulum',
+                                    'Kurikulum',
+                                    'Jumlah workshop/kegiatan kurikulum.'
+                                ),
 
-                    Forms\Components\Placeholder::make('document_score_preview')
-                        ->label('Skor dokumen')
-                        ->content(
-                            fn (Get $get): string => (string) app(
-                                MitraAwardCalculator::class
-                            )->getDocumentScore(
-                                Mitra::find($get('mitra_id'))
+                                $this->countField(
+                                    'magang',
+                                    'Magang',
+                                    'Jumlah mahasiswa yang mengikuti kegiatan magang.'
+                                ),
+
+                                $this->countField(
+                                    'dosen_industri',
+                                    'Dosen Industri',
+                                    'Jumlah dosen yang terlibat.'
+                                ),
+
+                                $this->countField(
+                                    'rekrutmen',
+                                    'Rekrutmen',
+                                    'Jumlah alumni yang direkrut.'
+                                ),
+                            ])
+                            ->columns([
+                                'default' => 1,
+                                'md' => 2,
+                            ])
+                            ->compact()
+                            ->columnSpanFull(),
+
+                        $this->scaleGuideSection([
+                            'kurikulum',
+                            'magang',
+                            'dosen_industri',
+                            'rekrutmen',
+                        ]),
+                    ])
+                    ->columnSpanFull(),
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 4 — PENELITIAN & PKM
+                |--------------------------------------------------------------------------
+                */
+                Step::make('Penelitian & PkM')
+                    ->icon('heroicon-o-beaker')
+                    ->description('Isi aktivitas penelitian dan pengabdian.')
+                    ->schema([
+                        Section::make('Penelitian')
+                            ->description(
+                                'Untuk nilai uang, masukkan nominal aktual dalam Rupiah.'
                             )
-                        ),
-                ])
-                ->columns(3),
+                            ->schema([
+                                $this->moneyField(
+                                    'penelitian_cash',
+                                    'Penelitian In-cash',
+                                    'Kontribusi penelitian dalam bentuk uang.'
+                                ),
 
-            /*
-             * ============================================================
-             * KEMITRAAN AKADEMIK
-             * ============================================================
-             */
-            Section::make('Kemitraan Akademik')
-                ->schema([
-                    $this->countField('kurikulum', 'Kurikulum'),
-                    $this->countField('magang', 'Magang'),
-                    $this->countField('dosen_industri', 'Dosen Industri'),
-                    $this->countField('rekrutmen', 'Rekrutmen'),
-                ])
-                ->columns(2),
+                                $this->moneyField(
+                                    'penelitian_kind',
+                                    'Penelitian In-kind',
+                                    'Nilai setara Rupiah barang/jasa.'
+                                ),
 
-            /*
-             * ============================================================
-             * PENELITIAN DAN PKM
-             * ============================================================
-             */
-            Section::make('Penelitian dan Pengabdian kepada Masyarakat')
-                ->schema([
-                    $this->moneyField('penelitian_cash', 'Penelitian Cash'),
-                    $this->moneyField('penelitian_kind', 'Penelitian In-kind'),
-                    $this->countField('hilirisasi', 'Hilirisasi'),
-                    $this->countField('khalayak_pkm', 'Khalayak PKM'),
-                    $this->countField('publikasi_bersama', 'Publikasi Bersama'),
-                    $this->countField('co_hosting', 'Co-hosting'),
-                ])
-                ->columns(2),
+                                $this->countField(
+                                    'hilirisasi',
+                                    'Hilirisasi',
+                                    'Jumlah produk/jasa yang dihilirisasi.'
+                                ),
+                            ])
+                            ->columns([
+                                'default' => 1,
+                                'md' => 2,
+                            ])
+                            ->compact()
+                            ->columnSpanFull(),
 
-            /*
-             * ============================================================
-             * INCOME GENERATION
-             * ============================================================
-             */
-            Section::make('Income Generation')
-                ->schema([
-                    $this->countField(
-                        'pelatihan_sertifikasi',
-                        'Pelatihan / Sertifikasi'
-                    ),
+                        Section::make('Pengabdian kepada Masyarakat')
+                            ->schema([
+                                $this->countField(
+                                    'khalayak_pkm',
+                                    'Khalayak Sasaran PkM',
+                                    'Jumlah masyarakat sasaran.'
+                                ),
 
-                    $this->moneyField(
-                        'kajian_tenaga_ahli',
-                        'Kajian Tenaga Ahli'
-                    ),
+                                $this->countField(
+                                    'publikasi_bersama',
+                                    'Publikasi Bersama',
+                                    'Jumlah artikel publikasi bersama.'
+                                ),
 
-                    $this->moneyField(
-                        'hibah_alat',
-                        'Hibah Alat'
-                    ),
-                ])
-                ->columns(2),
+                                $this->countField(
+                                    'co_hosting',
+                                    'Co-hosting',
+                                    'Jumlah pertemuan ilmiah bersama.'
+                                ),
+                            ])
+                            ->columns([
+                                'default' => 1,
+                                'md' => 2,
+                            ])
+                            ->compact()
+                            ->columnSpanFull(),
 
-            /*
-             * ============================================================
-             * NILAI TAMBAH
-             * ============================================================
-             */
-            Section::make('Nilai Tambah')
-                ->schema([
-                    $this->likertField(
-                        'reputasi',
-                        'Reputasi'
-                    ),
+                        $this->scaleGuideSection([
+                            'penelitian_cash',
+                            'penelitian_kind',
+                            'hilirisasi',
+                            'khalayak_pkm',
+                            'publikasi_bersama',
+                            'co_hosting',
+                        ]),
+                    ])
+                    ->columnSpanFull(),
 
-                    $this->likertField(
-                        'perluasan_jejaring',
-                        'Perluasan Jejaring'
-                    ),
-                ])
-                ->columns(2),
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 5 — INCOME GENERATION
+                |--------------------------------------------------------------------------
+                */
+                Step::make('Income')
+                    ->icon('heroicon-o-banknotes')
+                    ->description('Isi aktivitas income generation.')
+                    ->schema([
+                        Section::make('Income Generation')
+                            ->description(
+                                'Masukkan jumlah atau nominal aktual sesuai satuan indikator.'
+                            )
+                            ->schema([
+                                $this->countField(
+                                    'pelatihan_sertifikasi',
+                                    'Pelatihan / Sertifikasi',
+                                    'Jumlah peserta/proyek.'
+                                ),
 
-            /*
-             * ============================================================
-             * PREVIEW NILAI
-             * ============================================================
-             */
-            Section::make('Preview Nilai')
-                ->schema([
-                    Forms\Components\Placeholder::make('total_score_preview')
-                        ->label('Final Score')
-                        ->content(
-                            fn (Get $get): string => number_format(
-                                $this->previewScore($get),
-                                2,
-                                ',',
-                                '.'
-                            ) . ' / 100'
-                        ),
-                ]),
+                                $this->moneyField(
+                                    'kajian_tenaga_ahli',
+                                    'Kajian / Tenaga Ahli',
+                                    'Nilai proyek dalam Rupiah.'
+                                ),
+
+                                $this->moneyField(
+                                    'hibah_alat',
+                                    'Hibah Alat / Sarana / Beasiswa',
+                                    'Nilai setara Rupiah hibah.'
+                                ),
+                            ])
+                            ->columns([
+                                'default' => 1,
+                                'md' => 2,
+                            ])
+                            ->compact()
+                            ->columnSpanFull(),
+
+                        $this->scaleGuideSection([
+                            'pelatihan_sertifikasi',
+                            'kajian_tenaga_ahli',
+                            'hibah_alat',
+                        ]),
+                    ])
+                    ->columnSpanFull(),
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 6 — NILAI TAMBAH
+                |--------------------------------------------------------------------------
+                */
+                Step::make('Nilai Tambah')
+                    ->icon('heroicon-o-star')
+                    ->description('Nilai reputasi dan perluasan jejaring.')
+                    ->schema([
+                        Section::make('Nilai Tambah')
+                            ->description(
+                                'Pilih tingkat penilaian berdasarkan kondisi mitra.'
+                            )
+                            ->schema([
+                                $this->likertField(
+                                    'reputasi',
+                                    'Reputasi',
+                                    'Tingkat reputasi mitra.'
+                                ),
+
+                                $this->likertField(
+                                    'perluasan_jejaring',
+                                    'Perluasan Jejaring',
+                                    'Dampak terhadap perluasan jejaring.'
+                                ),
+                            ])
+                            ->columns([
+                                'default' => 1,
+                                'md' => 2,
+                            ])
+                            ->compact()
+                            ->columnSpanFull(),
+
+                        $this->scaleGuideSection([
+                            'reputasi',
+                            'perluasan_jejaring',
+                        ]),
+                    ])
+                    ->columnSpanFull(),
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 7 — REVIEW
+                |--------------------------------------------------------------------------
+                */
+                Step::make('Review')
+                    ->icon('heroicon-o-check-circle')
+                    ->description('Periksa seluruh nilai sebelum disimpan.')
+                    ->schema([
+                        Section::make('Ringkasan Penilaian')
+                            ->description(
+                                'Final Score dihitung otomatis menggunakan konfigurasi Skala & Bobot periode ini.'
+                            )
+                            ->schema([
+                                Grid::make([
+                                    'default' => 1,
+                                    'md' => 3,
+                                ])
+                                    ->schema([
+                                        Forms\Components\Placeholder::make(
+                                            'review_mitra'
+                                        )
+                                            ->label('Mitra')
+                                            ->content(
+                                                fn (Get $get): string => $this->mitraName(
+                                                    $get('mitra_id')
+                                                )
+                                            ),
+
+                                        Forms\Components\Placeholder::make(
+                                            'review_document'
+                                        )
+                                            ->label('Dokumen')
+                                            ->content(
+                                                fn (Get $get): string => $this->documentLevel(
+                                                    $get('mitra_id')
+                                                )
+                                            ),
+
+                                        Forms\Components\Placeholder::make(
+                                            'review_document_score'
+                                        )
+                                            ->label('Skor Dokumen')
+                                            ->content(
+                                                fn (Get $get): string => $this->documentScore(
+                                                    $get('mitra_id')
+                                                ) . ' / 4'
+                                            ),
+                                    ])
+                                    ->columnSpanFull(),
+
+                                Grid::make([
+                                    'default' => 1,
+                                    'md' => 2,
+                                ])
+                                    ->schema([
+                                        Forms\Components\Placeholder::make(
+                                            'total_score_preview'
+                                        )
+                                            ->label('FINAL SCORE')
+                                            ->content(
+                                                fn (Get $get): string => number_format(
+                                                    $this->previewScore($get),
+                                                    2,
+                                                    ',',
+                                                    '.'
+                                                ) . ' / 100'
+                                            ),
+
+                                        Forms\Components\Placeholder::make(
+                                            'score_status'
+                                        )
+                                            ->label('Status')
+                                            ->content(
+                                                fn (Get $get): string => $this->scoreStatus(
+                                                    $this->previewScore($get)
+                                                )
+                                            ),
+                                    ])
+                                    ->columnSpanFull(),
+
+                                Forms\Components\Placeholder::make(
+                                    'review_information'
+                                )
+                                    ->label('Catatan')
+                                    ->content(
+                                        'Pastikan seluruh data yang dimasukkan merupakan data aktual. Setelah disimpan, ranking periode akan diperbarui.'
+                                    )
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(1)
+                            ->compact()
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull(),
+            ])
+                ->persistStepInQueryString()
+                ->skippable(false)
+                ->columnSpanFull(),
         ]);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TABLE
+    |--------------------------------------------------------------------------
+    */
 
     public function table(Table $table): Table
     {
@@ -195,51 +533,75 @@ class ScoresRelationManager extends RelationManager
                 ])
             )
 
+            ->striped()
+->paginated([10, 25, 50])
+->extraAttributes([
+    'class' => 'text-sm',
+])
+
             ->columns([
-                Tables\Columns\TextColumn::make('ranking')
-                    ->label('Ranking')
-                    ->badge()
-                    ->color(
-                        fn (?int $state): string => match ($state) {
-                            1 => 'warning',
-                            2 => 'gray',
-                            3 => 'orange',
-                            default => 'primary',
-                        }
-                    )
-                    ->sortable(),
+    Tables\Columns\TextColumn::make('ranking')
+        ->label('#')
+        ->badge()
+        ->color(
+            fn ($state): string => match ((int) $state) {
+                1 => 'warning',
+                2 => 'gray',
+                3 => 'orange',
+                default => 'primary',
+            }
+        )
+        ->sortable()
+        ->alignCenter()
+        ->width('60px'),
 
-                Tables\Columns\TextColumn::make('mitra.nama_mitra')
-                    ->label('Nama Mitra')
-                    ->searchable()
-                    ->sortable(),
+    Tables\Columns\TextColumn::make('mitra.nama_mitra')
+        ->label('Nama Mitra')
+        ->searchable()
+        ->sortable()
+        ->limit(35)
+        ->tooltip(
+            fn ($record): ?string => $record->mitra?->nama_mitra
+        )
+        ->wrap(false),
 
-                Tables\Columns\TextColumn::make('mitra.kategori.kategori')
-                    ->label('Kategori IKU')
-                    ->badge()
-                    ->default('-'),
+    Tables\Columns\TextColumn::make('mitra.kategori.kategori')
+        ->label('Kategori')
+        ->badge()
+        ->default('-')
+        ->limit(20),
 
-                Tables\Columns\TextColumn::make('mitra.negara.nama_negara')
-                    ->label('Negara')
-                    ->default('Indonesia'),
+    Tables\Columns\TextColumn::make('mitra.negara.nama_negara')
+        ->label('Negara')
+        ->default('Indonesia')
+        ->limit(18),
 
-                Tables\Columns\TextColumn::make('dokumen_score')
-                    ->label('Level Dokumen')
-                    ->formatStateUsing(
-                        fn (int $state): string => [
-                            0 => 'Tidak ada',
-                            1 => 'Inisiasi / tracking',
-                            2 => 'IA',
-                            3 => 'PKS / SPK',
-                            4 => 'MoU',
-                        ][$state] ?? '-'
-                    ),
+    Tables\Columns\TextColumn::make('dokumen_score')
+        ->label('Dokumen')
+        ->formatStateUsing(
+            fn ($state): string => $this->documentLevelFromScore(
+                (int) ($state ?? 0)
+            )
+        )
+        ->badge()
+        ->color(
+            fn ($state): string => match ((int) $state) {
+                4 => 'success',
+                3 => 'info',
+                2 => 'warning',
+                1 => 'gray',
+                default => 'danger',
+            }
+        )
+        ->alignCenter(),
 
-                Tables\Columns\TextColumn::make('total_score')
-                    ->label('Final Score')
-                    ->numeric(2)
-                    ->sortable(),
-            ])
+    Tables\Columns\TextColumn::make('total_score')
+        ->label('Score')
+        ->numeric(2)
+        ->sortable()
+        ->weight('bold')
+        ->alignCenter(),
+])
 
             ->filters([
                 Tables\Filters\SelectFilter::make('participant_scope')
@@ -249,85 +611,93 @@ class ScoresRelationManager extends RelationManager
                         'top3' => 'Top 3',
                         'top10' => 'Top 10',
                     ])
-                    ->query(function ($query, array $data) {
-                        return match ($data['value'] ?? 'all') {
-                            'top3' => $query->where('ranking', '<=', 3),
-                            'top10' => $query->where('ranking', '<=', 10),
-                            default => $query,
-                        };
-                    }),
+                    ->query(
+                        function ($query, array $data) {
+                            return match ($data['value'] ?? 'all') {
+                                'top3' => $query->where('ranking', '<=', 3),
+                                'top10' => $query->where('ranking', '<=', 10),
+                                default => $query,
+                            };
+                        }
+                    ),
             ])
 
             ->headerActions([
                 CreateAction::make()
-                    ->label('Tambah Peserta'),
+                    ->label('Buat Mitra Award Score')
+                    ->icon('heroicon-o-plus')
+                    ->modalHeading('Buat Mitra Award Score')
+                    ->modalDescription(
+                        'Isi penilaian secara bertahap. Skor akhir akan dihitung otomatis.'
+                    )
+                    ->modalWidth('7xl')
+                    ->mutateFormDataUsing(
+                        fn (array $data): array => $this->prepareScoreData($data)
+                    ),
             ])
 
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->label('Edit Penilaian')
+                    ->modalHeading('Edit Mitra Award Score')
+                    ->modalWidth('7xl')
+                    ->mutateFormDataUsing(
+                        fn (array $data): array => $this->prepareScoreData($data)
+                    ),
+
+                DeleteAction::make()
+                    ->label('Hapus'),
             ])
 
-            ->defaultSort('ranking');
+            ->defaultSort('ranking', 'asc');
     }
 
     /*
-     * ================================================================
-     * COUNT FIELD
-     * ================================================================
-     *
-     * Contoh:
-     *
-     * 0      -> Tidak ada
-     * 1      -> 1
-     * 2      -> 2
-     * 3      -> 3
-     * 4      -> > 3
-     *
-     * Nilai yang disimpan tetap 0,1,2,3,4.
-     * Calculator kemudian menerjemahkan nilai tersebut menjadi skor.
-     */
+    |--------------------------------------------------------------------------
+    | FORM FIELD BUILDERS
+    |--------------------------------------------------------------------------
+    */
+
     private function countField(
         string $name,
-        string $label
-    ): Forms\Components\Select {
-        return Forms\Components\Select::make($name)
+        string $label,
+        ?string $helper = null
+    ): Forms\Components\TextInput {
+        return Forms\Components\TextInput::make($name)
             ->label($label)
-            ->options($this->countOptions($name))
+            ->numeric()
+            ->minValue(0)
             ->default(0)
             ->required()
             ->live()
-            ->native(false);
+            ->step(1)
+            ->suffix($this->unit($name))
+            ->helperText($helper)
+            ->columnSpan(1);
     }
 
-    /*
-     * ================================================================
-     * MONEY FIELD
-     * ================================================================
-     *
-     * Pilihan mengikuti threshold dari konfigurasi periode.
-     */
     private function moneyField(
         string $name,
-        string $label
-    ): Forms\Components\Select {
-        return Forms\Components\Select::make($name)
+        string $label,
+        ?string $helper = null
+    ): Forms\Components\TextInput {
+        return Forms\Components\TextInput::make($name)
             ->label($label)
-            ->options($this->moneyOptions($name))
+            ->numeric()
+            ->minValue(0)
             ->default(0)
             ->required()
             ->live()
-            ->native(false);
+            ->step(1)
+            ->prefix('Rp')
+            ->helperText($helper)
+            ->columnSpan(1);
     }
 
-    /*
-     * ================================================================
-     * LIKERT FIELD
-     * ================================================================
-     */
     private function likertField(
         string $name,
-        string $label
+        string $label,
+        ?string $helper = null
     ): Forms\Components\Select {
         return Forms\Components\Select::make($name)
             ->label($label)
@@ -335,139 +705,135 @@ class ScoresRelationManager extends RelationManager
             ->default(0)
             ->required()
             ->live()
-            ->native(false);
+            ->native(false)
+            ->helperText($helper)
+            ->columnSpan(1);
     }
 
     /*
-     * ================================================================
-     * COUNT OPTIONS
-     * ================================================================
-     */
-    private function countOptions(string $name): array
-    {
-        $scale = $this->getScale($name);
+    |--------------------------------------------------------------------------
+    | SCALE GUIDE
+    |--------------------------------------------------------------------------
+    */
 
-        if (! $scale) {
-            return [
-                0 => 'Tidak ada (0)',
-                1 => '1',
-                2 => '2',
-                3 => '3',
-                4 => 'Lebih dari 3',
-            ];
+    private function scaleGuideSection(array $criteria): Section
+    {
+        $schema = [];
+
+        foreach ($criteria as $criterion) {
+            $schema[] = Forms\Components\Placeholder::make(
+                'scale_' . $criterion
+            )
+                ->label(
+                    MitraAwardCalculator::CRITERIA_LABELS[$criterion]
+                    ?? $criterion
+                )
+                ->content(
+                    fn (): HtmlString => new HtmlString(
+                        $this->scaleGuideHtml($criterion)
+                    )
+                )
+                ->columnSpanFull();
         }
 
-        $thresholds = $scale['thresholds'] ?? [0, 1, 2, 3];
-
-        return [
-            0 => $this->countOptionLabel(
-                $thresholds,
-                0
-            ),
-
-            1 => $this->countOptionLabel(
-                $thresholds,
-                1
-            ),
-
-            2 => $this->countOptionLabel(
-                $thresholds,
-                2
-            ),
-
-            3 => $this->countOptionLabel(
-                $thresholds,
-                3
-            ),
-
-            4 => $this->countOptionLabel(
-                $thresholds,
-                4
-            ),
-        ];
+        return Section::make('Panduan Skala & Bobot')
+            ->description(
+                'Panduan pengisian indikator.'
+            )
+            ->schema($schema)
+            ->collapsed()
+            ->columns(1)
+            ->compact()
+            ->columnSpanFull();
     }
 
-    private function countOptionLabel(
-        array $thresholds,
-        int $score
-    ): string {
-        if ($score === 0) {
-            return '0 / Tidak ada';
-        }
+    private function scaleGuideHtml(string $name): string
+    {
+        $scale = $this->getScale($name);
+        $weight = $this->getWeightPercentage($name);
+        $unit = $this->unit($name);
 
-        if ($score === 4) {
-            $last = $thresholds[3] ?? 3;
-
-            return '> ' . number_format(
-                (float) $last,
-                0,
-                ',',
-                '.'
-            );
-        }
-
-        $value = $thresholds[$score] ?? $score;
-
-        return number_format(
-            (float) $value,
-            0,
-            ',',
-            '.'
+        $label = e(
+            MitraAwardCalculator::CRITERIA_LABELS[$name] ?? $name
         );
-    }
 
-    /*
-     * ================================================================
-     * MONEY OPTIONS
-     * ================================================================
-     */
-    private function moneyOptions(string $name): array
-    {
-        $scale = $this->getScale($name);
+        $html = '<div class="space-y-1 text-sm">';
 
-        if (! $scale) {
-            return [
-                0 => 'Rp 0',
-                1 => 'Sesuai batas skor 1',
-                2 => 'Sesuai batas skor 2',
-                3 => 'Sesuai batas skor 3',
-                4 => 'Di atas batas skor 3',
-            ];
+        $html .= '<div>'
+            . '<strong>Bobot:</strong> '
+            . number_format($weight, 2, ',', '.')
+            . '%';
+
+        if ($unit !== '') {
+            $html .= ' &nbsp;•&nbsp; '
+                . '<strong>Satuan:</strong> '
+                . e($unit);
         }
 
-        $thresholds = $scale['thresholds'] ?? [
-            0,
-            2_000_000,
-            5_000_000,
-            10_000_000,
-        ];
+        $html .= '</div>';
 
-        return [
-            0 => 'Rp 0',
+        if (! $scale) {
+            $html .= '<div class="text-gray-500">'
+                . $label
+                . ': skala default digunakan.</div>';
 
-            1 => 'Rp ' . $this->formatMoney(
-                $thresholds[1] ?? 0
-            ),
+            $html .= '</div>';
 
-            2 => 'Rp ' . $this->formatMoney(
-                $thresholds[2] ?? 0
-            ),
+            return $html;
+        }
 
-            3 => 'Rp ' . $this->formatMoney(
-                $thresholds[3] ?? 0
-            ),
+        $type = $scale['type'] ?? 'count';
 
-            4 => '> Rp ' . $this->formatMoney(
-                $thresholds[3] ?? 0
-            ),
-        ];
+        if ($type === 'likert' || $name === 'dokumen_score') {
+            $labels = $scale['labels'] ?? [];
+
+            $html .= '<div class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-5">';
+
+            for ($score = 0; $score <= 4; $score++) {
+                $scoreLabel = e(
+                    $labels[$score]
+                    ?? $this->defaultScoreLabel($score)
+                );
+
+                $html .= '<div class="rounded-md border border-gray-200 px-2 py-1 dark:border-gray-700">'
+                    . '<strong>Skor ' . $score . ':</strong> '
+                    . $scoreLabel
+                    . '</div>';
+            }
+
+            $html .= '</div>';
+        } else {
+            $thresholds = $scale['thresholds'] ?? [];
+
+            $html .= '<div class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-5">';
+
+            for ($score = 0; $score <= 4; $score++) {
+                $html .= '<div class="rounded-md border border-gray-200 px-2 py-1 dark:border-gray-700">'
+                    . '<strong>Skor ' . $score . ':</strong> '
+                    . e(
+                        $this->thresholdDescription(
+                            $thresholds,
+                            $score,
+                            $type
+                        )
+                    )
+                    . '</div>';
+            }
+
+            $html .= '</div>';
+        }
+
+        $html .= '</div>';
+
+        return $html;
     }
 
     /*
-     * ================================================================
-     * LIKERT OPTIONS
-     * ================================================================
-     */
+    |--------------------------------------------------------------------------
+    | OPTIONS
+    |--------------------------------------------------------------------------
+    */
+
     private function likertOptions(string $name): array
     {
         $scale = $this->getScale($name);
@@ -484,41 +850,109 @@ class ScoresRelationManager extends RelationManager
     }
 
     /*
-     * ================================================================
-     * GET SCALE FROM CURRENT PERIOD
-     * ================================================================
-     *
-     * Prioritas:
-     *
-     * 1. konfigurasi_penilaian milik periode
-     * 2. defaultConfig() dari Calculator
-     */
-    private function getScale(string $name): ?array
+    |--------------------------------------------------------------------------
+    | CONFIGURATION
+    |--------------------------------------------------------------------------
+    */
+
+    private function getConfig(): array
     {
         $calculator = app(MitraAwardCalculator::class);
 
-        $config = $this->ownerRecord->konfigurasi_penilaian;
+        $default = $calculator->defaultConfig();
 
-        if (! is_array($config) || empty($config)) {
-            $config = $calculator->defaultConfig();
+        $periodConfig = $this->ownerRecord->konfigurasi_penilaian;
+
+        if (! is_array($periodConfig)) {
+            $periodConfig = [];
         }
 
-        return $config['skala'][$name]
+        return array_replace_recursive(
+            $default,
+            $periodConfig
+        );
+    }
+
+    private function getScale(string $name): ?array
+    {
+        $config = $this->getConfig();
+
+        $scale = $config['skala'][$name]
             ?? $config['scales'][$name]
             ?? null;
+
+        return is_array($scale) ? $scale : null;
+    }
+
+    private function getWeightPercentage(string $name): float
+    {
+        $config = $this->getConfig();
+
+        return (float) (
+            ($config['bobot'][$name] ?? 0) * 100
+        );
+    }
+
+    private function unit(string $name): string
+    {
+        return MitraAwardCalculator::CRITERIA_UNITS[$name]
+            ?? '';
     }
 
     /*
-     * ================================================================
-     * FORMAT MONEY
-     * ================================================================
-     */
+    |--------------------------------------------------------------------------
+    | SCALE HELPERS
+    |--------------------------------------------------------------------------
+    */
+
+    private function thresholdDescription(
+        array $thresholds,
+        int $score,
+        string $type
+    ): string {
+        if ($score === 4) {
+            $last = $thresholds[3] ?? 0;
+
+            return '> ' . $this->formatThreshold(
+                $last,
+                $type
+            );
+        }
+
+        $value = $thresholds[$score] ?? 0;
+
+        return '≤ ' . $this->formatThreshold(
+            $value,
+            $type
+        );
+    }
+
+    private function formatThreshold(
+        mixed $value,
+        string $type
+    ): string {
+        $value = (float) $value;
+
+        if ($type === 'money') {
+            return 'Rp ' . $this->formatMoney($value);
+        }
+
+        return number_format(
+            $value,
+            0,
+            ',',
+            '.'
+        );
+    }
+
     private function formatMoney(float|int $value): string
     {
+        $value = (float) $value;
+
         if ($value >= 1_000_000_000) {
             return number_format(
                 $value / 1_000_000_000,
-                0,
+                2,
                 ',',
                 '.'
             ) . ' M';
@@ -527,7 +961,7 @@ class ScoresRelationManager extends RelationManager
         if ($value >= 1_000_000) {
             return number_format(
                 $value / 1_000_000,
-                0,
+                2,
                 ',',
                 '.'
             ) . ' juta';
@@ -536,7 +970,7 @@ class ScoresRelationManager extends RelationManager
         if ($value >= 1_000) {
             return number_format(
                 $value / 1_000,
-                0,
+                2,
                 ',',
                 '.'
             ) . ' ribu';
@@ -550,45 +984,134 @@ class ScoresRelationManager extends RelationManager
         );
     }
 
+    private function defaultScoreLabel(int $score): string
+    {
+        return match ($score) {
+            0 => 'Tidak ada',
+            1 => 'Rendah',
+            2 => 'Sedang',
+            3 => 'Tinggi',
+            4 => 'Sangat tinggi',
+            default => '-',
+        };
+    }
+
     /*
-     * ================================================================
-     * DOCUMENT LEVEL
-     * ================================================================
-     */
-    private function documentLevel(?int $mitraId): string
+    |--------------------------------------------------------------------------
+    | MITRA INFORMATION
+    |--------------------------------------------------------------------------
+    */
+
+    private function findMitra(mixed $mitraId): ?Mitra
     {
         if (! $mitraId) {
-            return '-';
+            return null;
         }
 
-        $mitra = Mitra::find($mitraId);
+        return Mitra::with([
+            'kategori',
+            'negara',
+        ])->find((int) $mitraId);
+    }
+
+    private function mitraName(mixed $mitraId): string
+    {
+        return $this->findMitra($mitraId)?->nama_mitra
+            ?? '-';
+    }
+
+    private function mitraCategory(mixed $mitraId): string
+    {
+        $mitra = $this->findMitra($mitraId);
+
+        return $mitra?->kategori?->kategori
+            ?? '-';
+    }
+
+    private function mitraCountry(mixed $mitraId): string
+    {
+        $mitra = $this->findMitra($mitraId);
+
+        return $mitra?->negara?->nama_negara
+            ?? 'Indonesia';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DOCUMENT SCORE
+    |--------------------------------------------------------------------------
+    */
+
+    private function documentScore(mixed $mitraId): int
+    {
+        if (! $mitraId) {
+            return 0;
+        }
+
+        $mitra = $this->findMitra($mitraId);
 
         if (! $mitra) {
-            return '-';
+            return 0;
         }
 
-        $score = app(MitraAwardCalculator::class)
-            ->getDocumentScore($mitra);
+        return (int) app(
+            MitraAwardCalculator::class
+        )->getDocumentScore($mitra);
+    }
 
-        return [
+    private function documentLevel(mixed $mitraId): string
+    {
+        if (! $mitraId) {
+            return 'Pilih mitra terlebih dahulu';
+        }
+
+        return $this->documentLevelFromScore(
+            $this->documentScore($mitraId)
+        );
+    }
+
+    private function documentLevelFromScore(int $score): string
+    {
+        return match ($score) {
             0 => 'Tidak ada',
             1 => 'Inisiasi / tracking',
             2 => 'IA',
             3 => 'PKS / SPK',
             4 => 'MoU',
-        ][$score] ?? '-';
+            default => '-',
+        };
+    }
+
+    private function documentExplanation(mixed $mitraId): string
+    {
+        if (! $mitraId) {
+            return 'Pilih mitra terlebih dahulu untuk mendeteksi dokumen kerja sama.';
+        }
+
+        $score = $this->documentScore($mitraId);
+
+        return match ($score) {
+            4 => 'Mitra memiliki MoU. Skor dokumen otomatis = 4.',
+            3 => 'Mitra memiliki PKS atau SPK dan belum ditemukan MoU. Skor otomatis = 3.',
+            2 => 'Mitra memiliki IA dan belum ditemukan PKS/SPK/MoU. Skor otomatis = 2.',
+            1 => 'Mitra memiliki dokumen/inisiasi kerja sama atau usulan kerja sama. Skor otomatis = 1.',
+            default => 'Belum ditemukan dokumen atau usulan kerja sama. Skor otomatis = 0.',
+        };
     }
 
     /*
-     * ================================================================
-     * PREVIEW SCORE
-     * ================================================================
-     */
+    |--------------------------------------------------------------------------
+    | SCORE CALCULATION
+    |--------------------------------------------------------------------------
+    */
+
     private function previewScore(Get $get): float
     {
         $mitraId = $get('mitra_id');
 
         $score = new MitraAwardScore([
+            'mitra_award_period_id' => $this->ownerRecord->getKey(),
+
             'kurikulum' => (int) ($get('kurikulum') ?? 0),
             'magang' => (int) ($get('magang') ?? 0),
             'dosen_industri' => (int) ($get('dosen_industri') ?? 0),
@@ -615,21 +1138,121 @@ class ScoresRelationManager extends RelationManager
             ),
 
             'reputasi' => (int) ($get('reputasi') ?? 0),
+
             'perluasan_jejaring' => (int) (
                 $get('perluasan_jejaring') ?? 0
             ),
         ]);
 
+        $score->setRelation(
+            'period',
+            $this->ownerRecord
+        );
+
         $mitra = $mitraId
-            ? Mitra::find($mitraId)
+            ? $this->findMitra($mitraId)
             : null;
 
-        $calculator = app(MitraAwardCalculator::class);
+        $calculator = app(
+            MitraAwardCalculator::class
+        );
 
         $score->dokumen_score = $mitra
-            ? $calculator->getDocumentScore($mitra)
+            ? (int) $calculator->getDocumentScore($mitra)
             : 0;
 
-        return $calculator->calculate($score);
+        return (float) $calculator->calculate($score);
+    }
+
+    private function scoreStatus(float $score): string
+    {
+        if ($score >= 80) {
+            return 'Sangat tinggi';
+        }
+
+        if ($score >= 60) {
+            return 'Tinggi';
+        }
+
+        if ($score >= 40) {
+            return 'Sedang';
+        }
+
+        if ($score > 0) {
+            return 'Rendah';
+        }
+
+        return 'Belum dinilai';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SAVE DATA
+    |--------------------------------------------------------------------------
+    */
+
+    private function prepareScoreData(array $data): array
+    {
+        $mitraId = $data['mitra_id'] ?? null;
+
+        $mitra = $mitraId
+            ? $this->findMitra($mitraId)
+            : null;
+
+        $calculator = app(
+            MitraAwardCalculator::class
+        );
+
+        $data['dokumen_score'] = $mitra
+            ? (int) $calculator->getDocumentScore($mitra)
+            : 0;
+
+        $score = new MitraAwardScore([
+            'mitra_award_period_id' => $this->ownerRecord->getKey(),
+
+            'kurikulum' => (int) ($data['kurikulum'] ?? 0),
+            'magang' => (int) ($data['magang'] ?? 0),
+            'dosen_industri' => (int) ($data['dosen_industri'] ?? 0),
+            'rekrutmen' => (int) ($data['rekrutmen'] ?? 0),
+
+            'penelitian_cash' => (float) ($data['penelitian_cash'] ?? 0),
+            'penelitian_kind' => (float) ($data['penelitian_kind'] ?? 0),
+
+            'hilirisasi' => (int) ($data['hilirisasi'] ?? 0),
+            'khalayak_pkm' => (int) ($data['khalayak_pkm'] ?? 0),
+            'publikasi_bersama' => (int) ($data['publikasi_bersama'] ?? 0),
+            'co_hosting' => (int) ($data['co_hosting'] ?? 0),
+
+            'pelatihan_sertifikasi' => (int) (
+                $data['pelatihan_sertifikasi'] ?? 0
+            ),
+
+            'kajian_tenaga_ahli' => (float) (
+                $data['kajian_tenaga_ahli'] ?? 0
+            ),
+
+            'hibah_alat' => (float) (
+                $data['hibah_alat'] ?? 0
+            ),
+
+            'reputasi' => (int) ($data['reputasi'] ?? 0),
+
+            'perluasan_jejaring' => (int) (
+                $data['perluasan_jejaring'] ?? 0
+            ),
+        ]);
+
+        $score->setRelation(
+            'period',
+            $this->ownerRecord
+        );
+
+        $score->dokumen_score = $data['dokumen_score'];
+
+        $data['total_score'] = $calculator->calculate(
+            $score
+        );
+
+        return $data;
     }
 }
