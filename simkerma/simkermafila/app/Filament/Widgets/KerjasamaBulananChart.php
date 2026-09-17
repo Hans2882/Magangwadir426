@@ -22,13 +22,17 @@ class KerjasamaBulananChart extends ChartWidget
     public ?string $preset = 'this_year';
     public ?string $startYear = null;
     public ?string $endYear = null;
+    public ?string $jurusanId = null;
+    public ?string $prodiId = null;
 
     #[On('filter-updated')]
-    public function updateFilter($preset, $startYear = null, $endYear = null)
+    public function updateFilter($preset, $startYear = null, $endYear = null, $jurusanId = null, $prodiId = null)
     {
         $this->preset = $preset;
         $this->startYear = $startYear;
         $this->endYear = $endYear;
+        $this->jurusanId = $jurusanId;
+        $this->prodiId = $prodiId;
     }
 
     protected function getData(): array
@@ -78,11 +82,13 @@ class KerjasamaBulananChart extends ChartWidget
             $data = [];
 
             foreach ($monthPoints as $point) {
-                $data[] = Kerjasama::query()
+                $query = Kerjasama::query()
                     ->where('jenis_dokumen_id', $documentTypeId)
                     ->whereYear('tanggal_awal', $point['year'])
-                    ->whereMonth('tanggal_awal', $point['month'])
-                    ->count();
+                    ->whereMonth('tanggal_awal', $point['month']);
+
+                $this->applyStudyFilters($query);
+                $data[] = $query->count();
             }
 
             $datasets[] = [
@@ -104,6 +110,12 @@ class KerjasamaBulananChart extends ChartWidget
             'datasets' => $datasets,
             'labels' => $labels,
         ];
+    }
+
+    protected function applyStudyFilters($query): void
+    {
+        $query->when($this->jurusanId, fn ($query) => $query->whereHas('jurusans', fn ($jurusanQuery) => $jurusanQuery->whereKey($this->jurusanId)));
+        $query->when($this->prodiId, fn ($query) => $query->whereHas('prodis', fn ($prodiQuery) => $prodiQuery->whereKey($this->prodiId)));
     }
 
     protected function monthLabel(int $month): string

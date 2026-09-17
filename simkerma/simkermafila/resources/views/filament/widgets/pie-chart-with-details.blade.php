@@ -123,37 +123,63 @@
             </div>
         </div>
 
-        {{-- Prodi detail section --}}
+        {{-- Prodi and Jurusan detail sections --}}
         @if (!empty($details))
             <div style="margin-top: 1.5rem; border-top: 1px solid rgba(156, 163, 175, 0.2); padding-top: 1rem;">
                 <p style="font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: rgb(107, 114, 128); margin-bottom: 0.75rem;">
-                    Detail Prodi
+                    Detail Prodi dan Jurusan
                 </p>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                     @foreach ($details as $detail)
-                        <x-filament::section collapsible collapsed compact>
-                            <x-slot name="heading">
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <span>{{ $detail['label'] }}</span>
-                                    <x-filament::badge color="primary" size="sm">
-                                        {{ $detail['count'] }}
-                                    </x-filament::badge>
-                                </div>
-                            </x-slot>
+                        @if ($detail['label'] === 'MoU')
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border: 1px solid rgba(156, 163, 175, 0.2); border-radius: 0.5rem;">
+                                <span style="font-weight: 500;">{{ $detail['label'] }}</span>
+                                <x-filament::badge color="primary" size="sm">
+                                    {{ $detail['count'] }}
+                                </x-filament::badge>
+                            </div>
+                        @else
+                            <x-filament::section collapsible collapsed compact>
+                                <x-slot name="heading">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span>{{ $detail['label'] }}</span>
+                                        <x-filament::badge color="primary" size="sm">
+                                            {{ $detail['count'] }}
+                                        </x-filament::badge>
+                                    </div>
+                                </x-slot>
 
-                            @if (!empty($detail['prodi']))
-                                <ul style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: rgb(75, 85, 99);">
-                                    @foreach ($detail['prodi'] as $prodi)
-                                        <li style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span>{{ $prodi['name'] }}</span>
-                                            <span style="font-weight: 600; color: rgb(55, 65, 81);">{{ $prodi['count'] }}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @else
-                                <p style="font-size: 0.875rem; color: rgb(107, 114, 128);">Tidak ada data prodi.</p>
-                            @endif
-                        </x-filament::section>
+                                @if (!empty($detail['prodi']))
+                                    <p style="font-size: 0.75rem; font-weight: 600; color: rgb(107, 114, 128); margin-bottom: 0.4rem;">Prodi</p>
+                                    <ul style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: rgb(75, 85, 99);">
+                                        @foreach ($detail['prodi'] as $prodi)
+                                            <li style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span>{{ $prodi['name'] }}</span>
+                                                <span style="font-weight: 600; color: rgb(55, 65, 81);">{{ $prodi['count'] }}</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <p style="font-size: 0.875rem; color: rgb(107, 114, 128);">Tidak ada data prodi.</p>
+                                @endif
+
+                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(156, 163, 175, 0.2);">
+                                    <p style="font-size: 0.75rem; font-weight: 600; color: rgb(107, 114, 128); margin-bottom: 0.4rem;">Jurusan</p>
+                                    @if (!empty($detail['jurusan']))
+                                        <ul style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: rgb(75, 85, 99);">
+                                            @foreach ($detail['jurusan'] as $jurusan)
+                                                <li style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <span>{{ $jurusan['name'] }}</span>
+                                                    <span style="font-weight: 600; color: rgb(55, 65, 81);">{{ $jurusan['count'] }}</span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        <p style="font-size: 0.875rem; color: rgb(107, 114, 128);">Tidak ada data jurusan.</p>
+                                    @endif
+                                </div>
+                            </x-filament::section>
+                        @endif
                     @endforeach
                 </div>
             </div>

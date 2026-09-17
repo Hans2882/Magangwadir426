@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\MasterJurusan;
+use App\Models\MasterProgramStudi;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -27,12 +29,18 @@ class DashboardFilterWidget extends Widget implements HasForms
 
     public ?string $endYear = null;
 
+    public ?string $jurusanId = null;
+
+    public ?string $prodiId = null;
+
     public function mount(): void
     {
         $this->form->fill([
             'preset' => $this->preset,
             'startYear' => $this->startYear ?? now()->year,
             'endYear' => $this->endYear ?? now()->year,
+            'jurusanId' => $this->jurusanId,
+            'prodiId' => $this->prodiId,
         ]);
     }
 
@@ -54,7 +62,7 @@ class DashboardFilterWidget extends Widget implements HasForms
                         ->live()
                         ->afterStateUpdated(function ($state) {
                             $this->preset = $state;
-                            $this->dispatch('filter-updated', preset: $this->preset, startYear: $this->startYear, endYear: $this->endYear);
+                            $this->dispatchFilter();
                         }),
                     TextInput::make('startYear')
                         ->label('Tahun Awal')
@@ -62,7 +70,7 @@ class DashboardFilterWidget extends Widget implements HasForms
                         ->live(debounce: 500)
                         ->afterStateUpdated(function ($state) {
                             $this->startYear = $state;
-                            $this->dispatch('filter-updated', preset: $this->preset, startYear: $this->startYear, endYear: $this->endYear);
+                            $this->dispatchFilter();
                         })
                         ->visible(fn (Get $get) => $get('preset') === 'custom'),
                     TextInput::make('endYear')
@@ -71,10 +79,46 @@ class DashboardFilterWidget extends Widget implements HasForms
                         ->live(debounce: 500)
                         ->afterStateUpdated(function ($state) {
                             $this->endYear = $state;
-                            $this->dispatch('filter-updated', preset: $this->preset, startYear: $this->startYear, endYear: $this->endYear);
+                            $this->dispatchFilter();
                         })
                         ->visible(fn (Get $get) => $get('preset') === 'custom'),
+                    Select::make('jurusanId')
+                        ->label('Jurusan')
+                        ->options(fn (): array => ['' => 'Semua Jurusan'] + MasterJurusan::query()
+                            ->orderBy('nama_jurusan')
+                            ->pluck('nama_jurusan', 'id')
+                            ->all())
+                        ->searchable()
+                        ->live()
+                        ->afterStateUpdated(function ($state) {
+                            $this->jurusanId = $state ?: null;
+                            $this->dispatchFilter();
+                        }),
+                    Select::make('prodiId')
+                        ->label('Prodi')
+                        ->options(fn (): array => ['' => 'Semua Prodi'] + MasterProgramStudi::query()
+                            ->orderBy('nama_prodi')
+                            ->pluck('nama_prodi', 'id')
+                            ->all())
+                        ->searchable()
+                        ->live()
+                        ->afterStateUpdated(function ($state) {
+                            $this->prodiId = $state ?: null;
+                            $this->dispatchFilter();
+                        }),
                 ])->columns(3),
         ]);
+    }
+
+    protected function dispatchFilter(): void
+    {
+        $this->dispatch(
+            'filter-updated',
+            preset: $this->preset,
+            startYear: $this->startYear,
+            endYear: $this->endYear,
+            jurusanId: $this->jurusanId,
+            prodiId: $this->prodiId,
+        );
     }
 }

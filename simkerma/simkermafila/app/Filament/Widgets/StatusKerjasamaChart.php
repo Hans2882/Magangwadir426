@@ -121,16 +121,19 @@ class StatusKerjasamaChart extends ChartWidget
                 'label' => 'Aktif',
                 'count' => $aktif,
                 'prodi' => $this->buildProdiDetail($baseQuery, 'active'),
+                'jurusan' => $this->buildJurusanDetail($baseQuery, 'active'),
             ],
             [
                 'label' => 'Akan Berakhir',
                 'count' => $akanHabis,
                 'prodi' => $this->buildProdiDetail($baseQuery, 'expiring'),
+                'jurusan' => $this->buildJurusanDetail($baseQuery, 'expiring'),
             ],
             [
                 'label' => 'Berakhir',
                 'count' => $habis,
                 'prodi' => $this->buildProdiDetail($baseQuery, 'expired'),
+                'jurusan' => $this->buildJurusanDetail($baseQuery, 'expired'),
             ],
         ];
 
@@ -178,6 +181,43 @@ class StatusKerjasamaChart extends ChartWidget
         foreach ($records as $record) {
             foreach ($record->prodis as $prodi) {
                 $name = trim((string) ($prodi->nama_prodi ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+
+                $grouped[$name] = ($grouped[$name] ?? 0) + 1;
+            }
+        }
+
+        ksort($grouped);
+
+        return array_map(function (string $name, int $count): array {
+            return ['name' => $name, 'count' => $count];
+        }, array_keys($grouped), array_values($grouped));
+    }
+
+    protected function buildJurusanDetail($query, string $status): array
+    {
+        $q = (clone $query)->with('jurusans');
+
+        switch ($status) {
+            case 'active':
+                $q->whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '>', now()->addMonths(4));
+                break;
+            case 'expiring':
+                $q->whereNotNull('tanggal_akhir')
+                    ->whereDate('tanggal_akhir', '>=', now())
+                    ->whereDate('tanggal_akhir', '<=', now()->addMonths(4));
+                break;
+            case 'expired':
+                $q->whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '<', now());
+                break;
+        }
+
+        $grouped = [];
+        foreach ($q->get() as $record) {
+            foreach ($record->jurusans as $jurusan) {
+                $name = trim((string) ($jurusan->nama_jurusan ?? ''));
                 if ($name === '') {
                     continue;
                 }

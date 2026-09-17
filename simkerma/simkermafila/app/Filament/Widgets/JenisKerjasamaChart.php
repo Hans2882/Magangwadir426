@@ -107,6 +107,7 @@ class JenisKerjasamaChart extends ChartWidget
                 'label' => $config['label'],
                 'count' => $config['count'],
                 'prodi' => $this->buildProdiDetail($query, $docId),
+                'jurusan' => $this->buildJurusanDetail($query, $docId),
             ];
         }
 
@@ -137,6 +138,32 @@ class JenisKerjasamaChart extends ChartWidget
         foreach ($records as $record) {
             foreach ($record->prodis as $prodi) {
                 $name = trim((string) ($prodi->nama_prodi ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+
+                $grouped[$name] = ($grouped[$name] ?? 0) + 1;
+            }
+        }
+
+        ksort($grouped);
+
+        return array_map(function (string $name, int $count): array {
+            return ['name' => $name, 'count' => $count];
+        }, array_keys($grouped), array_values($grouped));
+    }
+
+    protected function buildJurusanDetail($query, int $documentTypeId): array
+    {
+        $records = (clone $query)
+            ->where('jenis_dokumen_id', $documentTypeId)
+            ->with('jurusans')
+            ->get();
+
+        $grouped = [];
+        foreach ($records as $record) {
+            foreach ($record->jurusans as $jurusan) {
+                $name = trim((string) ($jurusan->nama_jurusan ?? ''));
                 if ($name === '') {
                     continue;
                 }
