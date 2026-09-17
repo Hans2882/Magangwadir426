@@ -4,10 +4,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\KerjasamaController;
 use App\Http\Controllers\Api\MitraController;
 
+use App\Http\Controllers\Api\PermintaanKerjasamaController;
+
 Route::middleware('api.key')->group(function () {
     Route::get('/mitra', [MitraController::class, 'index'])
         ->name('api.mitra');
-
     Route::get('/mou', [KerjasamaController::class, 'mou'])
         ->name('api.mou');
 
@@ -19,4 +20,7 @@ Route::middleware('api.key')->group(function () {
 
     Route::get('/pks', [KerjasamaController::class, 'pks'])
         ->name('api.pks');
+        
+    Route::post('/permintaan-kerjasama', [PermintaanKerjasamaController::class, 'store'])
+        ->name('api.permintaan_kerjasama.store');
 });
