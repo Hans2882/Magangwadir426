@@ -94,7 +94,11 @@ class IaResource extends Resource
                     return \App\Models\Kerjasama::query()
                         ->where('mitra_id', '=', $mitraId, 'and')
                         ->where('jenis_dokumen_id', '=', 1, 'and') // MoU
-                        ->pluck('judul', 'id');
+                        ->whereNotNull('judul')
+                        ->where('judul', '!=', '')
+                        ->pluck('judul', 'id')
+                        ->map(fn ($judul): string => (string) $judul)
+                        ->all();
                 })
                 ->searchable()
                 ->preload(),
@@ -106,7 +110,11 @@ class IaResource extends Resource
                     return \App\Models\Kerjasama::query()
                         ->where('mitra_id', '=', $mitraId, 'and')
                         ->where('jenis_dokumen_id', '=', 3, 'and') // PKS
-                        ->pluck('judul', 'id');
+                        ->whereNotNull('judul')
+                        ->where('judul', '!=', '')
+                        ->pluck('judul', 'id')
+                        ->map(fn ($judul): string => (string) $judul)
+                        ->all();
                 })
                 ->searchable()
                 ->preload(),

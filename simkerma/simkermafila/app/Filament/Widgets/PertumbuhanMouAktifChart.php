@@ -23,13 +23,17 @@ class PertumbuhanMouAktifChart extends ChartWidget
     public ?string $preset = 'this_year';
     public ?string $startYear = null;
     public ?string $endYear = null;
+    public ?string $jurusanId = null;
+    public ?string $prodiId = null;
 
     #[On('filter-updated')]
-    public function updateFilter($preset, $startYear = null, $endYear = null)
+    public function updateFilter($preset, $startYear = null, $endYear = null, $jurusanId = null, $prodiId = null)
     {
         $this->preset = $preset;
         $this->startYear = $startYear;
         $this->endYear = $endYear;
+        $this->jurusanId = $jurusanId;
+        $this->prodiId = $prodiId;
     }
 
     protected function getData(): array
@@ -82,13 +86,15 @@ class PertumbuhanMouAktifChart extends ChartWidget
                 $startOfMonth = Carbon::create($point['year'], $point['month'], 1)->startOfMonth();
                 $endOfMonth = $startOfMonth->copy()->endOfMonth();
 
-                $activeCount = Kerjasama::query()
+                $query = Kerjasama::query()
                     ->where('jenis_dokumen_id', $documentTypeId)
                     ->whereDate('tanggal_awal', '<=', $endOfMonth)
                     ->where(function ($query) use ($endOfMonth): void {
                         $query->whereNull('tanggal_akhir')->orWhereDate('tanggal_akhir', '>=', $endOfMonth);
-                    })
-                    ->count();
+                    });
+
+                $this->applyStudyFilters($query);
+                $activeCount = $query->count();
 
                 $monthlyGrowth[] = $activeCount;
             }
@@ -112,6 +118,12 @@ class PertumbuhanMouAktifChart extends ChartWidget
             'datasets' => $datasets,
             'labels' => $labels,
         ];
+    }
+
+    protected function applyStudyFilters($query): void
+    {
+        $query->when($this->jurusanId, fn ($query) => $query->whereHas('jurusans', fn ($jurusanQuery) => $jurusanQuery->whereKey($this->jurusanId)));
+        $query->when($this->prodiId, fn ($query) => $query->whereHas('prodis', fn ($prodiQuery) => $prodiQuery->whereKey($this->prodiId)));
     }
 
     protected function hexToRgba(string $hex, float $opacity): string
