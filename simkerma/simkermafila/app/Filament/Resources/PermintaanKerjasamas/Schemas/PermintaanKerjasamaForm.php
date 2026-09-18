@@ -33,7 +33,8 @@ class PermintaanKerjasamaForm
                 ->label('Kategori (IKU)')
                 ->relationship('kategori', 'kategori')
                 ->searchable()
-                ->preload(),
+                ->preload()
+                ->required(),
             Forms\Components\TextInput::make('telepon')
                 ->label('Nomor Telepon')
                 ->maxLength(50),
