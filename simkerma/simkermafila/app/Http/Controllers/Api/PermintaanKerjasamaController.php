@@ -12,7 +12,7 @@ class PermintaanKerjasamaController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama_mitra' => 'required|string|max:255|unique:mitra,nama_mitra',
+            'nama_mitra' => 'required|string|max:255|unique:mitra,nama_mitra|unique:permintaan_kerjasamas,nama_mitra',
             'kategori_id' => 'required|exists:master_mitra_iku,id',
             'negara_id' => 'nullable|exists:master_negara,id',
             'qs_rank' => 'nullable|string|max:50',
@@ -24,7 +24,7 @@ class PermintaanKerjasamaController extends Controller
             'pic' => 'nullable|string|max:255',
             'nama_pengusul' => 'nullable|string|max:255',
         ], [
-            'nama_mitra.unique' => 'Mitra ini sudah terdaftar di dalam sistem resmi.',
+            'nama_mitra.unique' => 'Mitra ini sudah terdaftar di sistem resmi atau sudah ada dalam antrean permintaan.',
         ]);
 
         if ($validator->fails()) {

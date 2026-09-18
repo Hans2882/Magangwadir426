@@ -24,16 +24,36 @@ class PermintaanKerjasamasTable
                     ->description(function ($record) {
                         $words = array_slice(explode(' ', $record->nama_mitra), 0, 3);
                         $fuzzyPattern = '%' . implode('%', $words) . '%';
-                        return \App\Models\Mitra::query()->where('nama_mitra', 'like', $fuzzyPattern)->exists() 
-                            ? '⚠️ Potensi Duplikat di Data Mitra' 
-                            : null;
+                        
+                        $existsInMitra = \App\Models\Mitra::query()->where('nama_mitra', 'like', $fuzzyPattern)->exists();
+                        if ($existsInMitra) {
+                            return '⚠️ Potensi Duplikat di Data Mitra';
+                        }
+                        
+                        $existsInPermintaan = \App\Models\PermintaanKerjasama::query()
+                            ->where('id', '!=', $record->id)
+                            ->where('nama_mitra', 'like', $fuzzyPattern)
+                            ->exists();
+                            
+                        if ($existsInPermintaan) {
+                            return '⚠️ Potensi Duplikat Sesama Permintaan';
+                        }
+                        
+                        return null;
                     })
                     ->color(function ($record) {
                         $words = array_slice(explode(' ', $record->nama_mitra), 0, 3);
                         $fuzzyPattern = '%' . implode('%', $words) . '%';
-                        return \App\Models\Mitra::query()->where('nama_mitra', 'like', $fuzzyPattern)->exists() 
-                            ? 'danger' 
-                            : null;
+                        
+                        if (\App\Models\Mitra::query()->where('nama_mitra', 'like', $fuzzyPattern)->exists()) {
+                            return 'danger';
+                        }
+                        
+                        if (\App\Models\PermintaanKerjasama::query()->where('id', '!=', $record->id)->where('nama_mitra', 'like', $fuzzyPattern)->exists()) {
+                            return 'warning';
+                        }
+                        
+                        return null;
                     }),
                 TextColumn::make('kategori.kategori')
                     ->label('Kategori')
