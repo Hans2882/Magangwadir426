@@ -34,6 +34,28 @@ class MitraResource extends Resource
             Forms\Components\TextInput::make('nama_mitra')
                 ->label('Nama Mitra')
                 ->required()
+                ->unique(ignoreRecord: true)
+                ->live(debounce: 500)
+                ->helperText(function ($state, $record) {
+                    if (!$state) return null;
+                    $words = array_slice(explode(' ', $state), 0, 3);
+                    if (count($words) === 0) return null;
+                    $fuzzyPattern = '%' . implode('%', $words) . '%';
+                    
+                    $query = \App\Models\Mitra::query()
+                        ->where('nama_mitra', 'like', $fuzzyPattern);
+                        
+                    if ($record) {
+                        $query->where('id', '!=', $record->id);
+                    }
+                    
+                    $similar = $query->first();
+                    
+                    if ($similar) {
+                        return new \Illuminate\Support\HtmlString("<span class='text-danger-600 font-medium'>⚠️ Peringatan: Mitra dengan nama mirip sudah ada ({$similar->nama_mitra})</span>");
+                    }
+                    return null;
+                })
                 ->maxLength(255),
             Forms\Components\Select::make('negara_id')
                 ->label('Negara')
