@@ -12,7 +12,7 @@ class KerjasamaController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | MOU
+    | ENDPOINT
     |--------------------------------------------------------------------------
     */
 
@@ -21,37 +21,45 @@ class KerjasamaController extends Controller
         return $this->index($request, 'mou');
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MOA
-    |--------------------------------------------------------------------------
-    */
-
     public function moa(Request $request): JsonResponse
     {
         return $this->index($request, 'moa');
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | IA
-    |--------------------------------------------------------------------------
-    */
 
     public function ia(Request $request): JsonResponse
     {
         return $this->index($request, 'ia');
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PKS / SPK
-    |--------------------------------------------------------------------------
-    */
-
     public function pks(Request $request): JsonResponse
     {
         return $this->index($request, 'pks');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE FILTER
+    |--------------------------------------------------------------------------
+    */
+
+    private function normalizeFilter(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $values = is_array($value)
+            ? $value
+            : [$value];
+
+        return array_values(
+            array_filter(
+                $values,
+                fn ($item) =>
+                    $item !== null &&
+                    $item !== ''
+            )
+        );
     }
 
     /*
@@ -65,12 +73,6 @@ class KerjasamaController extends Controller
         string $type
     ): JsonResponse {
 
-        /*
-        |--------------------------------------------------------------------------
-        | JENIS DOKUMEN BERDASARKAN ENDPOINT
-        |--------------------------------------------------------------------------
-        */
-
         $types = [
             'mou' => [1],
             'moa' => [2],
@@ -78,13 +80,7 @@ class KerjasamaController extends Controller
             'pks' => [3, 5],
         ];
 
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDASI TYPE
-        |--------------------------------------------------------------------------
-        */
-
-        if (! isset($types[$type])) {
+        if (!isset($types[$type])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Jenis endpoint tidak valid.',
@@ -97,68 +93,63 @@ class KerjasamaController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $mitraId = $request->query('mitra_id');
+        $mitraIds = $this->normalizeFilter(
+            $request->query('mitra_id')
+        );
 
-        $bidangId = $request->query('bidang_id');
+        $bidangIds = $this->normalizeFilter(
+            $request->query('bidang_id')
+        );
 
-        $tahun = $request->query('tahun');
+        $tahunValues = $this->normalizeFilter(
+            $request->query('tahun')
+        );
 
-        $negaraId = $request->query('negara_id');
+        $negaraIds = $this->normalizeFilter(
+            $request->query('negara_id')
+        );
 
-        $jenis = $request->query('jenis');
+        $jenisValues = $this->normalizeFilter(
+            $request->query('jenis')
+        );
 
-        $status = $request->query(
+        $statuses = array_map(
+    function ($status) {
+        return match (strtolower(trim($status))) {
+            'aktif', 'active' => 'active',
+            'akan berakhir', 'expiring' => 'expiring',
+            'berakhir', 'expired' => 'expired',
+            default => strtolower(trim($status)),
+        };
+    },
+    $this->normalizeFilter(
+        $request->query(
             'status',
             $request->query('status_kerjasama')
-        );
+        )
+    )
+);
 
-        $jenisDokumen = $request->query(
-            'jenis_dokumen_id',
-            []
-        );
-
-        $prodiId = $request->query(
-            'prodi_id',
-            []
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | NORMALISASI PRODI ID
-        |--------------------------------------------------------------------------
-        |
-        | Support:
-        |
-        | ?prodi_id=1
-        |
-        | ?prodi_id[]=1&prodi_id[]=2
-        |
-        */
-
-        if (! is_array($prodiId)) {
-            $prodiId = [$prodiId];
-        }
-
-        $prodiId = array_values(
+        $jenisDokumen = array_values(
             array_filter(
-                array_map('intval', $prodiId),
+                array_map(
+                    'intval',
+                    $this->normalizeFilter(
+                        $request->query('jenis_dokumen_id')
+                    )
+                ),
                 fn ($value) => $value > 0
             )
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | NORMALISASI JENIS DOKUMEN
-        |--------------------------------------------------------------------------
-        */
-
-        if (! is_array($jenisDokumen)) {
-            $jenisDokumen = [$jenisDokumen];
-        }
-
-        $jenisDokumen = array_values(
+        $prodiIds = array_values(
             array_filter(
-                array_map('intval', $jenisDokumen),
+                array_map(
+                    'intval',
+                    $this->normalizeFilter(
+                        $request->query('prodi_id')
+                    )
+                ),
                 fn ($value) => $value > 0
             )
         );
@@ -208,36 +199,11 @@ class KerjasamaController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $mitraId !== null &&
-            $mitraId !== ''
-        ) {
-
-            if (is_array($mitraId)) {
-
-                $mitraIds = array_values(
-                    array_filter(
-                        $mitraId,
-                        fn ($value) =>
-                            $value !== null &&
-                            $value !== ''
-                    )
-                );
-
-                if (! empty($mitraIds)) {
-                    $query->whereIn(
-                        'mitra_id',
-                        $mitraIds
-                    );
-                }
-
-            } else {
-
-                $query->where(
-                    'mitra_id',
-                    $mitraId
-                );
-            }
+        if (!empty($mitraIds)) {
+            $query->whereIn(
+                'mitra_id',
+                $mitraIds
+            );
         }
 
         /*
@@ -246,36 +212,11 @@ class KerjasamaController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $bidangId !== null &&
-            $bidangId !== ''
-        ) {
-
-            if (is_array($bidangId)) {
-
-                $bidangIds = array_values(
-                    array_filter(
-                        $bidangId,
-                        fn ($value) =>
-                            $value !== null &&
-                            $value !== ''
-                    )
-                );
-
-                if (! empty($bidangIds)) {
-                    $query->whereIn(
-                        'bidang_id',
-                        $bidangIds
-                    );
-                }
-
-            } else {
-
-                $query->where(
-                    'bidang_id',
-                    $bidangId
-                );
-            }
+        if (!empty($bidangIds)) {
+            $query->whereIn(
+                'bidang_id',
+                $bidangIds
+            );
         }
 
         /*
@@ -284,90 +225,31 @@ class KerjasamaController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $tahun !== null &&
-            $tahun !== ''
-        ) {
-
-            if (is_array($tahun)) {
-
-                $tahunValues = array_values(
-                    array_filter(
-                        $tahun,
-                        fn ($value) =>
-                            $value !== null &&
-                            $value !== ''
-                    )
-                );
-
-                if (! empty($tahunValues)) {
-                    $query->whereIn(
-                        'tahun',
-                        $tahunValues
-                    );
-                }
-
-            } else {
-
-                $query->where(
-                    'tahun',
-                    $tahun
-                );
-            }
+        if (!empty($tahunValues)) {
+            $query->whereIn(
+                'tahun',
+                $tahunValues
+            );
         }
 
         /*
         |--------------------------------------------------------------------------
         | FILTER NEGARA
         |--------------------------------------------------------------------------
-        |
-        | negara_id berada di tabel mitra.
-        |
         */
 
-        if (
-            $negaraId !== null &&
-            $negaraId !== ''
-        ) {
+        if (!empty($negaraIds)) {
 
-            if (is_array($negaraId)) {
+            $query->whereHas(
+                'mitra',
+                function (Builder $q) use ($negaraIds) {
 
-                $negaraIds = array_values(
-                    array_filter(
-                        $negaraId,
-                        fn ($value) =>
-                            $value !== null &&
-                            $value !== ''
-                    )
-                );
-
-                if (! empty($negaraIds)) {
-
-                    $query->whereHas(
-                        'mitra',
-                        function (Builder $mitraQuery) use ($negaraIds) {
-
-                            $mitraQuery->whereIn(
-                                'negara_id',
-                                $negaraIds
-                            );
-                        }
+                    $q->whereIn(
+                        'negara_id',
+                        $negaraIds
                     );
                 }
-
-            } else {
-
-                $query->whereHas(
-                    'mitra',
-                    function (Builder $mitraQuery) use ($negaraId) {
-
-                        $mitraQuery->where(
-                            'negara_id',
-                            $negaraId
-                        );
-                    }
-                );
-            }
+            );
         }
 
         /*
@@ -375,243 +257,171 @@ class KerjasamaController extends Controller
         | FILTER JENIS
         |--------------------------------------------------------------------------
         |
-        | Contoh:
-        |
-        | ?jenis=Dalam%20Negeri
-        |
-        | atau:
-        |
-        | ?jenis[]=Dalam%20Negeri
-        | &jenis[]=Luar%20Negeri
+        | Kolom jenis berada di tabel kerjasama.
         |
         */
 
-        if (
-            $jenis !== null &&
-            $jenis !== ''
-        ) {
+        if (!empty($jenisValues)) {
 
-            if (is_array($jenis)) {
-
-                $jenisValues = array_values(
-                    array_filter(
-                        $jenis,
-                        fn ($value) =>
-                            $value !== null &&
-                            $value !== ''
-                    )
-                );
-
-                if (! empty($jenisValues)) {
-                    $query->whereIn(
-                        'jenis',
-                        $jenisValues
-                    );
-                }
-
-            } else {
-
-                $query->where(
-                    'jenis',
-                    $jenis
-                );
-            }
+            $query->whereIn(
+                'jenis',
+                $jenisValues
+            );
         }
 
         /*
         |--------------------------------------------------------------------------
         | FILTER STATUS
         |--------------------------------------------------------------------------
-        |
-        | active
-        | expiring
-        | expired
-        |
         */
 
-        if (
-            $status !== null &&
-            $status !== ''
-        ) {
+        if (!empty($statuses)) {
 
-            $statuses = is_array($status)
-                ? $status
-                : [$status];
+            $today = today();
 
-            $statuses = array_values(
-                array_filter(
-                    $statuses,
-                    fn ($value) =>
-                        $value !== null &&
-                        $value !== ''
-                )
-            );
+            $oneMonthFromNow = today()->addMonth();
 
-            if (! empty($statuses)) {
+            $query->where(function (Builder $q) use (
+                $statuses,
+                $today,
+                $oneMonthFromNow
+            ) {
 
-                $today = today();
+                foreach ($statuses as $statusValue) {
 
-                $oneMonthFromNow = today()->addMonth();
+                    switch ($statusValue) {
 
-                $query->where(function (
-                    Builder $statusQuery
-                ) use (
-                    $statuses,
-                    $today,
-                    $oneMonthFromNow
-                ) {
+                        /*
+                        |------------------------------------------------------
+                        | ACTIVE
+                        |------------------------------------------------------
+                        */
 
-                    foreach ($statuses as $statusValue) {
+                        case 'active':
 
-                        switch ($statusValue) {
+                            $q->orWhere(function (
+                                Builder $subQuery
+                            ) use (
+                                $oneMonthFromNow
+                            ) {
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | ACTIVE
-                            |--------------------------------------------------------------------------
-                            */
-
-                            case 'active':
-
-                                $statusQuery->orWhere(
-                                    function (Builder $q) use (
+                                $subQuery
+                                    ->whereNull(
+                                        'tanggal_akhir'
+                                    )
+                                    ->orWhereDate(
+                                        'tanggal_akhir',
+                                        '>',
                                         $oneMonthFromNow
-                                    ) {
+                                    );
+                            });
 
-                                        $q->whereNull(
-                                            'tanggal_akhir'
-                                        )
-                                        ->orWhereDate(
-                                            'tanggal_akhir',
-                                            '>',
-                                            $oneMonthFromNow
-                                        );
-                                    }
-                                );
+                            break;
 
-                                break;
+                        /*
+                        |------------------------------------------------------
+                        | EXPIRING
+                        |------------------------------------------------------
+                        */
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | EXPIRING
-                            |--------------------------------------------------------------------------
-                            */
+                        case 'expiring':
 
-                            case 'expiring':
+                            $q->orWhere(function (
+                                Builder $subQuery
+                            ) use (
+                                $today,
+                                $oneMonthFromNow
+                            ) {
 
-                                $statusQuery->orWhere(
-                                    function (Builder $q) use (
-                                        $today,
+                                $subQuery
+                                    ->whereNotNull(
+                                        'tanggal_akhir'
+                                    )
+                                    ->whereDate(
+                                        'tanggal_akhir',
+                                        '>=',
+                                        $today
+                                    )
+                                    ->whereDate(
+                                        'tanggal_akhir',
+                                        '<=',
                                         $oneMonthFromNow
-                                    ) {
+                                    );
+                            });
 
-                                        $q->whereNotNull(
-                                            'tanggal_akhir'
-                                        )
-                                        ->whereDate(
-                                            'tanggal_akhir',
-                                            '>=',
-                                            $today
-                                        )
-                                        ->whereDate(
-                                            'tanggal_akhir',
-                                            '<=',
-                                            $oneMonthFromNow
-                                        );
-                                    }
-                                );
+                            break;
 
-                                break;
+                        /*
+                        |------------------------------------------------------
+                        | EXPIRED
+                        |------------------------------------------------------
+                        */
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | EXPIRED
-                            |--------------------------------------------------------------------------
-                            */
+                        case 'expired':
 
-                            case 'expired':
+                            $q->orWhere(function (
+                                Builder $subQuery
+                            ) use ($today) {
 
-                                $statusQuery->orWhere(
-                                    function (Builder $q) use ($today) {
+                                $subQuery
+                                    ->whereNotNull(
+                                        'tanggal_akhir'
+                                    )
+                                    ->whereDate(
+                                        'tanggal_akhir',
+                                        '<',
+                                        $today
+                                    );
+                            });
 
-                                        $q->whereNotNull(
-                                            'tanggal_akhir'
-                                        )
-                                        ->whereDate(
-                                            'tanggal_akhir',
-                                            '<',
-                                            $today
-                                        );
-                                    }
-                                );
-
-                                break;
-                        }
+                            break;
                     }
-                });
-            }
+                }
+            });
         }
 
         /*
         |--------------------------------------------------------------------------
         | FILTER JENIS DOKUMEN
         |--------------------------------------------------------------------------
-        |
-        | Contoh:
-        |
-        | ?jenis_dokumen_id[]=3
-        |
-        | ?jenis_dokumen_id[]=3&jenis_dokumen_id[]=5
-        |
         */
 
-        if (! empty($jenisDokumen)) {
+        if (!empty($jenisDokumen)) {
 
-            $query->whereIn(
-                'jenis_dokumen_id',
-                $jenisDokumen
+            $allowedTypes = $types[$type];
+
+            $filteredTypes = array_intersect(
+                $jenisDokumen,
+                $allowedTypes
             );
+
+            if (empty($filteredTypes)) {
+
+                $query->whereRaw('1 = 0');
+
+            } else {
+
+                $query->whereIn(
+                    'jenis_dokumen_id',
+                    $filteredTypes
+                );
+            }
         }
 
         /*
         |--------------------------------------------------------------------------
         | FILTER PROGRAM STUDI
         |--------------------------------------------------------------------------
-        |
-        | Ini bagian yang diperbaiki.
-        |
-        | Contoh:
-        |
-        | ?prodi_id[]=1&prodi_id[]=2
-        |
-        | Artinya:
-        |
-        | Dokumen memiliki Prodi 1 ATAU Prodi 2.
-        |
         */
 
-        if (! empty($prodiId)) {
+        if (!empty($prodiIds)) {
 
             $query->whereHas(
                 'prodis',
-                function (Builder $prodiQuery) use ($prodiId) {
+                function (Builder $q) use ($prodiIds) {
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | PENTING
-                    |--------------------------------------------------------------------------
-                    |
-                    | Jangan hard-code:
-                    |
-                    | master_program_studi.id
-                    |
-                    | whereKey() otomatis menggunakan primary key
-                    | dari model Program Studi.
-                    |
-                    */
-
-                    $prodiQuery->whereKey(
-                        $prodiId
+                    $q->whereKey(
+                        $prodiIds
                     );
                 }
             );
@@ -653,36 +463,28 @@ class KerjasamaController extends Controller
 
             'filters' => [
 
-                'jenis' =>
-                    $type,
+                'jenis' => $type,
 
-                'mitra_id' =>
-                    $mitraId,
+                'mitra_id' => $mitraIds,
 
-                'negara_id' =>
-                    $negaraId,
+                'negara_id' => $negaraIds,
 
-                'bidang_id' =>
-                    $bidangId,
+                'bidang_id' => $bidangIds,
 
-                'tahun' =>
-                    $tahun,
+                'tahun' => $tahunValues,
 
-                'status' =>
-                    $status,
+                'jenis_mitra' => $jenisValues,
 
-                'prodi_id' =>
-                    $prodiId,
+                'status' => $statuses,
 
-                'jenis_dokumen_id' =>
-                    $jenisDokumen,
+                'prodi_id' => $prodiIds,
+
+                'jenis_dokumen_id' => $jenisDokumen,
             ],
 
-            'total' =>
-                $documents->count(),
+            'total' => $documents->count(),
 
-            'data' =>
-                $documents,
+            'data' => $documents,
         ]);
     }
 
@@ -698,23 +500,19 @@ class KerjasamaController extends Controller
 
         return [
 
-            'id' =>
-                $document->id,
+            'id' => $document->id,
 
             'jenis_dokumen' =>
                 $document->jenisDokumen?->nama,
 
-            'jenis' =>
-                $document->jenis,
+            'jenis' => $document->jenis,
 
-            'judul' =>
-                $document->judul,
+            'judul' => $document->judul,
 
             'nomor_dokumen' =>
                 $document->nomor_dokumen,
 
-            'tahun' =>
-                $document->tahun,
+            'tahun' => $document->tahun,
 
             'tanggal_awal' =>
                 $document->tanggal_awal?->toDateString(),
@@ -722,8 +520,7 @@ class KerjasamaController extends Controller
             'tanggal_akhir' =>
                 $document->tanggal_akhir?->toDateString(),
 
-            'status' =>
-                $document->status,
+            'status' => $document->status,
 
             /*
             |--------------------------------------------------------------------------
