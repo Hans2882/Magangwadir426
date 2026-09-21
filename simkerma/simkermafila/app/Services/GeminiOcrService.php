@@ -40,7 +40,7 @@ class GeminiOcrService
                 . "- nama_provinsi (String, the name of the province mentioned in the document for the partner's location)\n"
                 . "- nama_kota (String, the name of the city mentioned in the document for the partner's location)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
-                . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document)\n"
+                . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document. IMPORTANT: Extract ONLY the major name, do not include the word 'Program Studi' or 'Prodi'. Standardize degree prefixes from Roman numerals to alphanumeric, e.g., 'D-III' -> 'D3', 'S-I' -> 'S1'. For 'D-IV' or 'D4', change it to 'Sarjana Terapan'. Example: 'Program Studi D-IV Administrasi Bisnis' should be extracted strictly as 'Sarjana Terapan Administrasi Bisnis')\n"
                 . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)";
 
         $payload = [
@@ -110,8 +110,8 @@ class GeminiOcrService
             ->icon('heroicon-m-sparkles')
             ->requiresConfirmation()
             ->modalHeading('Ekstrak Data Otomatis')
-            ->modalDescription('Sistem AI akan membaca dokumen Anda dan mengisi form secara otomatis. Proses ini mungkin memakan waktu 5-15 detik.')
-            ->modalSubmitActionLabel('Mulai Proses AI')
+            ->modalDescription('Sistem akan membaca dokumen dan mengisi form secara otomatis. Proses ini mungkin memakan waktu 5-15 detik.')
+            ->modalSubmitActionLabel('Mulai Proses')
             ->action(function ($get, $set) {
                 $state = $get('link_dokumen');
                 if (!$state) {
@@ -135,7 +135,7 @@ class GeminiOcrService
                     return;
                 }
                 
-                \Filament\Notifications\Notification::make()->title('Memproses dengan AI...')->info()->send();
+                \Filament\Notifications\Notification::make()->title('Proses')->info()->send();
                 
                 $service = new self();
                 $data = $service->extractFromPdfContent($content);
@@ -147,6 +147,7 @@ class GeminiOcrService
                     if (!empty($data['tanggal_akhir'])) $set('tanggal_akhir', $data['tanggal_akhir']);
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
+                    
                     if (!empty($data['nama_mitra'])) {
                         $mitra = \App\Models\Mitra::query()->where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
                         if ($mitra) {
@@ -189,21 +190,34 @@ class GeminiOcrService
                             }
                         }
                     }
+                    $jurusanIds = [];
+                    if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
+                        foreach ($data['jurusans'] as $jurusanName) {
+                            $j = \App\Models\MasterJurusan::query()->where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
+                            if ($j && !in_array($j->id, $jurusanIds)) $jurusanIds[] = $j->id;
+                        }
+                    }
+
                     if (!empty($data['prodis']) && is_array($data['prodis'])) {
                         $prodiIds = [];
                         foreach ($data['prodis'] as $prodiName) {
-                            $p = \App\Models\MasterProgramStudi::query()->where('nama_prodi', 'like', '%' . $prodiName . '%')->first();
-                            if ($p) $prodiIds[] = $p->id;
+                            // Extra sanitization just in case AI didn't catch it
+                            $searchName = trim(str_ireplace(['Program Studi', 'Prodi'], '', $prodiName));
+                            $searchName = str_replace(['D-IV', 'D4', 'D-III', 'D-II', 'D-I', 'S-I', 'S-II', 'S-III'], ['Sarjana Terapan', 'Sarjana Terapan', 'D3', 'D2', 'D1', 'S1', 'S2', 'S3'], $searchName);
+
+                            $p = \App\Models\MasterProgramStudi::query()->where('nama_prodi', 'like', '%' . $searchName . '%')->first();
+                            if ($p) {
+                                $prodiIds[] = $p->id;
+                                if ($p->jurusan_id && !in_array($p->jurusan_id, $jurusanIds)) {
+                                    $jurusanIds[] = $p->jurusan_id;
+                                }
+                            }
                         }
                         if (!empty($prodiIds)) $set('prodis', $prodiIds);
                     }
-                    if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
-                        $jurusanIds = [];
-                        foreach ($data['jurusans'] as $jurusanName) {
-                            $j = \App\Models\MasterJurusan::query()->where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
-                            if ($j) $jurusanIds[] = $j->id;
-                        }
-                        if (!empty($jurusanIds)) $set('jurusans', $jurusanIds);
+                    
+                    if (!empty($jurusanIds)) {
+                        $set('jurusans', $jurusanIds);
                     }
                     \Filament\Notifications\Notification::make()->title('Auto-Fill Berhasil!')->success()->send();
                 } else {
