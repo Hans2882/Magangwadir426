@@ -148,12 +148,12 @@ class GeminiOcrService
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
                     if (!empty($data['nama_mitra'])) {
-                        $mitra = \App\Models\Mitra::where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
+                        $mitra = \App\Models\Mitra::query()->where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
                         if ($mitra) {
                             $set('mitra_id', $mitra->id);
                             
                             // Auto-select the most recent MoU, PKS, or IA for this Mitra
-                            $parentDoc = \App\Models\Kerjasama::where('mitra_id', $mitra->id)
+                            $parentDoc = \App\Models\Kerjasama::query()->where('mitra_id', $mitra->id)
                                 ->whereIn('jenis_dokumen_id', [1, 3, 4]) // MoU, PKS, IA
                                 ->latest()
                                 ->first();
@@ -164,13 +164,13 @@ class GeminiOcrService
                         }
                     }
                     if (!empty($data['nama_provinsi'])) {
-                        $provinsi = \App\Models\MasterProvinsi::where('nama_provinsi', 'like', '%' . $data['nama_provinsi'] . '%')->first();
+                        $provinsi = \App\Models\MasterProvinsi::query()->where('nama_provinsi', 'like', '%' . $data['nama_provinsi'] . '%')->first();
                         if ($provinsi) {
                             $set('provinsi_id', $provinsi->id);
                             
                             // If province is found and city is provided, search city within that province
                             if (!empty($data['nama_kota'])) {
-                                $kota = \App\Models\MasterKota::where('provinsi_id', $provinsi->id)
+                                $kota = \App\Models\MasterKota::query()->where('provinsi_id', $provinsi->id)
                                     ->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')
                                     ->first();
                                 if ($kota) {
@@ -180,7 +180,7 @@ class GeminiOcrService
                         }
                     } elseif (!empty($data['nama_kota'])) {
                         // If no province was found/extracted, just try to find the city directly
-                        $kota = \App\Models\MasterKota::where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
+                        $kota = \App\Models\MasterKota::query()->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
                         if ($kota) {
                             $set('kota_id', $kota->id);
                             // Auto-set the province from the city if we found the city directly
@@ -192,7 +192,7 @@ class GeminiOcrService
                     if (!empty($data['prodis']) && is_array($data['prodis'])) {
                         $prodiIds = [];
                         foreach ($data['prodis'] as $prodiName) {
-                            $p = \App\Models\MasterProgramStudi::where('nama_prodi', 'like', '%' . $prodiName . '%')->first();
+                            $p = \App\Models\MasterProgramStudi::query()->where('nama_prodi', 'like', '%' . $prodiName . '%')->first();
                             if ($p) $prodiIds[] = $p->id;
                         }
                         if (!empty($prodiIds)) $set('prodis', $prodiIds);
@@ -200,7 +200,7 @@ class GeminiOcrService
                     if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
                         $jurusanIds = [];
                         foreach ($data['jurusans'] as $jurusanName) {
-                            $j = \App\Models\MasterJurusan::where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
+                            $j = \App\Models\MasterJurusan::query()->where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
                             if ($j) $jurusanIds[] = $j->id;
                         }
                         if (!empty($jurusanIds)) $set('jurusans', $jurusanIds);

@@ -13,7 +13,7 @@ class UsulanKerjasamaForm
         return $schema
             ->components([
                 \Filament\Forms\Components\Hidden::make('user_id')
-                    ->default(fn () => auth()->id()),
+                    ->default(fn () => \Illuminate\Support\Facades\Auth::id()),
                     
                 \Filament\Schemas\Components\Section::make('Informasi Dokumen')
                     ->description('Masukkan nomor surat / dokumen Berita Acara Inisiasi')
