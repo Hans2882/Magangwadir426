@@ -37,6 +37,10 @@ class GeminiOcrService
                 . "- tanggal_akhir (Date in YYYY-MM-DD format, the end date if mentioned, otherwise null)\n"
                 . "- judul (String, the specific title or subject of the agreement or activity. For agreements, include text AFTER 'TENTANG'. For reports, include the main activity title)\n"
                 . "- nama_mitra (String, the name of the external partner organization or university)\n"
+                . "- alamat_mitra (String, the full address of the partner organization, if mentioned)\n"
+                . "- email_mitra (String, the email address of the partner organization, if mentioned)\n"
+                . "- telepon_mitra (String, the phone number of the partner organization, if mentioned)\n"
+                . "- nama_negara (String, guess the country of the partner based on context/address, e.g. 'Indonesia', 'Malaysia')\n"
                 . "- nama_provinsi (String, the name of the province mentioned in the document for the partner's location)\n"
                 . "- nama_kota (String, the name of the city mentioned in the document for the partner's location)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
@@ -148,8 +152,82 @@ class GeminiOcrService
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
                     
+                    $extractedNegaraId = null;
+                    $extractedProvinsiId = null;
+                    $extractedKotaId = null;
+
+                    if (!empty($data['nama_negara'])) {
+                        $negara = \App\Models\Negara::query()->where('nama_negara', 'like', '%' . $data['nama_negara'] . '%')->first();
+                        if ($negara) {
+                            $extractedNegaraId = $negara->id;
+                            // Set usulan_negara_id just in case we are on Usulan form. Kerjasama doesn't have it natively on form.
+                            try { $set('usulan_negara_id', $negara->id); } catch (\Exception $e) {}
+                        }
+                    }
+
+                    if (!empty($data['nama_provinsi'])) {
+                        $provinsi = \App\Models\MasterProvinsi::query()->where('nama_provinsi', 'like', '%' . $data['nama_provinsi'] . '%')->first();
+                        if ($provinsi) {
+                            $extractedProvinsiId = $provinsi->id;
+                            $set('provinsi_id', $provinsi->id);
+                            
+                            // If province is found and city is provided, search city within that province
+                            if (!empty($data['nama_kota'])) {
+                                $kota = \App\Models\MasterKota::query()->where('provinsi_id', $provinsi->id)
+                                    ->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')
+                                    ->first();
+                                if ($kota) {
+                                    $extractedKotaId = $kota->id;
+                                    $set('kota_id', $kota->id);
+                                }
+                            }
+                        }
+                    } elseif (!empty($data['nama_kota'])) {
+                        // If no province was found/extracted, just try to find the city directly
+                        $kota = \App\Models\MasterKota::query()->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
+                        if ($kota) {
+                            $extractedKotaId = $kota->id;
+                            $set('kota_id', $kota->id);
+                            // Auto-set the province from the city if we found the city directly
+                            if ($kota->provinsi_id) {
+                                $extractedProvinsiId = $kota->provinsi_id;
+                                $set('provinsi_id', $kota->provinsi_id);
+                            }
+                        }
+                    }
+
                     if (!empty($data['nama_mitra'])) {
+                        // 1. Direct match
                         $mitra = \App\Models\Mitra::query()->where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
+                        
+                        // 2. Fuzzy match
+                        if (!$mitra) {
+                            $cleanName = trim(str_ireplace(['PT', 'CV', 'Universitas', 'Institut', 'Politeknik', 'Sekolah Tinggi', 'Akademi', '.', ','], '', $data['nama_mitra']));
+                            $words = array_filter(explode(' ', $cleanName), fn($w) => strlen($w) > 3);
+                            
+                            if (count($words) > 0) {
+                                $query = \App\Models\Mitra::query();
+                                foreach ($words as $word) {
+                                    $query->where('nama_mitra', 'like', '%' . $word . '%');
+                                }
+                                $mitra = $query->first();
+                            }
+                        }
+
+                        // 3. Auto Create
+                        if (!$mitra) {
+                            $mitra = \App\Models\Mitra::create([
+                                'nama_mitra' => $data['nama_mitra'],
+                                'alamat' => $data['alamat_mitra'] ?? null,
+                                'email' => $data['email_mitra'] ?? null,
+                                'telepon' => $data['telepon_mitra'] ?? null,
+                                'negara_id' => $extractedNegaraId,
+                                'provinsi_id' => $extractedProvinsiId,
+                                'kota_id' => $extractedKotaId,
+                            ]);
+                            \Filament\Notifications\Notification::make()->title('Mitra baru ditambahkan secara otomatis: ' . $mitra->nama_mitra)->success()->send();
+                        }
+
                         if ($mitra) {
                             $set('mitra_id', $mitra->id);
                             
@@ -161,32 +239,6 @@ class GeminiOcrService
                                 
                             if ($parentDoc) {
                                 $set('parent_id', $parentDoc->id);
-                            }
-                        }
-                    }
-                    if (!empty($data['nama_provinsi'])) {
-                        $provinsi = \App\Models\MasterProvinsi::query()->where('nama_provinsi', 'like', '%' . $data['nama_provinsi'] . '%')->first();
-                        if ($provinsi) {
-                            $set('provinsi_id', $provinsi->id);
-                            
-                            // If province is found and city is provided, search city within that province
-                            if (!empty($data['nama_kota'])) {
-                                $kota = \App\Models\MasterKota::query()->where('provinsi_id', $provinsi->id)
-                                    ->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')
-                                    ->first();
-                                if ($kota) {
-                                    $set('kota_id', $kota->id);
-                                }
-                            }
-                        }
-                    } elseif (!empty($data['nama_kota'])) {
-                        // If no province was found/extracted, just try to find the city directly
-                        $kota = \App\Models\MasterKota::query()->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
-                        if ($kota) {
-                            $set('kota_id', $kota->id);
-                            // Auto-set the province from the city if we found the city directly
-                            if ($kota->provinsi_id) {
-                                $set('provinsi_id', $kota->provinsi_id);
                             }
                         }
                     }
