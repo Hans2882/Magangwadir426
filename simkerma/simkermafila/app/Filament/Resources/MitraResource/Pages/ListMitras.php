@@ -82,18 +82,19 @@ class ListMitras extends ListRecords
     }
 
     protected function getTableQuery(): Builder
-    {
-        if ($this->activeTab === 'luar_negeri') {
-            return Mitra::query()
-                ->where('negara_id', '>=', 1);
-        }
+{
+    $query = Mitra::query()
+        ->with('kerjasamas');
 
-        return Mitra::query()
-            ->where(function ($query) {
-                $query->whereNull('negara_id')
-                    ->orWhere('negara_id', '<', 1);
-            });
+    if ($this->activeTab === 'luar_negeri') {
+        return $query->where('negara_id', '>=', 1);
     }
+
+    return $query->where(function ($query) {
+        $query->whereNull('negara_id')
+            ->orWhere('negara_id', '<', 1);
+    });
+}
 
     public function table(Table $table): Table
     {
@@ -117,6 +118,28 @@ class ListMitras extends ListRecords
                     ->searchable()
                     ->sortable()
                     ->default('-'),
+
+                Tables\Columns\TextColumn::make('nomor_mou')
+    ->label('No. MoU')
+    ->state(function (Mitra $record) {
+        return $record->kerjasamas
+            ->where('jenis_dokumen_id', 1)
+            ->pluck('nomor_dokumen')
+            ->filter()
+            ->implode(', ') ?: '-';
+    })
+    ->wrap(),
+
+Tables\Columns\TextColumn::make('nomor_pks')
+    ->label('No. PKS')
+    ->state(function (Mitra $record) {
+        return $record->kerjasamas
+            ->where('jenis_dokumen_id', 3)
+            ->pluck('nomor_dokumen')
+            ->filter()
+            ->implode(', ') ?: '-';
+    })
+    ->wrap(),
 
                 Tables\Columns\TextColumn::make('negara.nama_negara')
                     ->label('Negara')
