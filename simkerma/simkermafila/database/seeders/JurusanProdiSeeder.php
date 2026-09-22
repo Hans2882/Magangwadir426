@@ -35,6 +35,13 @@ class JurusanProdiSeeder extends Seeder
             'Kimia' => 'Jurusan Teknik Kimia',
             'Bahasa Inggris' => 'Jurusan Administrasi Niaga',
             'Arsip' => 'Jurusan Administrasi Niaga',
+            'Pemasaran' => 'Jurusan Administrasi Niaga',
+            'Wisata' => 'Jurusan Administrasi Niaga',
+            'Pesawat' => 'Jurusan Teknik Mesin',
+            'Piranti Lunak' => 'Jurusan Teknologi Informasi',
+            'Manufaktur' => 'Jurusan Teknik Mesin',
+            'Teknologi Informasi' => 'Jurusan Teknologi Informasi',
+            'Mekanik' => 'Jurusan Teknik Mesin',
         ];
 
         $mappedCount = 0;
