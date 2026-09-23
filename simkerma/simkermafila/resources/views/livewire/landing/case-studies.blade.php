@@ -6,7 +6,10 @@
 
     <div class="tabbed-panel">
         <div class="tab-list" role="tablist">
-            <button wire:click.prevent="$set('activeTab', 'caseStudies')" type="button" class="tab-button {{ $activeTab === 'caseStudies' ? 'active' : '' }}">Case Study</button>
+            <button wire:click.prevent="$set('activeTab', 'caseStudies')" type="button" class="tab-button {{ $activeTab === 'caseStudies' ? 'active' : '' }}">
+    Case Study
+    <span class="tab-count">{{ $caseStudyCount }}</span>
+</button>
             <button wire:click.prevent="$set('activeTab', 'mitra')" type="button" class="tab-button {{ $activeTab === 'mitra' ? 'active' : '' }}">Mitra</button>
             <button wire:click.prevent="$set('activeTab', 'survey')" type="button" class="tab-button {{ $activeTab === 'survey' ? 'active' : '' }}">Kuisioner Kepuasan</button>
         </div>
@@ -505,6 +508,26 @@
             display: grid;
             gap: 1.5rem;
         }
+
+        .tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.4rem;
+    margin-left: 0.4rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.15);
+    color: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.tab-button.active .tab-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
 
         .info-card,
         .survey-card {

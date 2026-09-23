@@ -160,6 +160,27 @@ class MitraResource extends Resource
                         ->default('-')
                         ->badge()
                         ->color('primary'),
+                    \Filament\Infolists\Components\TextEntry::make('nomor_mou')
+    ->label('No. MoU')
+    ->state(function ($record) {
+        return $record->kerjasamas
+            ->where('jenis_dokumen_id', 1)
+            ->pluck('nomor_dokumen')
+            ->filter()
+            ->implode(', ') ?: '-';
+    })
+    ->columnSpan(1),
+
+\Filament\Infolists\Components\TextEntry::make('nomor_pks')
+    ->label('No. PKS')
+    ->state(function ($record) {
+        return $record->kerjasamas
+            ->where('jenis_dokumen_id', 3)
+            ->pluck('nomor_dokumen')
+            ->filter()
+            ->implode(', ') ?: '-';
+    })
+    ->columnSpan(1),
                     \Filament\Infolists\Components\TextEntry::make('telepon')->label('No. Telepon')->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('email')->label('Email')->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('qs_rank')->label('QS Rank')->default('-')

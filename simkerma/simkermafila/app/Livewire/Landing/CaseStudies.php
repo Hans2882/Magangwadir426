@@ -263,27 +263,35 @@ class CaseStudies extends Component
     }
 
     public function render()
-    {
-        // jenis_dokumen_id = 8 (Case Study), status = Selesai
-        $caseStudies = Kerjasama::with(['mitra', 'mitra.negara'])
-            ->where('jenis_dokumen_id', 8)
-            ->where('status_workflow', 'Selesai')
-            ->latest('tanggal_awal')
-            ->get();
+{
+    // Case Study: jenis_dokumen_id = 8, status = Selesai
+    $caseStudyQuery = Kerjasama::query()
+        ->where('jenis_dokumen_id', 8)
+        ->where('status_workflow', 'Selesai');
 
-        $programStudiOptions = MasterProgramStudi::orderBy('nama_prodi', 'asc')->pluck('nama_prodi', 'id')->toArray();
+    $caseStudyCount = (clone $caseStudyQuery)->count();
 
-        $mitras = Mitra::with(['negara', 'kategori'])
-            ->when($this->search, function ($query) {
-                $query->where('nama_mitra', 'like', '%' . $this->search . '%');
-            })
-            ->orderBy('nama_mitra')
-            ->paginate(10);
+    $caseStudies = $caseStudyQuery
+        ->with(['mitra', 'mitra.negara'])
+        ->latest('tanggal_awal')
+        ->get();
 
-        return view('livewire.landing.case-studies', [
-            'caseStudies' => $caseStudies,
-            'programStudiOptions' => $programStudiOptions,
-            'mitras' => $mitras
-        ]);
-    }
+    $programStudiOptions = MasterProgramStudi::orderBy('nama_prodi', 'asc')
+        ->pluck('nama_prodi', 'id')
+        ->toArray();
+
+    $mitras = Mitra::with(['negara', 'kategori'])
+        ->when($this->search, function ($query) {
+            $query->where('nama_mitra', 'like', '%' . $this->search . '%');
+        })
+        ->orderBy('nama_mitra')
+        ->paginate(10);
+
+    return view('livewire.landing.case-studies', [
+        'caseStudies' => $caseStudies,
+        'caseStudyCount' => $caseStudyCount,
+        'programStudiOptions' => $programStudiOptions,
+        'mitras' => $mitras,
+    ]);
+}
 }
