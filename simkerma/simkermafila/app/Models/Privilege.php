@@ -8,5 +8,13 @@ class Privilege extends Model
 {
     protected $table = 'privileges';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'nama',
+        'is_admin_panel',
+        'deskripsi',
+        'can_create',
+        'can_read',
+        'can_update',
+        'can_delete',
+    ];
 }

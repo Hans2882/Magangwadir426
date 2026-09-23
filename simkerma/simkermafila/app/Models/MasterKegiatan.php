@@ -7,5 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class MasterKegiatan extends Model
 {
     protected $table = 'master_kegiatan';
-    protected $guarded = [];
+    protected $fillable = [
+        'bidang_kerjasama',
+        'bidang_unit',
+        'jenis_dokumen',
+    ];
 }

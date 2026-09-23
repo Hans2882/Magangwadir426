@@ -5,7 +5,11 @@ use App\Http\Controllers\Api\MitraController;
 
 Route::get('/', \App\Livewire\Landing\CaseStudies::class)->name('home');
 
-Route::get('/view-dokumen', function (\Illuminate\Http\Request $request) {
+Route::get('/login', function () {
+    return redirect(route('filament.admin.auth.login'));
+})->name('login');
+
+Route::middleware(['auth'])->get('/view-dokumen', function (\Illuminate\Http\Request $request) {
     $path = $request->query('path');
     if (!$path || $path === '-') {
         return abort(404);
