@@ -51,6 +51,7 @@ class GeminiOcrService
                 . "- nama_kota (String, the name of the city mentioned in the document for the partner's location)\n"
                 . "- kategori_id (Integer or null, guess the category ID of the partner based on their name. Use ONLY one of the keys from this exact mapping: $kategoriString)\n"
                 . "- bidang_id (Integer or null, guess the collaboration field (Bidang Kerjasama) based on the document title and content. Use ONLY one of the keys from this exact mapping: $bidangString)\n"
+                . "- jenis (String, guess the scope or Cakupan (DN/LN) based on the partner's country. Must be EXACTLY 'Dalam Negeri' if the partner is from Indonesia, or 'Luar Negeri' if the partner is from outside Indonesia)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
                 . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document. IMPORTANT: Extract ONLY the major name, do not include the word 'Program Studi' or 'Prodi'. Standardize degree prefixes from Roman numerals to alphanumeric, e.g., 'D-III' -> 'D3', 'S-I' -> 'S1'. For 'D-IV' or 'D4', change it to 'Sarjana Terapan'. Example: 'Program Studi D-IV Administrasi Bisnis' should be extracted strictly as 'Sarjana Terapan Administrasi Bisnis')\n"
                 . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)";
@@ -160,6 +161,7 @@ class GeminiOcrService
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
                     if (!empty($data['bidang_id'])) $set('bidang_id', $data['bidang_id']);
+                    if (!empty($data['jenis'])) $set('jenis', $data['jenis']);
                     
                     $extractedNegaraId = null;
                     $extractedProvinsiId = null;
