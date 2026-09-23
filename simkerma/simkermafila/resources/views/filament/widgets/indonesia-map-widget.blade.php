@@ -3,20 +3,24 @@
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h2 style="font-size: 1.25rem; font-weight: bold;">Peta Sebaran Kerjasama</h2>
-            <button id="back-button" style="display: none; padding: 0.5rem 1rem; background-color: #113261; color: white; border-radius: 0.5rem; border: none; cursor: pointer;">Kembali ke Nasional</button>
+            <button id="back-button" style="display: none; padding: 0.5rem 1rem; background-color: #113261; color: white; border-radius: 0.5rem; border: none; cursor: pointer;">Kembali ke Dunia</button>
         </div>
 
         <div 
             wire:ignore
             x-data="{
                 map: null,
+                worldLayer: null,
                 provinceLayer: null,
                 cityLayer: null,
+                worldGeojson: null,
                 cityGeojson: null,
                 loadError: null,
+                worldUrl: @js(asset('geojson/countries.json')),
                 provinsiUrl: @js(asset('geojson/provinsi.json')),
                 kabupatenUrl: @js(asset('geojson/kabupaten.json')),
                 provinceData: @js($provinceData ?? []),
+                countryData: @js($countryData ?? []),
 
                 normalizeName(name) {
                     name = name.toUpperCase();
@@ -48,9 +52,9 @@
                     }
 
                     this.map = L.map('map', {
-                        center: [-2.5, 118.0],
-                        zoom: 5,
-                        minZoom: 4,
+                        center: [20, 0],
+                        zoom: 2,
+                        minZoom: 2,
                         maxZoom: 14,
                         zoomControl: false,
                         attributionControl: false
@@ -59,19 +63,26 @@
                     L.control.zoom({ position: 'topright' }).addTo(this.map);
 
                     try {
-                        await this.loadProvinces();
+                        await this.loadWorld();
                     } catch (err) {
-                        this.showError('Gagal memuat batas wilayah provinsi.', err);
+                        this.showError('Gagal memuat batas wilayah dunia.', err);
                         return;
                     }
 
                     document.getElementById('back-button').addEventListener('click', async () => {
-                        if (this.cityLayer) {
+                        if (this.cityLayer && this.map.hasLayer(this.cityLayer)) {
+                            // Back from City to Province
                             this.map.removeLayer(this.cityLayer);
+                            this.provinceLayer.addTo(this.map);
+                            this.map.setView([-2.5, 118.0], 5);
+                            document.getElementById('back-button').textContent = 'Kembali ke Dunia';
+                        } else if (this.provinceLayer && this.map.hasLayer(this.provinceLayer)) {
+                            // Back from Province to World
+                            this.map.removeLayer(this.provinceLayer);
+                            this.worldLayer.addTo(this.map);
+                            this.map.setView([20, 0], 2);
+                            document.getElementById('back-button').style.display = 'none';
                         }
-                        this.provinceLayer.addTo(this.map);
-                        this.map.setView([-2.5, 118.0], 5);
-                        document.getElementById('back-button').style.display = 'none';
                     });
                 },
 
@@ -108,6 +119,64 @@
                     };
                 },
 
+                async loadWorld() {
+                    if (!this.worldGeojson) {
+                        this.worldGeojson = await this.loadGeojson(this.worldUrl);
+                    }
+
+                    this.worldLayer = L.geoJSON(this.worldGeojson, {
+                        style: (feature) => {
+                            let name = feature.properties.name ? feature.properties.name.toUpperCase() : '';
+                            let data = this.countryData[name] || null;
+                            let count = data ? data.total : 0;
+                            return {
+                                fillColor: this.getColor(count),
+                                weight: 1,
+                                opacity: 1,
+                                color: '#000000',
+                                fillOpacity: 1
+                            };
+                        },
+                        onEachFeature: (feature, layer) => {
+                            let name = feature.properties.name ? feature.properties.name.toUpperCase() : '';
+                            let data = this.countryData[name] || null;
+                            let total = data ? data.total : 0;
+                            let tooltipContent = `<b>${feature.properties.name || name}</b><br/>Total: <b>${total}</b>`;
+                            if (data && total > 0) {
+                                tooltipContent += `<br/><span style='color:#1d4ed8;'>MoU: ${data.mou_count}</span>`;
+                                tooltipContent += `<br/><span style='color:#15803d;'>PKS: ${data.pks_count}</span>`;
+                            }
+                            
+                            layer.bindTooltip(tooltipContent, { sticky: true });
+
+                            layer.on({'click': (e) => {
+                                if (name === 'INDONESIA') {
+                                    this.drillDownToIndonesia(e);
+                                }
+                            }});
+                        }
+                    }).addTo(this.map);
+                },
+
+                async drillDownToIndonesia(e) {
+                    this.map.fitBounds(e.target.getBounds(), { padding: [20, 20] });
+                    this.map.removeLayer(this.worldLayer);
+                    
+                    document.getElementById('back-button').style.display = 'block';
+                    document.getElementById('back-button').textContent = 'Kembali ke Dunia';
+
+                    if (!this.provinceLayer) {
+                        try {
+                            await this.loadProvinces();
+                        } catch (err) {
+                            this.showError('Gagal memuat batas wilayah provinsi.', err);
+                            return;
+                        }
+                    } else {
+                        this.provinceLayer.addTo(this.map);
+                    }
+                },
+
                 async loadProvinces() {
                     const geojson = await this.loadGeojson(this.provinsiUrl);
 
@@ -137,6 +206,7 @@
                     
                     this.map.removeLayer(this.provinceLayer);
                     document.getElementById('back-button').style.display = 'block';
+                    document.getElementById('back-button').textContent = 'Kembali ke Provinsi';
 
                     if (this.cityLayer) {
                         this.map.removeLayer(this.cityLayer);
