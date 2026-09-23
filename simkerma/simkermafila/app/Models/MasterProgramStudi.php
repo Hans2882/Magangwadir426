@@ -15,5 +15,11 @@ class MasterProgramStudi extends Model
     protected $fillable = [
         'nama_prodi',
         'nama_prodi_eng',
+        'jurusan_id',
     ];
+
+    public function jurusan()
+    {
+        return $this->belongsTo(MasterJurusan::class, 'jurusan_id');
+    }
 }

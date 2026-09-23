@@ -14,8 +14,10 @@ return new class extends Migration
         Schema::create('permintaan_kerjasamas', function (Blueprint $table) {
             $table->id();
             $table->string('nama_mitra');
-            $table->foreignId('kategori_id')->constrained('master_mitra_iku');
-            $table->foreignId('negara_id')->nullable()->constrained('master_negara');
+            $table->integer('kategori_id');
+            $table->foreign('kategori_id')->references('id')->on('master_mitra_iku');
+            $table->integer('negara_id')->nullable();
+            $table->foreign('negara_id')->references('id')->on('master_negara');
             $table->string('qs_rank', 50)->nullable();
             $table->string('telepon', 50)->nullable();
             $table->string('email')->nullable();

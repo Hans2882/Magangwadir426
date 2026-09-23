@@ -37,10 +37,14 @@ class GeminiOcrService
                 . "- tanggal_akhir (Date in YYYY-MM-DD format, the end date if mentioned, otherwise null)\n"
                 . "- judul (String, the specific title or subject of the agreement or activity. For agreements, include text AFTER 'TENTANG'. For reports, include the main activity title)\n"
                 . "- nama_mitra (String, the name of the external partner organization or university)\n"
+                . "- alamat_mitra (String, the full address of the partner organization, if mentioned)\n"
+                . "- email_mitra (String, the email address of the partner organization, if mentioned)\n"
+                . "- telepon_mitra (String, the phone number of the partner organization, if mentioned)\n"
+                . "- nama_negara (String, guess the country of the partner based on context/address, e.g. 'Indonesia', 'Malaysia')\n"
                 . "- nama_provinsi (String, the name of the province mentioned in the document for the partner's location)\n"
                 . "- nama_kota (String, the name of the city mentioned in the document for the partner's location)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
-                . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document)\n"
+                . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document. IMPORTANT: Extract ONLY the major name, do not include the word 'Program Studi' or 'Prodi'. Standardize degree prefixes from Roman numerals to alphanumeric, e.g., 'D-III' -> 'D3', 'S-I' -> 'S1'. For 'D-IV' or 'D4', change it to 'Sarjana Terapan'. Example: 'Program Studi D-IV Administrasi Bisnis' should be extracted strictly as 'Sarjana Terapan Administrasi Bisnis')\n"
                 . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)";
 
         $payload = [
@@ -110,8 +114,8 @@ class GeminiOcrService
             ->icon('heroicon-m-sparkles')
             ->requiresConfirmation()
             ->modalHeading('Ekstrak Data Otomatis')
-            ->modalDescription('Sistem AI akan membaca dokumen Anda dan mengisi form secara otomatis. Proses ini mungkin memakan waktu 5-15 detik.')
-            ->modalSubmitActionLabel('Mulai Proses AI')
+            ->modalDescription('Sistem akan membaca dokumen dan mengisi form secara otomatis. Proses ini mungkin memakan waktu 5-15 detik.')
+            ->modalSubmitActionLabel('Mulai Proses')
             ->action(function ($get, $set) {
                 $state = $get('link_dokumen');
                 if (!$state) {
@@ -135,7 +139,7 @@ class GeminiOcrService
                     return;
                 }
                 
-                \Filament\Notifications\Notification::make()->title('Memproses dengan AI...')->info()->send();
+                \Filament\Notifications\Notification::make()->title('Proses')->info()->send();
                 
                 $service = new self();
                 $data = $service->extractFromPdfContent($content);
@@ -147,13 +151,88 @@ class GeminiOcrService
                     if (!empty($data['tanggal_akhir'])) $set('tanggal_akhir', $data['tanggal_akhir']);
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
+                    
+                    $extractedNegaraId = null;
+                    $extractedProvinsiId = null;
+                    $extractedKotaId = null;
+
+                    if (!empty($data['nama_negara'])) {
+                        $negara = \App\Models\Negara::query()->where('nama_negara', 'like', '%' . $data['nama_negara'] . '%')->first();
+                        if ($negara) {
+                            $extractedNegaraId = $negara->id;
+                            // Set usulan_negara_id just in case we are on Usulan form. Kerjasama doesn't have it natively on form.
+                            try { $set('usulan_negara_id', $negara->id); } catch (\Exception $e) {}
+                        }
+                    }
+
+                    if (!empty($data['nama_provinsi'])) {
+                        $provinsi = \App\Models\MasterProvinsi::query()->where('nama_provinsi', 'like', '%' . $data['nama_provinsi'] . '%')->first();
+                        if ($provinsi) {
+                            $extractedProvinsiId = $provinsi->id;
+                            $set('provinsi_id', $provinsi->id);
+                            
+                            // If province is found and city is provided, search city within that province
+                            if (!empty($data['nama_kota'])) {
+                                $kota = \App\Models\MasterKota::query()->where('provinsi_id', $provinsi->id)
+                                    ->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')
+                                    ->first();
+                                if ($kota) {
+                                    $extractedKotaId = $kota->id;
+                                    $set('kota_id', $kota->id);
+                                }
+                            }
+                        }
+                    } elseif (!empty($data['nama_kota'])) {
+                        // If no province was found/extracted, just try to find the city directly
+                        $kota = \App\Models\MasterKota::query()->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
+                        if ($kota) {
+                            $extractedKotaId = $kota->id;
+                            $set('kota_id', $kota->id);
+                            // Auto-set the province from the city if we found the city directly
+                            if ($kota->provinsi_id) {
+                                $extractedProvinsiId = $kota->provinsi_id;
+                                $set('provinsi_id', $kota->provinsi_id);
+                            }
+                        }
+                    }
+
                     if (!empty($data['nama_mitra'])) {
-                        $mitra = \App\Models\Mitra::where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
+                        // 1. Direct match
+                        $mitra = \App\Models\Mitra::query()->where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
+                        
+                        // 2. Fuzzy match
+                        if (!$mitra) {
+                            $cleanName = trim(str_ireplace(['PT', 'CV', 'Universitas', 'Institut', 'Politeknik', 'Sekolah Tinggi', 'Akademi', '.', ','], '', $data['nama_mitra']));
+                            $words = array_filter(explode(' ', $cleanName), fn($w) => strlen($w) > 3);
+                            
+                            if (count($words) > 0) {
+                                $query = \App\Models\Mitra::query();
+                                foreach ($words as $word) {
+                                    $query->where('nama_mitra', 'like', '%' . $word . '%');
+                                }
+                                $mitra = $query->first();
+                            }
+                        }
+
+                        // 3. Auto Create
+                        if (!$mitra) {
+                            $mitra = \App\Models\Mitra::create([
+                                'nama_mitra' => $data['nama_mitra'],
+                                'alamat' => $data['alamat_mitra'] ?? null,
+                                'email' => $data['email_mitra'] ?? null,
+                                'telepon' => $data['telepon_mitra'] ?? null,
+                                'negara_id' => $extractedNegaraId,
+                                'provinsi_id' => $extractedProvinsiId,
+                                'kota_id' => $extractedKotaId,
+                            ]);
+                            \Filament\Notifications\Notification::make()->title('Mitra baru ditambahkan secara otomatis: ' . $mitra->nama_mitra)->success()->send();
+                        }
+
                         if ($mitra) {
                             $set('mitra_id', $mitra->id);
                             
                             // Auto-select the most recent MoU, PKS, or IA for this Mitra
-                            $parentDoc = \App\Models\Kerjasama::where('mitra_id', $mitra->id)
+                            $parentDoc = \App\Models\Kerjasama::query()->where('mitra_id', $mitra->id)
                                 ->whereIn('jenis_dokumen_id', [1, 3, 4]) // MoU, PKS, IA
                                 ->latest()
                                 ->first();
@@ -163,47 +242,34 @@ class GeminiOcrService
                             }
                         }
                     }
-                    if (!empty($data['nama_provinsi'])) {
-                        $provinsi = \App\Models\MasterProvinsi::where('nama_provinsi', 'like', '%' . $data['nama_provinsi'] . '%')->first();
-                        if ($provinsi) {
-                            $set('provinsi_id', $provinsi->id);
-                            
-                            // If province is found and city is provided, search city within that province
-                            if (!empty($data['nama_kota'])) {
-                                $kota = \App\Models\MasterKota::where('provinsi_id', $provinsi->id)
-                                    ->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')
-                                    ->first();
-                                if ($kota) {
-                                    $set('kota_id', $kota->id);
-                                }
-                            }
-                        }
-                    } elseif (!empty($data['nama_kota'])) {
-                        // If no province was found/extracted, just try to find the city directly
-                        $kota = \App\Models\MasterKota::where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
-                        if ($kota) {
-                            $set('kota_id', $kota->id);
-                            // Auto-set the province from the city if we found the city directly
-                            if ($kota->provinsi_id) {
-                                $set('provinsi_id', $kota->provinsi_id);
-                            }
+                    $jurusanIds = [];
+                    if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
+                        foreach ($data['jurusans'] as $jurusanName) {
+                            $j = \App\Models\MasterJurusan::query()->where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
+                            if ($j && !in_array($j->id, $jurusanIds)) $jurusanIds[] = $j->id;
                         }
                     }
+
                     if (!empty($data['prodis']) && is_array($data['prodis'])) {
                         $prodiIds = [];
                         foreach ($data['prodis'] as $prodiName) {
-                            $p = \App\Models\MasterProgramStudi::where('nama_prodi', 'like', '%' . $prodiName . '%')->first();
-                            if ($p) $prodiIds[] = $p->id;
+                            // Extra sanitization just in case AI didn't catch it
+                            $searchName = trim(str_ireplace(['Program Studi', 'Prodi'], '', $prodiName));
+                            $searchName = str_replace(['D-IV', 'D4', 'D-III', 'D-II', 'D-I', 'S-I', 'S-II', 'S-III'], ['Sarjana Terapan', 'Sarjana Terapan', 'D3', 'D2', 'D1', 'S1', 'S2', 'S3'], $searchName);
+
+                            $p = \App\Models\MasterProgramStudi::query()->where('nama_prodi', 'like', '%' . $searchName . '%')->first();
+                            if ($p) {
+                                $prodiIds[] = $p->id;
+                                if ($p->jurusan_id && !in_array($p->jurusan_id, $jurusanIds)) {
+                                    $jurusanIds[] = $p->jurusan_id;
+                                }
+                            }
                         }
                         if (!empty($prodiIds)) $set('prodis', $prodiIds);
                     }
-                    if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
-                        $jurusanIds = [];
-                        foreach ($data['jurusans'] as $jurusanName) {
-                            $j = \App\Models\MasterJurusan::where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
-                            if ($j) $jurusanIds[] = $j->id;
-                        }
-                        if (!empty($jurusanIds)) $set('jurusans', $jurusanIds);
+                    
+                    if (!empty($jurusanIds)) {
+                        $set('jurusans', $jurusanIds);
                     }
                     \Filament\Notifications\Notification::make()->title('Auto-Fill Berhasil!')->success()->send();
                 } else {
