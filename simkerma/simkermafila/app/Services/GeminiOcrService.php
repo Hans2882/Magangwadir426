@@ -29,6 +29,12 @@ class GeminiOcrService
         // Base64 encode the PDF
         $pdfData = base64_encode($pdfContent);
 
+        $kategoriList = \App\Models\MasterMitraIku::pluck('kategori', 'id')->toArray();
+        $bidangList = \App\Models\MasterKegiatan::pluck('bidang_kerjasama', 'id')->toArray();
+        
+        $kategoriString = json_encode($kategoriList);
+        $bidangString = json_encode($bidangList);
+
         $prompt = "You are a highly accurate data extraction assistant. Analyze the attached Indonesian cooperation document (MoU, MoA, IA, PKS, or Laporan Kegiatan/Case Study). Extract the following information and return it strictly as a single, valid JSON object, with no markdown formatting, no preamble, and no extra braces.\n"
                 . "Use exactly these keys:\n"
                 . "- nomor_dokumen_polinema (String, the first document number at the top, usually containing PL2, or the 'Surat Tugas' number for activity reports)\n"
@@ -43,6 +49,8 @@ class GeminiOcrService
                 . "- nama_negara (String, guess the country of the partner based on context/address, e.g. 'Indonesia', 'Malaysia')\n"
                 . "- nama_provinsi (String, the name of the province mentioned in the document for the partner's location)\n"
                 . "- nama_kota (String, the name of the city mentioned in the document for the partner's location)\n"
+                . "- kategori_id (Integer or null, guess the category ID of the partner based on their name. Use ONLY one of the keys from this exact mapping: $kategoriString)\n"
+                . "- bidang_id (Integer or null, guess the collaboration field (Bidang Kerjasama) based on the document title and content. Use ONLY one of the keys from this exact mapping: $bidangString)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
                 . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document. IMPORTANT: Extract ONLY the major name, do not include the word 'Program Studi' or 'Prodi'. Standardize degree prefixes from Roman numerals to alphanumeric, e.g., 'D-III' -> 'D3', 'S-I' -> 'S1'. For 'D-IV' or 'D4', change it to 'Sarjana Terapan'. Example: 'Program Studi D-IV Administrasi Bisnis' should be extracted strictly as 'Sarjana Terapan Administrasi Bisnis')\n"
                 . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)";
@@ -151,6 +159,7 @@ class GeminiOcrService
                     if (!empty($data['tanggal_akhir'])) $set('tanggal_akhir', $data['tanggal_akhir']);
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
+                    if (!empty($data['bidang_id'])) $set('bidang_id', $data['bidang_id']);
                     
                     $extractedNegaraId = null;
                     $extractedProvinsiId = null;
@@ -224,6 +233,7 @@ class GeminiOcrService
                                 'negara_id' => $extractedNegaraId,
                                 'provinsi_id' => $extractedProvinsiId,
                                 'kota_id' => $extractedKotaId,
+                                'kategori_id' => $data['kategori_id'] ?? null,
                             ]);
                             \Filament\Notifications\Notification::make()->title('Mitra baru ditambahkan secara otomatis: ' . $mitra->nama_mitra)->success()->send();
                         }
