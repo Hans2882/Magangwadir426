@@ -18,6 +18,32 @@ class Kerjasama extends Model
                 $model->tahun = \Carbon\Carbon::parse($model->tanggal_awal)->year;
             }
         });
+
+        static::deleting(function ($kerjasama) {
+            $disk = \Illuminate\Support\Facades\Storage::disk('google');
+            
+            // List of file fields in the Kerjasama model
+            $fileFields = ['link_dokumen', 'bukti_kegiatan', 'link_perbaikan'];
+            
+            foreach ($fileFields as $field) {
+                if ($kerjasama->{$field}) {
+                    // Check if it's an array (multiple files) or string (single file)
+                    $paths = is_array($kerjasama->{$field}) ? $kerjasama->{$field} : [$kerjasama->{$field}];
+                    
+                    foreach ($paths as $path) {
+                        if ($path && !str_starts_with($path, 'http')) {
+                            try {
+                                if ($disk->exists($path)) {
+                                    $disk->delete($path);
+                                }
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error("Failed to delete file from GDrive on Kerjasama delete: " . $e->getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     protected $fillable = [
