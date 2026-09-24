@@ -36,6 +36,111 @@
                     };
                     return map[name] || name;
                 },
+
+                normalizeCountryName(name) {
+                    if (!name) return '';
+                    name = name.toUpperCase();
+                    // Map GeoJSON English names to Database Indonesian names
+                    const map = {
+                        'AFGHANISTAN': 'AFGANISTAN',
+                        'SOUTH AFRICA': 'AFRIKA SELATAN',
+                        'ALGERIA': 'ALJAZAIR',
+                        'UNITED STATES OF AMERICA': 'AMERIKA SERIKAT',
+                        'UNITED STATES': 'AMERIKA SERIKAT',
+                        'SAUDI ARABIA': 'ARAB SAUDI',
+                        'THE BAHAMAS': 'BAHAMA',
+                        'BAHAMAS': 'BAHAMA',
+                        'NETHERLANDS': 'BELANDA',
+                        'BELGIUM': 'BELGIA',
+                        'BOSNIA AND HERZEGOVINA': 'BOSNIA DAN HERZEGOVINA',
+                        'BRAZIL': 'BRASIL',
+                        'BRUNEI': 'BRUNEI DARUSSALAM',
+                        'CAPE VERDE': 'CABO VERDE',
+                        'CHILE': 'CHILI',
+                        'CHINA': 'CINA (TIONGKOK)',
+                        'DOMINICAN REPUBLIC': 'REPUBLIK DOMINIKA',
+                        'ECUADOR': 'EKUADOR',
+                        'ETHIOPIA': 'ETIOPIA',
+                        'PHILIPPINES': 'FILIPINA',
+                        'FINLAND': 'FINLANDIA',
+                        'EQUATORIAL GUINEA': 'GUINEA KHATULISTIWA',
+                        'GUINEA BISSAU': 'GUINEA-BISSAU',
+                        'HUNGARY': 'HUNGARIA',
+                        'UNITED KINGDOM': 'INGGRIS RAYA (UK)',
+                        'ENGLAND': 'INGGRIS',
+                        'IRAQ': 'IRAK',
+                        'IRELAND': 'IRLANDIA',
+                        'ICELAND': 'ISLANDIA',
+                        'ITALY': 'ITALIA',
+                        'JAMAICA': 'JAMAIKA',
+                        'JAPAN': 'JEPANG',
+                        'GERMANY': 'JERMAN',
+                        'CAMBODIA': 'KAMBOJA',
+                        'CAMEROON': 'KAMERUN',
+                        'CANADA': 'KANADA',
+                        'MARSHALL ISLANDS': 'KEPULAUAN MARSHALL',
+                        'SOLOMON ISLANDS': 'KEPULAUAN SOLOMON',
+                        'KYRGYZSTAN': 'KIRGIZSTAN',
+                        'COLOMBIA': 'KOLOMBIA',
+                        'COMOROS': 'KOMORO',
+                        'DEMOCRATIC REPUBLIC OF THE CONGO': 'KONGO (REPUBLIK DEMOKRATIK)',
+                        'REPUBLIC OF THE CONGO': 'KONGO (REPUBLIK)',
+                        'SOUTH KOREA': 'KOREA SELATAN',
+                        'KOREA, REPUBLIC OF': 'KOREA SELATAN',
+                        'NORTH KOREA': 'KOREA UTARA',
+                        'DEMOCRATIC PEOPLE\'S REPUBLIC OF KOREA': 'KOREA UTARA',
+                        'COSTA RICA': 'KOSTA RICA',
+                        'CROATIA': 'KROASIA',
+                        'CUBA': 'KUBA',
+                        'LITHUANIA': 'LITUANIA',
+                        'LUXEMBOURG': 'LUKSEMBURG',
+                        'MADAGASCAR': 'MADAGASKAR',
+                        'NORTH MACEDONIA': 'MAKEDONIA UTARA',
+                        'MALDIVES': 'MALADEWA',
+                        'MOROCCO': 'MAROKO',
+                        'MEXICO': 'MEKSIKO',
+                        'EGYPT': 'MESIR',
+                        'MICRONESIA': 'MIKRONESIA',
+                        'MONACO': 'MONAKO',
+                        'MOZAMBIQUE': 'MOZAMBIK',
+                        'NICARAGUA': 'NIKARAGUA',
+                        'NORWAY': 'NORWEGIA',
+                        'IVORY COAST': 'PANTAI GADING',
+                        'PAPUA NEW GUINEA': 'PAPUA NUGINI',
+                        'POLAND': 'POLANDIA',
+                        'FRANCE': 'PRANCIS',
+                        'CENTRAL AFRICAN REPUBLIC': 'REPUBLIK AFRIKA TENGAH',
+                        'CZECH REPUBLIC': 'REPUBLIK CEKO',
+                        'CZECHIA': 'REPUBLIK CEKO',
+                        'ROMANIA': 'RUMANIA',
+                        'RUSSIA': 'RUSIA',
+                        'SAINT KITTS AND NEVIS': 'SAINT KITTS DAN NEVIS',
+                        'SAINT VINCENT AND THE GRENADINES': 'SAINT VINCENT DAN GRENADINES',
+                        'REPUBLIC OF SERBIA': 'SERBIA',
+                        'SAO TOME AND PRINCIPE': 'SAO TOME DAN PRINCIPE',
+                        'NEW ZEALAND': 'SELANDIA BARU',
+                        'SINGAPORE': 'SINGAPURA',
+                        'CYPRUS': 'SIPRUS',
+                        'SPAIN': 'SPANYOL',
+                        'SOUTH SUDAN': 'SUDAN SELATAN',
+                        'SYRIA': 'SURIAH',
+                        'SWEDEN': 'SWEDIA',
+                        'SWITZERLAND': 'SWISS',
+                        'EAST TIMOR': 'TIMOR LESTE',
+                        'TRINIDAD AND TOBAGO': 'TRINIDAD DAN TOBAGO',
+                        'TURKEY': 'TURKI',
+                        'UKRAINE': 'UKRAINA',
+                        'UNITED ARAB EMIRATES': 'UNI EMIRAT ARAB',
+                        'VATICAN CITY': 'VATIKAN',
+                        'YEMEN': 'YAMAN',
+                        'JORDAN': 'YORDANIA',
+                        'GREECE': 'YUNANI',
+                        'TAIWAN, PROVINCE OF CHINA': 'TAIWAN',
+                        'MALAYSIA': 'MALAYSIA',
+                        'AUSTRALIA': 'AUSTRALIA'
+                    };
+                    return map[name] || name;
+                },
                 
                 async initMap() {
                     if (typeof L === 'undefined') {
@@ -126,7 +231,8 @@
 
                     this.worldLayer = L.geoJSON(this.worldGeojson, {
                         style: (feature) => {
-                            let name = feature.properties.name ? feature.properties.name.toUpperCase() : '';
+                            let rawName = feature.properties.name ? feature.properties.name.toUpperCase() : '';
+                            let name = this.normalizeCountryName(rawName);
                             let data = this.countryData[name] || null;
                             let count = data ? data.total : 0;
                             return {
@@ -138,10 +244,12 @@
                             };
                         },
                         onEachFeature: (feature, layer) => {
-                            let name = feature.properties.name ? feature.properties.name.toUpperCase() : '';
+                            let rawName = feature.properties.name ? feature.properties.name.toUpperCase() : '';
+                            let name = this.normalizeCountryName(rawName);
                             let data = this.countryData[name] || null;
                             let total = data ? data.total : 0;
-                            let tooltipContent = `<b>${feature.properties.name || name}</b><br/>Total: <b>${total}</b>`;
+                            // Display the normalized database name in the tooltip
+                            let tooltipContent = `<b>${name}</b><br/>Total: <b>${total}</b>`;
                             if (data && total > 0) {
                                 tooltipContent += `<br/><span style='color:#1d4ed8;'>MoU: ${data.mou_count}</span>`;
                                 tooltipContent += `<br/><span style='color:#15803d;'>PKS: ${data.pks_count}</span>`;

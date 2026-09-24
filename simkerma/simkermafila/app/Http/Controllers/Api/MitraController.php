@@ -79,6 +79,7 @@ class MitraController extends Controller
                 'kategori:id,kategori,bobot',
                 'provinsiModel:id,nama_provinsi',
                 'kotaModel:id,nama_kota',
+                'kerjasamas:id,mitra_id,jenis_dokumen_id,nomor_dokumen',
             ])
             ->select([
                 'id',
@@ -373,6 +374,18 @@ class MitraController extends Controller
                         ?->nama_kota,
 
                     'pic' => $mitra->pic,
+
+                    'nomor_mou' => $mitra->kerjasamas
+                        ->where('jenis_dokumen_id', 1)
+                        ->pluck('nomor_dokumen')
+                        ->filter()
+                        ->values(),
+
+                    'nomor_pks' => $mitra->kerjasamas
+                        ->where('jenis_dokumen_id', 3)
+                        ->pluck('nomor_dokumen')
+                        ->filter()
+                        ->values(),
 
                 ];
 
