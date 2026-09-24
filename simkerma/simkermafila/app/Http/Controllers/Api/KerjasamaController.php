@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Kerjasama;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class KerjasamaController extends Controller
 {
@@ -615,7 +617,7 @@ class KerjasamaController extends Controller
             */
 
             'dokumen' =>
-                $document->link_dokumen,
+                $this->documentUrl($document->link_dokumen),
 
             'link_perbaikan' =>
                 $document->link_perbaikan,
@@ -647,5 +649,39 @@ class KerjasamaController extends Controller
                 ]
                 : null,
         ];
+    }
+
+    private function documentUrl(mixed $documentPath): ?string
+    {
+        $documentPath = (string) ($documentPath ?? '');
+
+        if ($documentPath === '' || $documentPath === '-') {
+            return null;
+        }
+
+        try {
+            if (str_starts_with($documentPath, 'http')) {
+                return $documentPath;
+            }
+
+            /** @var FilesystemAdapter $googleDisk */
+            $googleDisk = Storage::disk('google');
+
+            /** @var \Masbug\Flysystem\GoogleDriveAdapter $googleDriveAdapter */
+            $googleDriveAdapter = $googleDisk->getAdapter();
+            $driveUrl = (string) $googleDriveAdapter->getUrl($documentPath);
+            $queryString = parse_url($driveUrl, PHP_URL_QUERY);
+
+            parse_str(
+                is_string($queryString) ? $queryString : '',
+                $query
+            );
+
+            return !empty($query['id'])
+                ? "https://drive.google.com/file/d/{$query['id']}/view"
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Mitra;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MitraController extends Controller
 {
@@ -79,7 +81,7 @@ class MitraController extends Controller
                 'kategori:id,kategori,bobot',
                 'provinsiModel:id,nama_provinsi',
                 'kotaModel:id,nama_kota',
-                'kerjasamas:id,mitra_id,jenis_dokumen_id,nomor_dokumen',
+                'kerjasamas:id,mitra_id,jenis_dokumen_id,nomor_dokumen,link_dokumen',
             ])
             ->select([
                 'id',
@@ -381,10 +383,26 @@ class MitraController extends Controller
                         ->filter()
                         ->values(),
 
+                    'dokumen_mou' => $mitra->kerjasamas
+                        ->where('jenis_dokumen_id', 1)
+                        ->map(fn ($document) => [
+                            'nomor_dokumen' => $document->nomor_dokumen,
+                            'link' => $this->documentUrl($document->link_dokumen),
+                        ])
+                        ->values(),
+
                     'nomor_pks' => $mitra->kerjasamas
                         ->where('jenis_dokumen_id', 3)
                         ->pluck('nomor_dokumen')
                         ->filter()
+                        ->values(),
+
+                    'dokumen_pks' => $mitra->kerjasamas
+                        ->where('jenis_dokumen_id', 3)
+                        ->map(fn ($document) => [
+                            'nomor_dokumen' => $document->nomor_dokumen,
+                            'link' => $this->documentUrl($document->link_dokumen),
+                        ])
                         ->values(),
 
                 ];
@@ -429,5 +447,39 @@ class MitraController extends Controller
             'data' => $mitra,
 
         ]);
+    }
+
+    private function documentUrl(mixed $documentPath): ?string
+    {
+        $documentPath = (string) ($documentPath ?? '');
+
+        if ($documentPath === '' || $documentPath === '-') {
+            return null;
+        }
+
+        try {
+            if (str_starts_with($documentPath, 'http')) {
+                return $documentPath;
+            }
+
+            /** @var FilesystemAdapter $googleDisk */
+            $googleDisk = Storage::disk('google');
+
+            /** @var \Masbug\Flysystem\GoogleDriveAdapter $googleDriveAdapter */
+            $googleDriveAdapter = $googleDisk->getAdapter();
+            $driveUrl = (string) $googleDriveAdapter->getUrl($documentPath);
+            $queryString = parse_url($driveUrl, PHP_URL_QUERY);
+
+            parse_str(
+                is_string($queryString) ? $queryString : '',
+                $query
+            );
+
+            return !empty($query['id'])
+                ? "https://drive.google.com/file/d/{$query['id']}/view"
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
