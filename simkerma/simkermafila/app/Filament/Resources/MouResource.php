@@ -338,6 +338,7 @@ class MouResource extends Resource
             'AKAN BERAKHIR' => 'Akan Berakhir',
             'BERAKHIR' => 'Berakhir',
         ])
+        ->default('AKTIF')
         ->query(function (Builder $query, array $data): Builder {
 
             return match ($data['value'] ?? null) {
