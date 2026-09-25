@@ -17,6 +17,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -223,10 +224,11 @@ class MitraAwardPeriodResource extends Resource
                     */
 
                     ->steps(
-    fn (): array =>
-        static::configurationWizard()
+    fn (): array => static::configurationWizard()
 )
-
+->skippableSteps()
+->modalSubmitActionLabel('Selesai')
+->modalCancelActionLabel('Batal')
                     /*
                     |--------------------------------------------------------------------------
                     | SAVE
