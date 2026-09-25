@@ -163,6 +163,55 @@ class ListMitras extends ListRecords
             ->paginated([10, 25, 50, 100])
 
             ->filters([
+                Tables\Filters\SelectFilter::make('status_mitra')
+                    ->label('Status')
+                    ->options([
+                        'AKTIF' => 'Aktif',
+                        'AKAN BERAKHIR' => 'Akan Berakhir',
+                        'BERAKHIR' => 'Berakhir',
+                    ])
+                    ->default('AKTIF')
+                    ->query(function (Builder $query, array $data): Builder {
+                        $status = $data['value'] ?? null;
+
+                        if (!$status) {
+                            return $query;
+                        }
+
+                        return match ($status) {
+                            'AKTIF' => $query->whereHas(
+                                'kerjasamas',
+                                function (Builder $mouQuery) {
+                                    $mouQuery->where('jenis_dokumen_id', 1)
+                                        ->where(function (Builder $dateQuery) {
+                                            $dateQuery->whereNull('tanggal_akhir')
+                                                ->orWhereDate('tanggal_akhir', '>', now()->addMonth());
+                                        });
+                                }
+                            ),
+
+                            'AKAN BERAKHIR' => $query->whereHas(
+                                'kerjasamas',
+                                function (Builder $mouQuery) {
+                                    $mouQuery->where('jenis_dokumen_id', 1)
+                                        ->whereNotNull('tanggal_akhir')
+                                        ->whereDate('tanggal_akhir', '>=', now())
+                                        ->whereDate('tanggal_akhir', '<=', now()->addMonth());
+                                }
+                            ),
+
+                            'BERAKHIR' => $query->whereHas(
+                                'kerjasamas',
+                                function (Builder $mouQuery) {
+                                    $mouQuery->where('jenis_dokumen_id', 1)
+                                        ->whereDate('tanggal_akhir', '<', now());
+                                }
+                            ),
+
+                            default => $query,
+                        };
+                    }),
+
                 /*
                 |--------------------------------------------------------------------------
                 | KATEGORI IKU
