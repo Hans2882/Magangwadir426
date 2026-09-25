@@ -21,6 +21,18 @@ class SimkermaStatsOverview extends BaseWidget
         $mouCount = Kerjasama::where('jenis_dokumen_id', 1)->count();
         $pksCount = Kerjasama::where('jenis_dokumen_id', 3)->count();
         $iaCount  = Kerjasama::where('jenis_dokumen_id', 4)->count();
+        $mouAktifCount = Kerjasama::where('jenis_dokumen_id', 1)
+            ->whereNotNull('tanggal_akhir')
+            ->whereDate('tanggal_akhir', '>=', now())
+            ->count();
+        $pksAktifCount = Kerjasama::where('jenis_dokumen_id', 3)
+            ->whereNotNull('tanggal_akhir')
+            ->whereDate('tanggal_akhir', '>=', now())
+            ->count();
+        $iaAktifCount = Kerjasama::where('jenis_dokumen_id', 4)
+            ->whereNotNull('tanggal_akhir')
+            ->whereDate('tanggal_akhir', '>=', now())
+            ->count();
 
         return [
             Stat::make('Jumlah Mitra', number_format($jumlahMitra))
@@ -36,7 +48,11 @@ class SimkermaStatsOverview extends BaseWidget
             Stat::make('Aktif', (function () {
                 return number_format(Kerjasama::whereNotNull('tanggal_akhir')->whereDate('tanggal_akhir', '>=', now())->count());
             })())
-                ->description('Kerjasama berstatus Aktif')
+                ->description(
+                    'MoU: ' . $mouAktifCount
+                    . ' · PKS: ' . $pksAktifCount
+                    . ' · IA: ' . $iaAktifCount
+                )
                 ->descriptionIcon('heroicon-m-check-circle')
                 ->color('success'),
 
