@@ -86,7 +86,7 @@ class GeminiOcrService
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
             ])
-            ->timeout(60) // PDF processing can take a few seconds
+            ->timeout(300)
             ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={$apiKey}", $payload);
 
             if ($response->successful()) {
