@@ -49,7 +49,11 @@ class GeminiOcrService
                 . "- nama_negara (String, guess the country of the partner based on context/address, e.g. 'Indonesia', 'Malaysia')\n"
                 . "- nama_provinsi (String, the name of the province mentioned in the document for the partner's location)\n"
                 . "- nama_kota (String, the name of the city mentioned in the document for the partner's location)\n"
-                . "- kategori_id (Integer or null, guess the category ID of the partner based on their name. Use ONLY one of the keys from this exact mapping: $kategoriString)\n"
+                . "- kategori_id (Integer or null, guess the category ID of the partner based on their name. Use ONLY one of the keys from this exact mapping: $kategoriString. Context for the categories:\n"
+                . "  - 'perusahaan swasta' includes perusahaan nasional, multinasional, startup, UMKM, dst.\n"
+                . "  - 'lembaga/organisasi nirlaba' includes world-class non-profits, universities, research institutions.\n"
+                . "  - 'institusi/organisasi multilateral' includes PBB, UNICEF, dsb.\n"
+                . "  - 'instansi Pemerintah, BUMN, atau BUMD' includes government agencies, regional government, state-owned enterprises.)\n"
                 . "- bidang_id (Integer or null, guess the collaboration field (Bidang Kerjasama) based on the document title and content. Use ONLY one of the keys from this exact mapping: $bidangString)\n"
                 . "- jenis (String, guess the scope or Cakupan (DN/LN) based on the partner's country. Must be EXACTLY 'Dalam Negeri' if the partner is from Indonesia, or 'Luar Negeri' if the partner is from outside Indonesia)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
@@ -168,7 +172,28 @@ class GeminiOcrService
                     $extractedKotaId = null;
 
                     if (!empty($data['nama_negara'])) {
-                        $negara = \App\Models\Negara::query()->where('nama_negara', 'like', '%' . $data['nama_negara'] . '%')->first();
+                        $searchNegara = $data['nama_negara'];
+                        
+                        // Map common English country names to Indonesian to match database records
+                        $aliases = [
+                            'china' => 'cina',
+                            'prc' => 'cina',
+                            'usa' => 'amerika serikat',
+                            'united states' => 'amerika serikat',
+                            'uk' => 'inggris',
+                            'united kingdom' => 'inggris'
+                        ];
+                        
+                        $lowerSearch = strtolower(trim($searchNegara));
+                        if (isset($aliases[$lowerSearch])) {
+                            $searchNegara = $aliases[$lowerSearch];
+                        }
+
+                        $negara = \App\Models\Negara::query()
+                            ->where('nama_negara', 'like', '%' . $searchNegara . '%')
+                            ->orWhere('nama_negara', 'like', '%' . $data['nama_negara'] . '%')
+                            ->first();
+                            
                         if ($negara) {
                             $extractedNegaraId = $negara->id;
                             // Set usulan_negara_id just in case we are on Usulan form. Kerjasama doesn't have it natively on form.
