@@ -13,17 +13,17 @@ class GeminiOcrService
      * @param string $pdfContent The raw binary content of the PDF file.
      * @return array|null Returns an associative array of extracted data or null on failure.
      */
-    public function extractFromPdfContent(string $pdfContent): ?array
+    public function extractFromPdfContent(string $pdfContent): array
     {
         $apiKey = config('services.gemini.api_key');
         if (empty($apiKey)) {
             Log::error('Gemini API Key is missing.');
-            return null;
+            return ['success' => false, 'error' => 'API Key Gemini belum diatur di server (.env).'];
         }
 
         if (empty($pdfContent)) {
             Log::error("PDF content is empty.");
-            return null;
+            return ['success' => false, 'error' => 'Konten PDF kosong atau gagal terbaca.'];
         }
 
         // Base64 encode the PDF
@@ -103,18 +103,28 @@ class GeminiOcrService
                 // Parse the JSON block
                 $extracted = json_decode(trim($text), true);
                 if (json_last_error() === JSON_ERROR_NONE) {
-                    return $extracted;
+                    return ['success' => true, 'data' => $extracted];
                 } else {
+                    $errorMsg = "Gagal memproses JSON dari Gemini.";
                     Log::error("Failed to parse Gemini JSON output: " . json_last_error_msg(), ['output' => $text]);
+                    return ['success' => false, 'error' => $errorMsg];
                 }
             } else {
+                $body = $response->json();
+                $errorMsg = "API Error: " . ($body['error']['message'] ?? 'Unknown error');
+                if ($response->status() == 503) {
+                    $errorMsg = "Google Gemini sedang sibuk/overload (503). Silakan coba lagi beberapa saat.";
+                }
                 Log::error("Gemini API Error: " . $response->body());
+                return ['success' => false, 'error' => $errorMsg];
             }
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error("Gemini OCR Timeout: " . $e->getMessage());
+            return ['success' => false, 'error' => 'Koneksi ke Google Gemini Timeout (terlalu lama).'];
         } catch (\Exception $e) {
             Log::error("Gemini OCR Exception: " . $e->getMessage());
+            return ['success' => false, 'error' => 'Terjadi kesalahan sistem: ' . $e->getMessage()];
         }
-
-        return null;
     }
 
     /**
@@ -155,9 +165,10 @@ class GeminiOcrService
                 \Filament\Notifications\Notification::make()->title('Proses')->info()->send();
                 
                 $service = new self();
-                $data = $service->extractFromPdfContent($content);
+                $result = $service->extractFromPdfContent($content);
                 
-                if ($data) {
+                if ($result['success']) {
+                    $data = $result['data'];
                     if (!empty($data['nomor_dokumen_polinema'])) $set('nomor_dokumen_polinema', $data['nomor_dokumen_polinema']);
                     if (!empty($data['nomor_dokumen_mitra'])) $set('nomor_dokumen_mitra', $data['nomor_dokumen_mitra']);
                     if (!empty($data['tanggal_awal'])) $set('tanggal_awal', $data['tanggal_awal']);
@@ -310,7 +321,7 @@ class GeminiOcrService
                     }
                     \Filament\Notifications\Notification::make()->title('Auto-Fill Berhasil!')->success()->send();
                 } else {
-                    \Filament\Notifications\Notification::make()->title('Gagal mengekstrak data')->danger()->send();
+                    \Filament\Notifications\Notification::make()->title('Gagal mengekstrak data')->body($result['error'])->danger()->send();
                 }
             });
     }
