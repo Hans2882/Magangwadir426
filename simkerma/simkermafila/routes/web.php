@@ -22,12 +22,15 @@ Route::middleware(['auth'])->get('/view-dokumen', function (\Illuminate\Http\Req
     try {
         /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = \Illuminate\Support\Facades\Storage::disk('google');
-        $url = $disk->url($path);
+        // Flysystem Google Drive adapter converts '&' to '_'
+        $pathNormalized = str_replace('&', '_', $path);
+        $url = $disk->url($pathNormalized);
         preg_match('/id=([^&]+)/', $url, $matches);
         $finalUrl = isset($matches[1]) ? "https://drive.google.com/file/d/{$matches[1]}/view" : $url;
         return redirect($finalUrl);
     } catch (\Exception $e) {
-        return abort(404, 'File tidak ditemukan di Google Drive.');
+        \Illuminate\Support\Facades\Log::error('Google Drive View Error: ' . $e->getMessage(), ['path' => $path]);
+        return abort(404, 'File tidak ditemukan di Google Drive. Detail: ' . $e->getMessage());
     }
 })->name('view-dokumen');
 
