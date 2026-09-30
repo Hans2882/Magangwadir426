@@ -244,20 +244,36 @@ class GeminiOcrService
                     }
 
                     if (!empty($data['nama_mitra'])) {
-                        // 1. Direct match
+                        // 1. Direct match (normalized)
+                        $normalizedInput = trim(str_ireplace([' & ', ' dan ', ' pt ', ' cv '], ' ', ' ' . $data['nama_mitra'] . ' '));
                         $mitra = \App\Models\Mitra::query()->where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
                         
-                        // 2. Fuzzy match
+                        // 2. Fuzzy match using similar_text to handle typos
                         if (!$mitra) {
-                            $cleanName = trim(str_ireplace(['PT', 'CV', 'Universitas', 'Institut', 'Politeknik', 'Sekolah Tinggi', 'Akademi', '.', ','], '', $data['nama_mitra']));
-                            $words = array_filter(explode(' ', $cleanName), fn($w) => strlen($w) > 3);
+                            $allMitras = \App\Models\Mitra::select('id', 'nama_mitra')->get();
+                            $bestMatch = null;
+                            $highestSimilarity = 0;
                             
-                            if (count($words) > 0) {
-                                $query = \App\Models\Mitra::query();
-                                foreach ($words as $word) {
-                                    $query->where('nama_mitra', 'like', '%' . $word . '%');
+                            // Remove common prefixes/suffixes and special characters for comparison
+                            $cleanInput = strtolower(preg_replace('/[^a-z0-9]/', '', str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $data['nama_mitra'])));
+
+                            if (strlen($cleanInput) > 3) {
+                                foreach ($allMitras as $m) {
+                                    $cleanDb = strtolower(preg_replace('/[^a-z0-9]/', '', str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $m->nama_mitra)));
+                                    
+                                    if (strlen($cleanDb) > 3) {
+                                        similar_text($cleanInput, $cleanDb, $percent);
+                                        if ($percent > $highestSimilarity) {
+                                            $highestSimilarity = $percent;
+                                            $bestMatch = $m;
+                                        }
+                                    }
                                 }
-                                $mitra = $query->first();
+
+                                // If similarity is >= 85%, we consider it a match
+                                if ($highestSimilarity >= 85 && $bestMatch) {
+                                    $mitra = \App\Models\Mitra::find($bestMatch->id);
+                                }
                             }
                         }
 
