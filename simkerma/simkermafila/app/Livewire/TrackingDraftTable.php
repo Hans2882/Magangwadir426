@@ -78,19 +78,21 @@ class TrackingDraftTable extends Component implements HasForms, HasTable, HasAct
                     ]),
             ])
             ->actions([
-                \Filament\Actions\Action::make('update_status')
+                \Filament\Actions\EditAction::make('update_status')
                     ->label('Update Status & Dokumen')
                     ->icon('heroicon-m-pencil-square')
                     ->color('primary')
-                    ->url(function ($record) {
+                    ->modalHeading('Update Status & Dokumen')
+                    ->modalWidth('7xl')
+                    ->form(function (\Illuminate\Database\Eloquent\Model $record, \Filament\Schemas\Schema $schema) {
                         return match ($record->jenis_dokumen_id) {
-                            1 => \App\Filament\Resources\MouResource::getUrl('edit', ['record' => $record]),
-                            2 => \App\Filament\Resources\MoaResource::getUrl('edit', ['record' => $record]),
-                            3, 5 => \App\Filament\Resources\PksSpkResource::getUrl('edit', ['record' => $record]),
-                            4 => \App\Filament\Resources\IaResource::getUrl('edit', ['record' => $record]),
-                            6 => \App\Filament\Resources\LocResource::getUrl('edit', ['record' => $record]),
-                            7 => \App\Filament\Resources\LoiResource::getUrl('edit', ['record' => $record]),
-                            default => null,
+                            1 => \App\Filament\Resources\MouResource::form($schema)->getComponents(),
+                            2 => \App\Filament\Resources\MoaResource::form($schema)->getComponents(),
+                            3, 5 => \App\Filament\Resources\PksSpkResource::form($schema)->getComponents(),
+                            4 => \App\Filament\Resources\IaResource::form($schema)->getComponents(),
+                            6 => \App\Filament\Resources\LocResource::form($schema)->getComponents(),
+                            7 => \App\Filament\Resources\LoiResource::form($schema)->getComponents(),
+                            default => [],
                         };
                     })
             ]);
