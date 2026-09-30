@@ -293,6 +293,12 @@ Forms\Components\Hidden::make('nomor_dokumen')
     })
     ->default('-'),
 
+            Tables\Columns\TextColumn::make('jurusans')
+                ->label('Jurusan')
+                ->badge()
+                ->getStateUsing(fn ($record) => $record->jurusans->pluck('nama_jurusan')->unique()->all())
+                ->default('-'),
+
             Tables\Columns\TextColumn::make('nomor_dokumen')
                 ->label('Nomor Dokumen')
                 ->searchable()
@@ -429,6 +435,12 @@ Forms\Components\Hidden::make('nomor_dokumen')
                         ->label('Program Studi')
                         ->badge()
                         ->getStateUsing(fn ($record) => $record->prodis->pluck('nama_prodi')->unique()->all())
+                        ->default('-')
+                        ->columnSpanFull(),
+                    \Filament\Infolists\Components\TextEntry::make('jurusans')
+                        ->label('Jurusan')
+                        ->badge()
+                        ->getStateUsing(fn ($record) => $record->jurusans->pluck('nama_jurusan')->unique()->all())
                         ->default('-')
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('nomor_polinema')
