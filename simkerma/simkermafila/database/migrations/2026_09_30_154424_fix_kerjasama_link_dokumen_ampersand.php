@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        \Illuminate\Support\Facades\DB::table('kerjasamas')
+        \Illuminate\Support\Facades\DB::table('kerjasama')
             ->where('link_dokumen', 'LIKE', '%&%')
             ->get()
             ->each(function ($record) {
-                \Illuminate\Support\Facades\DB::table('kerjasamas')
+                \Illuminate\Support\Facades\DB::table('kerjasama')
                     ->where('id', $record->id)
                     ->update([
                         'link_dokumen' => str_replace('&', '_', $record->link_dokumen)
