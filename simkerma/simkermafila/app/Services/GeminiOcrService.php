@@ -87,7 +87,7 @@ class GeminiOcrService
                 'Content-Type' => 'application/json',
             ])
             ->timeout(300)
-            ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={$apiKey}", $payload);
+            ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={$apiKey}", $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
