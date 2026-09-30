@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\MitraController;
 
-Route::get('/', \App\Livewire\Landing\CaseStudies::class)->name('home');
+Route::get('/', \App\Livewire\Landing\LandingPage::class)->name('home');
 
 Route::get('/login', function () {
     return redirect(route('filament.admin.auth.login'));

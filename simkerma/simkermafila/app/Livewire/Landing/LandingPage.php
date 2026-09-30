@@ -12,7 +12,7 @@ use Livewire\Attributes\Validate;
 use Livewire\WithPagination;
 
 #[Layout('components.layouts.landing')]
-class CaseStudies extends Component
+class LandingPage extends Component
 {
     use WithPagination;
 
@@ -284,10 +284,16 @@ class CaseStudies extends Component
         ->when($this->search, function ($query) {
             $query->where('nama_mitra', 'like', '%' . $this->search . '%');
         })
+        ->whereHas('kerjasamas', function ($query) {
+            $query->where(function ($q) {
+                $q->whereNull('tanggal_akhir')
+                  ->orWhereDate('tanggal_akhir', '>=', now());
+            });
+        })
         ->orderBy('nama_mitra')
         ->paginate(10);
 
-    return view('livewire.landing.case-studies', [
+    return view('livewire.landing.landing-page', [
         'caseStudies' => $caseStudies,
         'caseStudyCount' => $caseStudyCount,
         'programStudiOptions' => $programStudiOptions,
