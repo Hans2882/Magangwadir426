@@ -126,7 +126,12 @@ class IaResource extends Resource
                 ->required(),
             Forms\Components\Select::make('prodis')
                 ->label('Program Studi')
-                ->relationship('prodis', 'nama_prodi')
+                ->relationship('prodis', 'nama_prodi', function ($query, callable $get) {
+                    $jurusans = $get('jurusans');
+                    if (!empty($jurusans)) {
+                        $query->whereIn('jurusan_id', $jurusans);
+                    }
+                })
                 ->multiple()
                 ->preload()
                 ->searchable(),
@@ -135,7 +140,9 @@ class IaResource extends Resource
                 ->relationship('jurusans', 'nama_jurusan')
                 ->multiple()
                 ->preload()
-                ->searchable(),
+                ->searchable()
+                ->live()
+                ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(4),
             Forms\Components\Select::make('status_workflow')
                 ->label('Status Proses')
@@ -325,12 +332,41 @@ Forms\Components\Hidden::make('nomor_dokumen')
         ])
         ->paginated([10, 25, 50, 100])
         ->filters([
-    Tables\Filters\SelectFilter::make('prodis')
-        ->label('Program Studi')
-        ->relationship('prodis', 'nama_prodi')
-        ->multiple()
-        ->searchable()
-        ->preload(),
+    Tables\Filters\Filter::make('jurusan_prodi')
+        ->form([
+            \Filament\Forms\Components\Select::make('jurusans')
+                ->label('Jurusan')
+                ->options(\App\Models\MasterJurusan::pluck('nama_jurusan', 'id'))
+                ->multiple()
+                ->searchable()
+                ->preload()
+                ->live()
+                ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
+                
+            \Filament\Forms\Components\Select::make('prodis')
+                ->label('Program Studi')
+                ->options(function (callable $get) {
+                    $jurusans = $get('jurusans');
+                    if (!empty($jurusans)) {
+                        return \App\Models\MasterProgramStudi::whereIn('jurusan_id', $jurusans)->pluck('nama_prodi', 'id');
+                    }
+                    return \App\Models\MasterProgramStudi::pluck('nama_prodi', 'id');
+                })
+                ->multiple()
+                ->searchable()
+                ->preload(),
+        ])
+        ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+            return $query
+                ->when(
+                    $data['jurusans'] ?? null,
+                    fn (\Illuminate\Database\Eloquent\Builder $query, $jurusans) => $query->whereHas('jurusans', fn ($query) => $query->whereIn('master_jurusans.id', $jurusans))
+                )
+                ->when(
+                    $data['prodis'] ?? null,
+                    fn (\Illuminate\Database\Eloquent\Builder $query, $prodis) => $query->whereHas('prodis', fn ($query) => $query->whereIn('master_program_studis.id', $prodis))
+                );
+        }),
         
     Tables\Filters\SelectFilter::make('bidang')
         ->label('Bidang Kerjasama')
