@@ -112,6 +112,11 @@ class UserResource extends Resource
                             $component->state($record->userProgramStudi->program_studi_id);
                         }
                     }),
+                Forms\Components\Select::make('jurusan_id')
+                    ->label('Jurusan')
+                    ->relationship('jurusan', 'nama_jurusan')
+                    ->searchable()
+                    ->preload(),
             ]);
     }
 
@@ -132,6 +137,11 @@ class UserResource extends Resource
                     ->label('Program Studi')
                     ->badge()
                     ->color('success')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('jurusan.nama_jurusan')
+                    ->label('Jurusan')
+                    ->badge()
+                    ->color('info')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email_verified_at')
                     ->dateTime()

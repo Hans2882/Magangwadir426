@@ -18,13 +18,13 @@ class User extends Authenticatable implements FilamentUser, HasName
 
     /**
      * The attributes that are mass assignable.
-     *
      * @var list<string>
      */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'jurusan_id',
     ];
 
     /**
@@ -58,6 +58,11 @@ class User extends Authenticatable implements FilamentUser, HasName
 public function userProgramStudi(): HasOne
 {
     return $this->hasOne(UserProgramStudi::class);
+}
+
+public function jurusan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+{
+    return $this->belongsTo(MasterJurusan::class, 'jurusan_id');
 }
 
 public function getFilamentName(): string
