@@ -67,7 +67,7 @@ class MoaResource extends Resource
                     
                     $sequence = sprintf('%03d', $count);
                     $type = 'MoA';
-                    $originalName = $file->getClientOriginalName();
+                    $originalName = str_replace('&', '_', $file->getClientOriginalName());
                     
                     return "{$sequence}_{$type}_{$originalName}";
                 })

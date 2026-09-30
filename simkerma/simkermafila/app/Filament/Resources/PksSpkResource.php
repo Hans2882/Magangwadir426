@@ -74,7 +74,7 @@ class PksSpkResource extends Resource
                     
                     $sequence = sprintf('%03d', $count);
                     $type = $get('jenis_dokumen_id') == 3 ? 'PKS' : 'SPK';
-                    $originalName = $file->getClientOriginalName();
+                    $originalName = str_replace('&', '_', $file->getClientOriginalName());
                     
                     return "{$sequence}_{$type}_{$originalName}";
                 })

@@ -68,7 +68,7 @@ class IaResource extends Resource
                     
                     $sequence = sprintf('%03d', $count);
                     $type = 'IA';
-                    $originalName = $file->getClientOriginalName();
+                    $originalName = str_replace('&', '_', $file->getClientOriginalName());
                     
                     return "{$sequence}_{$type}_{$originalName}";
                 })
