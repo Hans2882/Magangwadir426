@@ -7,6 +7,9 @@ use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use RuntimeException;
 
 class DatabaseExplorer extends Page
 {
@@ -26,30 +29,101 @@ class DatabaseExplorer extends Page
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
-        return $user?->userPrivilege?->privilege?->is_admin_panel ?? false;
+        return (bool) (
+            $user?->userPrivilege?->privilege?->is_admin_panel
+            ?? false
+        );
     }
 
     public function getDatabase(): string
     {
-        return 'simkerma2';
+        return DB::connection()->getDatabaseName();
     }
+
+    /**
+     * Kelompok tabel yang ditampilkan.
+     */
+    public function getTableGroups(): array
+    {
+        return [
+            'Data Utama' => [
+                'mitra',
+                'kerjasama',
+                'kerjasama_jurusan',
+                'kerjasama_prodi',
+                'usulan_kerjasamas',
+                'usulan_kegiatans',
+            ],
+
+            'Data Pendukung' => [
+                'master_jenis_dokumen',
+                'master_mitra_iku',
+                'master_negara',
+                'master_provinsi',
+                'master_kota',
+                'master_jurusans',
+                'master_program_studi',
+                'master_kegiatan',
+            ],
+
+            'Penilaian dan Evaluasi' => [
+                'mitra_award_periods',
+                'mitra_award_scores',
+                'kuisioner_kepuasan',
+                'kuisioner_kepuasan_followup',
+            ],
+
+            'Pengguna dan Sistem' => [
+                'users',
+                'privileges',
+                'user_privileges',
+                'user_program_studi',
+                'api_keys',
+                'notifications',
+                'personal_access_tokens',
+                'sessions',
+            ],
+        ];
+    }
+
+    /**
+     * Hanya tampilkan tabel yang benar-benar tersedia.
+     */
+    public function getAvailableTableGroups(): array
+{
+    $schema = Schema::connection(DB::getDefaultConnection());
+
+    $existingTables = $schema->getTableListing(
+        schema: $this->getDatabase(),
+        schemaQualified: false,
+    );
+
+    return collect($this->getTableGroups())
+        ->map(fn (array $tables) => array_values(
+            array_intersect($tables, $existingTables)
+        ))
+        ->filter(fn (array $tables) => count($tables) > 0)
+        ->all();
+}
 
     public function getTables(): array
     {
-        $database = $this->getDatabase();
-
-        return collect(
-            DB::select("SHOW TABLES FROM `{$database}`")
-        )
-            ->map(fn ($table) => array_values((array) $table)[0])
+        return collect($this->getAvailableTableGroups())
+            ->flatten()
             ->values()
             ->all();
     }
 
+    /**
+     * Mengambil struktur tabel berdasarkan daftar yang diizinkan.
+     */
     public function getColumns(string $table): array
     {
-        $database = $this->getDatabase();
+        if (! in_array($table, $this->getTables(), true)) {
+            throw new RuntimeException('Tabel tidak diizinkan.');
+        }
 
+        $database = str_replace('`', '``', $this->getDatabase());
         $table = str_replace('`', '``', $table);
 
         return array_map(
@@ -58,5 +132,10 @@ class DatabaseExplorer extends Page
                 "SHOW COLUMNS FROM `{$database}`.`{$table}`"
             )
         );
+    }
+
+    public function getTableLabel(string $table): string
+    {
+        return Str::headline($table);
     }
 }
