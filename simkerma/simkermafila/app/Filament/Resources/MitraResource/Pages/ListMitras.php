@@ -34,7 +34,7 @@ class ListMitras extends ListRecords
             ],
 
             'negara_id' => [
-                'value' => $tableFilters['negara_id']['value'] ?? null,
+                'value' => $tableFilters['negara']['value'] ?? $tableFilters['negara_id']['value'] ?? null,
             ],
 
             'status_kerjasama' => [
@@ -62,7 +62,7 @@ class ListMitras extends ListRecords
             'dalam_negeri' => Tab::make('Dalam Negeri')
                 ->icon('heroicon-o-building-office-2')
                 ->badge(
-                    Mitra::where(function ($query) {
+                    Mitra::query()->where(function ($query) {
                         $query->whereNull('negara_id')
                             ->orWhere('negara_id', '<', 1);
                     })->count()
@@ -71,7 +71,7 @@ class ListMitras extends ListRecords
             'luar_negeri' => Tab::make('Luar Negeri')
                 ->icon('heroicon-o-globe-alt')
                 ->badge(
-                    Mitra::where('negara_id', '>=', 1)->count()
+                    Mitra::query()->where('negara_id', '>=', 1)->count()
                 ),
         ];
     }
@@ -228,7 +228,7 @@ class ListMitras extends ListRecords
                 | NEGARA
                 |--------------------------------------------------------------------------
                 */
-                Tables\Filters\SelectFilter::make('negara_id')
+                Tables\Filters\SelectFilter::make('negara')
                     ->label('Negara')
                     ->relationship('negara', 'nama_negara')
                     ->searchable()

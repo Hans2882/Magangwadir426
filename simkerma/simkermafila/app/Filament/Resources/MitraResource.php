@@ -140,6 +140,11 @@ class MitraResource extends Resource
         ->relationship('kategori', 'kategori')
         ->searchable()
         ->preload(),
+    Tables\Filters\SelectFilter::make('negara')
+        ->label('Negara')
+        ->relationship('negara', 'nama_negara')
+        ->searchable()
+        ->preload(),
 ])
             ->defaultSort('nama_mitra', 'asc')
             ->striped();
