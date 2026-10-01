@@ -28,13 +28,13 @@ class PksSpkResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Data Kerjasama';
 
-    protected static ?string $navigationLabel = 'Data PKS & SPK';
+    protected static ?string $navigationLabel = 'Data MoA / LoC / PKS / SPK';
 
-    protected static ?string $modelLabel = 'Data PKS & SPK';
+    protected static ?string $modelLabel = 'Data MoA / LoC / PKS / SPK';
 
-    protected static ?string $pluralModelLabel = 'Data PKS & SPK';
+    protected static ?string $pluralModelLabel = 'Data MoA / LoC / PKS / SPK';
 
-    protected static ?string $slug = 'data-pks-spk';
+    protected static ?string $slug = 'data-moa-loc-pks-spk';
 
     protected static ?int $navigationSort = 2;
 
@@ -43,26 +43,27 @@ class PksSpkResource extends Resource
         // 3 = PKS, 5 = SPK
         return parent::getEloquentQuery()
             ->with(['mitra', 'provinsi', 'kota'])
-            ->where('jenis', 'Dalam Negeri')
-            ->whereIn('jenis_dokumen_id', [3, 5]);
+            ->whereIn('jenis_dokumen_id', [2, 3, 5, 6]);
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
             Forms\Components\FileUpload::make('link_dokumen')
-                ->label('Berkas PKS/SPK')
+                ->label('Berkas PKS / SPK / MoA / LoC')
                 ->required(fn ($get) => $get('status_workflow') === 'Selesai')
                 ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function (callable $get) {
-                    $base = $get('jenis_dokumen_id') == 3 ? 'PKS' : 'SPK';
-                    return $base . '/' . date('Y/m/d');
+                    $docMap = [2 => 'MoA', 3 => 'PKS', 5 => 'SPK', 6 => 'LoC'];
+                    $type = $docMap[$get('jenis_dokumen_id')] ?? 'Dokumen';
+                    return $type . '/' . date('Y/m/d');
                 })
                 ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
                 ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
-                    $base = $get('jenis_dokumen_id') == 3 ? 'PKS' : 'SPK';
+                    $docMap = [2 => 'MoA', 3 => 'PKS', 5 => 'SPK', 6 => 'LoC'];
+                    $base = $docMap[$get('jenis_dokumen_id')] ?? 'Dokumen';
                     $dir = $base . '/' . date('Y/m/d');
                     
                     try {
@@ -73,7 +74,7 @@ class PksSpkResource extends Resource
                     }
                     
                     $sequence = sprintf('%03d', $count);
-                    $type = $get('jenis_dokumen_id') == 3 ? 'PKS' : 'SPK';
+                    $type = $base;
                     $originalName = str_replace('&', '_', $file->getClientOriginalName());
                     
                     return "{$sequence}_{$type}_{$originalName}";
@@ -82,14 +83,7 @@ class PksSpkResource extends Resource
             Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255),
             Forms\Components\Select::make('mitra_id')
     ->label('Nama Mitra')
-    ->relationship(
-        'mitra',
-        'nama_mitra',
-        fn (Builder $query) => $query->where(fn ($q) =>
-            $q->whereNull('negara_id')
-              ->orWhere('negara_id', '<', 1)
-        )
-    )
+    ->relationship('mitra', 'nama_mitra')
     ->searchable()
     ->preload()
     ->live()
@@ -169,13 +163,33 @@ class PksSpkResource extends Resource
                 ->searchable()
                 ->live()
                 ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
-            Forms\Components\Hidden::make('jenis')->default('Dalam Negeri'),
+            Forms\Components\Select::make('jenis')
+                ->label('Cakupan (DN/LN)')
+                ->options([
+                    'Dalam Negeri' => 'Dalam Negeri',
+                    'Luar Negeri' => 'Luar Negeri',
+                ])
+                ->required()
+                ->default('Dalam Negeri'),
             Forms\Components\Select::make('jenis_dokumen_id')
                 ->label('Jenis Dokumen')
-                ->options([3 => 'PKS', 5 => 'SPK'])
-                ->required(),
+                ->options([
+                    2 => 'MoA',
+                    3 => 'PKS',
+                    5 => 'SPK',
+                    6 => 'LoC',
+                ])
+                ->required()
+                ->live()
+                ->afterStateUpdated(function ($state, callable $set) {
+                    if (in_array($state, [2, 6])) { // MoA, LoC usually Luar Negeri
+                        $set('jenis', 'Luar Negeri');
+                    } else if (in_array($state, [3, 5])) { // PKS, SPK usually Dalam Negeri
+                        $set('jenis', 'Dalam Negeri');
+                    }
+                }),
             Forms\Components\TextInput::make('nomor_dokumen_polinema')
-    ->label('Nomor PKS/SPK Polinema')
+    ->label('Nomor Dokumen Polinema')
     ->required()
     ->maxLength(100)
     ->dehydrated(false)
@@ -205,13 +219,13 @@ class PksSpkResource extends Resource
             }
 
             if ($query->exists()) {
-                $fail('Nomor PKS/SPK Polinema sudah digunakan.');
+                $fail('Nomor Dokumen Polinema sudah digunakan.');
             }
         };
     }),
 
 Forms\Components\TextInput::make('nomor_dokumen_mitra')
-    ->label('Nomor PKS/SPK Mitra')
+    ->label('Nomor Dokumen Mitra')
     ->maxLength(100)
     ->dehydrated(false)
     ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
@@ -264,6 +278,8 @@ Forms\Components\Hidden::make('nomor_dokumen')
                     ->color(fn (string $state): string => match ($state) {
                         'PKS' => 'primary',
                         'SPK' => 'info',
+                        'MoA' => 'success',
+                        'LoC' => 'warning',
                         default => 'gray',
                     })
                     ->sortable(),

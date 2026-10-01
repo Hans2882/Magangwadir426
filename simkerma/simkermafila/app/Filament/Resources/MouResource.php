@@ -27,11 +27,11 @@ class MouResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Data Kerjasama';
 
-    protected static ?string $navigationLabel = 'Data MoU';
+    protected static ?string $navigationLabel = 'Data MoU / LoI';
 
-    protected static ?string $modelLabel = 'Data MoU';
+    protected static ?string $modelLabel = 'Data MoU / LoI';
 
-    protected static ?string $pluralModelLabel = 'Data MoU';
+    protected static ?string $pluralModelLabel = 'Data MoU / LoI';
 
     protected static ?string $slug = 'data-mou';
 
@@ -46,26 +46,28 @@ class MouResource extends Resource
                 'kota',
                 'children.jenisDokumen',
             ])
-            ->where('jenis_dokumen_id', 1); // 1 = MoU
+            ->whereIn('jenis_dokumen_id', [1, 7]); // 1 = MoU, 7 = LoI
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
             Forms\Components\FileUpload::make('link_dokumen')
-                ->label('Berkas MoU')
+                ->label('Berkas MoU / LoI')
                 ->required(fn ($get) => $get('status_workflow') === 'Selesai')
-                ->validationMessages(['required' => 'Berkas MoU wajib diunggah.'])
+                ->validationMessages(['required' => 'Berkas MoU/LoI wajib diunggah.'])
                 ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function (callable $get) {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU';
+                    $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
+                    $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;
                     return $base . '/' . date('Y/m/d');
                 })
                 ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
                 ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'MoU LN' : 'MoU';
+                    $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
+                    $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;
                     $dir = $base . '/' . date('Y/m/d');
                     
                     try {
@@ -76,13 +78,13 @@ class MouResource extends Resource
                     }
                     
                     $sequence = sprintf('%03d', $count);
-                    $type = 'MoU';
+                    $type = $docType;
                     $originalName = str_replace('&', '_', $file->getClientOriginalName());
                     
                     return "{$sequence}_{$type}_{$originalName}";
                 })
                 ->columnSpanFull(),
-            Forms\Components\TextInput::make('judul')->label('Judul MoU')->maxLength(255)->required(),
+            Forms\Components\TextInput::make('judul')->label('Judul MoU / LoI')->maxLength(255)->required(),
             Forms\Components\Select::make('mitra_id')
                 ->label('Nama Mitra')
                 ->relationship('mitra', 'nama_mitra')
@@ -94,7 +96,15 @@ class MouResource extends Resource
                 })
                 ->required(),
             ...static::getKerjasamaLocationFormSchema(),
-            Forms\Components\Hidden::make('jenis_dokumen_id')->default(1),
+            Forms\Components\Select::make('jenis_dokumen_id')
+                ->label('Jenis Dokumen')
+                ->options([
+                    1 => 'MoU',
+                    7 => 'LoI',
+                ])
+                ->required()
+                ->default(1)
+                ->live(),
             Forms\Components\Select::make('status_workflow')
                 ->label('Status Proses')
                 ->options([
@@ -124,7 +134,7 @@ class MouResource extends Resource
                 ->required()
                 ->default('Dalam Negeri'),
             Forms\Components\TextInput::make('nomor_dokumen_polinema')
-    ->label('Nomor MoU Polinema')
+    ->label('Nomor Dokumen Polinema')
     ->required()
     ->maxLength(100)
     ->dehydrated(false)
@@ -162,7 +172,7 @@ class MouResource extends Resource
         };
     }),
             Forms\Components\TextInput::make('nomor_dokumen_mitra')
-                ->label('Nomor MoU Mitra')
+                ->label('Nomor Dokumen Mitra')
                 ->maxLength(100)
                 ->dehydrated(false)
                 ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
@@ -201,6 +211,16 @@ class MouResource extends Resource
             ->recordAction(null)
             ->recordUrl(fn ($record) => static::getUrl('view', ['record' => $record]))
             ->columns([
+                Tables\Columns\TextColumn::make('jenisDokumen.nama')
+                    ->label('Jenis')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'MoU' => 'primary',
+                        'LoI' => 'info',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('judul')
                     ->label('Judul')
                     ->searchable()

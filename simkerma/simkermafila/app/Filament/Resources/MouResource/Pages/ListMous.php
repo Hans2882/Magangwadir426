@@ -97,7 +97,7 @@ class ListMous extends ListRecords
             */
 
             Actions\CreateAction::make()
-                ->label('Tambah Kerja Sama')
+                ->label('Tambah Data')
                 ->icon('heroicon-o-plus'),
         ];
     }

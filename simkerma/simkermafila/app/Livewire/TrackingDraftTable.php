@@ -86,12 +86,9 @@ class TrackingDraftTable extends Component implements HasForms, HasTable, HasAct
                     ->modalWidth('7xl')
                     ->form(function (\Illuminate\Database\Eloquent\Model $record, \Filament\Schemas\Schema $schema) {
                         return match ($record->jenis_dokumen_id) {
-                            1 => \App\Filament\Resources\MouResource::form($schema)->getComponents(),
-                            2 => \App\Filament\Resources\MoaResource::form($schema)->getComponents(),
-                            3, 5 => \App\Filament\Resources\PksSpkResource::form($schema)->getComponents(),
+                            1, 7 => \App\Filament\Resources\MouResource::form($schema)->getComponents(),
+                            2, 3, 5, 6 => \App\Filament\Resources\PksSpkResource::form($schema)->getComponents(),
                             4 => \App\Filament\Resources\IaResource::form($schema)->getComponents(),
-                            6 => \App\Filament\Resources\LocResource::form($schema)->getComponents(),
-                            7 => \App\Filament\Resources\LoiResource::form($schema)->getComponents(),
                             default => [],
                         };
                     })
