@@ -68,9 +68,12 @@ public function jurusan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
 public function getFilamentName(): string
 {
     $prodi = $this->userProgramStudi?->programStudi?->nama_prodi;
+    $jurusan = $this->jurusan?->nama_jurusan;
     
-    if ($prodi) {
-        return "{$this->name} - {$prodi}";
+    $context = array_filter([$prodi, $jurusan]);
+    
+    if (!empty($context)) {
+        return $this->name . ' (' . implode(' - ', $context) . ')';
     }
 
     return $this->name;
