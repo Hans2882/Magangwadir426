@@ -278,6 +278,16 @@ class GeminiOcrService
                                     $cleanDb = preg_replace('/[^a-z0-9]/', '', strtolower(str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $m->nama_mitra)));
                                     
                                     if (strlen($cleanDb) > 3) {
+                                        // Guard against confusing numbered institutions (e.g. SMA 1 vs SMA 5)
+                                        preg_match_all('/\d+/', $cleanInput, $inputNums);
+                                        preg_match_all('/\d+/', $cleanDb, $dbNums);
+                                        
+                                        if (!empty($inputNums[0]) || !empty($dbNums[0])) {
+                                            if ($inputNums[0] !== $dbNums[0]) {
+                                                continue; // Skip if numbers don't match
+                                            }
+                                        }
+
                                         similar_text($cleanInput, $cleanDb, $percent);
                                         if ($percent > $highestSimilarity) {
                                             $highestSimilarity = $percent;
