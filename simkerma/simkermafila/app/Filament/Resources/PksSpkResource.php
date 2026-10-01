@@ -351,8 +351,10 @@ Forms\Components\Hidden::make('nomor_dokumen')
     Tables\Filters\SelectFilter::make('jenis_dokumen_id')
         ->label('Jenis Dokumen')
         ->options([
+            2 => 'MoA',
             3 => 'PKS',
             5 => 'SPK',
+            6 => 'LoC',
         ]),
 
     Tables\Filters\Filter::make('jurusan_prodi')

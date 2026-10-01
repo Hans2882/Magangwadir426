@@ -288,6 +288,12 @@ class MouResource extends Resource
 
             ->paginated([10, 25, 50, 100])
             ->filters([
+    Tables\Filters\SelectFilter::make('jenis_dokumen_id')
+        ->label('Jenis Dokumen')
+        ->options([
+            1 => 'MoU',
+            7 => 'LoI',
+        ]),
     Tables\Filters\SelectFilter::make('tahun')
         ->label('Tahun')
         ->options(function () {
