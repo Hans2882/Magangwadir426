@@ -11,9 +11,10 @@ class GeminiOcrService
      * Extracts information from a PDF file using Gemini 3.5 Flash.
      *
      * @param string $pdfContent The raw binary content of the PDF file.
+     * @param string $filename The filename of the PDF (optional, used as a hint).
      * @return array|null Returns an associative array of extracted data or null on failure.
      */
-    public function extractFromPdfContent(string $pdfContent): array
+    public function extractFromPdfContent(string $pdfContent, string $filename = ''): array
     {
         $apiKey = config('services.gemini.api_key');
         if (empty($apiKey)) {
@@ -58,7 +59,11 @@ class GeminiOcrService
                 . "- jenis (String, guess the scope or Cakupan (DN/LN) based on the partner's country. Must be EXACTLY 'Dalam Negeri' if the partner is from Indonesia, or 'Luar Negeri' if the partner is from outside Indonesia)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
                 . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document. IMPORTANT: Extract ONLY the major name, do not include the word 'Program Studi' or 'Prodi'. Standardize degree prefixes from Roman numerals to alphanumeric, e.g., 'D-III' -> 'D3', 'S-I' -> 'S1'. For 'D-IV' or 'D4', change it to 'Sarjana Terapan'. Example: 'Program Studi D-IV Administrasi Bisnis' should be extracted strictly as 'Sarjana Terapan Administrasi Bisnis')\n"
-                . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)";
+                . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)\n";
+
+        if (!empty($filename)) {
+            $prompt .= "\nIMPORTANT HINT: The filename is '{$filename}'. Pay close attention to acronyms in the filename (like SMA vs SMK). Use the filename to correct or double-check the partner's name if the document scan is blurry or ambiguous.";
+        }
 
         $payload = [
             'contents' => [
@@ -165,7 +170,14 @@ class GeminiOcrService
                 \Filament\Notifications\Notification::make()->title('Proses')->info()->send();
                 
                 $service = new self();
-                $result = $service->extractFromPdfContent($content);
+                $filenameForHint = '';
+                if ($file instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+                    $filenameForHint = $file->getClientOriginalName();
+                } else if (is_string($file)) {
+                    $filenameForHint = basename($file);
+                }
+                
+                $result = $service->extractFromPdfContent($content, $filenameForHint);
                 
                 if ($result['success']) {
                     $data = $result['data'];
@@ -254,12 +266,12 @@ class GeminiOcrService
                             $bestMatch = null;
                             $highestSimilarity = 0;
                             
-                            // Remove common prefixes/suffixes and special characters for comparison
-                            $cleanInput = strtolower(preg_replace('/[^a-z0-9]/', '', str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $data['nama_mitra'])));
+                            // Remove common prefixes/suffixes and special characters for comparison, ensuring we do strtolower FIRST so we don't accidentally remove uppercase acronyms like SMA/SMK
+                            $cleanInput = preg_replace('/[^a-z0-9]/', '', strtolower(str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $data['nama_mitra'])));
 
                             if (strlen($cleanInput) > 3) {
                                 foreach ($allMitras as $m) {
-                                    $cleanDb = strtolower(preg_replace('/[^a-z0-9]/', '', str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $m->nama_mitra)));
+                                    $cleanDb = preg_replace('/[^a-z0-9]/', '', strtolower(str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $m->nama_mitra)));
                                     
                                     if (strlen($cleanDb) > 3) {
                                         similar_text($cleanInput, $cleanDb, $percent);
