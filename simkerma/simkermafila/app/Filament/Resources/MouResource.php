@@ -52,158 +52,167 @@ class MouResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Forms\Components\FileUpload::make('link_dokumen')
-                ->label('Berkas MoU / LoI')
-                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
-                ->validationMessages(['required' => 'Berkas MoU/LoI wajib diunggah.'])
-                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
-                ->disk('google')
-                ->directory(function (callable $get) {
-                    $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
-                    $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;
-                    return $base . '/' . date('Y/m/d');
-                })
-                ->visibility('private')
-                ->acceptedFileTypes(['application/pdf'])
-                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
-                    $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
-                    $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;
-                    $dir = $base . '/' . date('Y/m/d');
-                    
-                    try {
-                        $existingFiles = \Illuminate\Support\Facades\Storage::disk('google')->files($dir);
-                        $count = count($existingFiles) + 1;
-                    } catch (\Exception $e) {
-                        $count = 1;
-                    }
-                    
-                    $sequence = sprintf('%03d', $count);
-                    $type = $docType;
-                    $originalName = str_replace('&', '_', $file->getClientOriginalName());
-                    
-                    return "{$sequence}_{$type}_{$originalName}";
-                })
-                ->columnSpanFull(),
-            Forms\Components\TextInput::make('judul')->label('Judul MoU / LoI')->maxLength(255)->required(),
-            Forms\Components\Select::make('mitra_id')
-                ->label('Nama Mitra')
-                ->relationship('mitra', 'nama_mitra')
-                ->searchable()
-                ->preload()
-                ->createOptionForm(static::getMitraCreateFormSchema())
-                ->createOptionUsing(function (array $data) {
-                    return \App\Models\Mitra::query()->create($data)->getKey();
-                })
-                ->required(),
-            ...static::getKerjasamaLocationFormSchema(),
-            Forms\Components\Select::make('jenis_dokumen_id')
-                ->label('Jenis Dokumen')
-                ->options([
-                    1 => 'MoU',
-                    7 => 'LoI',
+            Section::make('Informasi Utama')
+                ->schema([
+                    Forms\Components\FileUpload::make('link_dokumen')
+                        ->label('Berkas MoU / LoI')
+                        ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                        ->validationMessages(['required' => 'Berkas MoU/LoI wajib diunggah.'])
+                        ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
+                        ->disk('google')
+                        ->directory(function (callable $get) {
+                            $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
+                            $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;
+                            return $base . '/' . date('Y/m/d');
+                        })
+                        ->visibility('private')
+                        ->acceptedFileTypes(['application/pdf'])
+                        ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
+                            $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
+                            $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;
+                            $dir = $base . '/' . date('Y/m/d');
+                            try {
+                                $existingFiles = \Illuminate\Support\Facades\Storage::disk('google')->files($dir);
+                                $count = count($existingFiles) + 1;
+                            } catch (\Exception $e) {
+                                $count = 1;
+                            }
+                            $sequence = sprintf('%03d', $count);
+                            $type = $docType;
+                            $originalName = str_replace('&', '_', $file->getClientOriginalName());
+                            return "{$sequence}_{$type}_{$originalName}";
+                        })
+                        ->columnSpanFull(),
+                    Forms\Components\TextInput::make('judul')->label('Judul MoU / LoI')->maxLength(255)->required()->columnSpanFull(),
+                    Forms\Components\Select::make('jenis_dokumen_id')
+                        ->label('Jenis Dokumen')
+                        ->options([
+                            1 => 'MoU',
+                            7 => 'LoI',
+                        ])
+                        ->required()
+                        ->native(false)
+                        ->live(),
                 ])
-                ->required()
-                ->default(1)
-                ->live(),
-            Forms\Components\Select::make('status_workflow')
-                ->label('Status Proses')
-                ->options([
-                    'Draft' => 'Draft (Sedang Disusun)',
-                    'Review Internal' => 'Review Internal',
-                    'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
-                    'Menunggu TTD Direktur' => 'Menunggu TTD Direktur',
-                    'Selesai' => 'Selesai (Aktif)',
+                ->columns(2),
+
+            Section::make('Detail Kemitraan')
+                ->schema([
+                    Forms\Components\Select::make('mitra_id')
+                        ->label('Nama Mitra')
+                        ->relationship('mitra', 'nama_mitra')
+                        ->searchable()
+                        ->preload()
+                        ->createOptionForm(static::getMitraCreateFormSchema())
+                        ->createOptionUsing(function (array $data) {
+                            return \App\Models\Mitra::query()->create($data)->getKey();
+                        })
+                        ->required(),
+                    Forms\Components\Select::make('jenis')
+                        ->label('Cakupan (DN/LN)')
+                        ->options([
+                            'Dalam Negeri' => 'Dalam Negeri',
+                            'Luar Negeri' => 'Luar Negeri',
+                        ])
+                        ->required()
+                        ->default('Dalam Negeri'),
+                    ...static::getKerjasamaLocationFormSchema(),
+                    Forms\Components\Select::make('bidang_id')
+                        ->label('Bidang Kerjasama')
+                        ->relationship('bidang', 'bidang_kerjasama')
+                        ->searchable()
+                        ->preload()
+                        ->required(),
                 ])
-                ->default('Draft')
-                ->live()
-                ->required(),
-            Forms\Components\Select::make('jenis_pengajuan')
-                ->label('Jenis Pengajuan')
-                ->options([
-                    'Baru' => 'Dokumen Baru',
-                    'Perpanjangan' => 'Perpanjangan (Extension)',
+                ->columns(2),
+
+            Section::make('Administrasi Dokumen')
+                ->schema([
+                    Forms\Components\TextInput::make('nomor_dokumen_polinema')
+                        ->label('Nomor Dokumen Polinema')
+                        ->required()
+                        ->maxLength(100)
+                        ->dehydrated(false)
+                        ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+                            if ($record && $record->nomor_dokumen) {
+                                $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                                if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                    $parts = explode(" ", $record->nomor_dokumen, 2);
+                                }
+                                $component->state(trim($parts[0] ?? ''));
+                            }
+                        })
+                        ->rule(function (?Model $record) {
+                            return function ($attribute, $value, $fail) use ($record) {
+                                $exists = \App\Models\Kerjasama::query()
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                                    ->get()
+                                    ->contains(function ($item) use ($value) {
+                                        $nomor = str_replace("\r", "", $item->nomor_dokumen);
+                                        $parts = explode("\n", $nomor);
+                                        if (count($parts) === 1 && str_contains($nomor, ' ')) {
+                                            $parts = explode(' ', $nomor, 2);
+                                        }
+                                        return trim($parts[0] ?? '') === trim($value);
+                                    });
+                                if ($exists) {
+                                    $fail('Nomor MoU Polinema sudah digunakan.');
+                                }
+                            };
+                        }),
+                    Forms\Components\TextInput::make('nomor_dokumen_mitra')
+                        ->label('Nomor Dokumen Mitra')
+                        ->maxLength(100)
+                        ->dehydrated(false)
+                        ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+                            if ($record && $record->nomor_dokumen) {
+                                $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                                if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                    $parts = explode(" ", $record->nomor_dokumen, 2);
+                                }
+                                $component->state(trim($parts[1] ?? ''));
+                            }
+                        }),
+                    Forms\Components\Hidden::make('nomor_dokumen')
+                        ->dehydrateStateUsing(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                            $pol = trim($get('nomor_dokumen_polinema') ?? '');
+                            $mit = trim($get('nomor_dokumen_mitra') ?? '');
+                            if (empty($pol) && empty($mit)) return null;
+                            if (empty($pol)) return $mit;
+                            if (empty($mit)) return $pol;
+                            return $pol . "\n" . $mit;
+                        }),
+                    Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+                    Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
                 ])
-                ->default('Baru')
-                ->required(),
-            Forms\Components\Select::make('jenis')
-                ->label('Cakupan (DN/LN)')
-                ->options([
-                    'Dalam Negeri' => 'Dalam Negeri',
-                    'Luar Negeri' => 'Luar Negeri',
+                ->columns(2),
+
+            Section::make('Status & Pengajuan')
+                ->schema([
+                    Forms\Components\Select::make('status_workflow')
+                        ->label('Status Proses')
+                        ->options([
+                            'Draft' => 'Draft (Sedang Disusun)',
+                            'Review Internal' => 'Review Internal',
+                            'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
+                            'Menunggu TTD Direktur' => 'Menunggu TTD Direktur',
+                            'Selesai' => 'Selesai (Aktif)',
+                        ])
+                        ->default('Draft')
+                        ->live()
+                        ->required(),
+                    Forms\Components\Select::make('jenis_pengajuan')
+                        ->label('Jenis Pengajuan')
+                        ->options([
+                            'Baru' => 'Dokumen Baru',
+                            'Perpanjangan' => 'Perpanjangan (Extension)',
+                        ])
+                        ->default('Baru')
+                        ->required(),
                 ])
-                ->required()
-                ->default('Dalam Negeri'),
-            Forms\Components\TextInput::make('nomor_dokumen_polinema')
-    ->label('Nomor Dokumen Polinema')
-    ->required()
-    ->maxLength(100)
-    ->dehydrated(false)
-    ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
-        if ($record && $record->nomor_dokumen) {
-            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
-                $parts = explode(" ", $record->nomor_dokumen, 2);
-            }
-            $component->state(trim($parts[0] ?? ''));
-        }
-    })
-    ->rule(function (?Model $record) {
-        return function ($attribute, $value, $fail) use ($record) {
-
-            $exists = \App\Models\Kerjasama::query()
-                ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
-                ->get()
-                ->contains(function ($item) use ($value) {
-
-                    $nomor = str_replace("\r", "", $item->nomor_dokumen);
-                    $parts = explode("\n", $nomor);
-
-                    // Jika data lama dipisah spasi
-                    if (count($parts) === 1 && str_contains($nomor, ' ')) {
-                        $parts = explode(' ', $nomor, 2);
-                    }
-
-                    return trim($parts[0] ?? '') === trim($value);
-                });
-
-            if ($exists) {
-                $fail('Nomor MoU Polinema sudah digunakan.');
-            }
-        };
-    }),
-            Forms\Components\TextInput::make('nomor_dokumen_mitra')
-                ->label('Nomor Dokumen Mitra')
-                ->maxLength(100)
-                ->dehydrated(false)
-                ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
-                    if ($record && $record->nomor_dokumen) {
-                        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-                        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
-                            $parts = explode(" ", $record->nomor_dokumen, 2);
-                        }
-                        $component->state(trim($parts[1] ?? ''));
-                    }
-                }),
-            Forms\Components\Hidden::make('nomor_dokumen')
-                ->dehydrateStateUsing(function (\Filament\Schemas\Components\Utilities\Get $get) {
-                    $pol = trim($get('nomor_dokumen_polinema') ?? '');
-                    $mit = trim($get('nomor_dokumen_mitra') ?? '');
-                    if (empty($pol) && empty($mit)) return null;
-                    if (empty($pol)) return $mit;
-                    if (empty($mit)) return $pol;
-                    return $pol . "\n" . $mit;
-                }),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
-            Forms\Components\Select::make('bidang_id')
-                ->label('Bidang Kerjasama')
-                ->relationship('bidang', 'bidang_kerjasama')
-                ->searchable()
-                ->preload()
-                ->required(),
+                ->columns(2),
         ]);
     }
-
     public static function table(Table $table): Table
     {
         return $table
