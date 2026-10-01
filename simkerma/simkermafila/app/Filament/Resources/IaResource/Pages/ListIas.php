@@ -99,7 +99,7 @@ class ListIAs extends ListRecords
             */
 
             Actions\CreateAction::make()
-                ->label('Tambah IA')
+                ->label('Tambah Data')
                 ->icon('heroicon-o-plus'),
         ];
     }

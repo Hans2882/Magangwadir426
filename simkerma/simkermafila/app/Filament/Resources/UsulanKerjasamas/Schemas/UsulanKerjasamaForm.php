@@ -11,6 +11,7 @@ class UsulanKerjasamaForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
                 \Filament\Forms\Components\Hidden::make('user_id')
                     ->default(fn () => \Illuminate\Support\Facades\Auth::id()),
@@ -38,27 +39,30 @@ class UsulanKerjasamaForm
                             ->searchable()
                             ->preload()
                             ->optionsLimit(200)
-                            ->hint('Kosongkan untuk Mitra Dalam Negeri (Indonesia)'),
+                            ->helperText('Kosongkan untuk Mitra Dalam Negeri (Indonesia)'),
                         \Filament\Forms\Components\Textarea::make('usulan_alamat')
                             ->label('Alamat')
                             ->required()
                             ->columnSpanFull(),
                     ])->columns(2),
 
-                \Filament\Forms\Components\Select::make('kegiatans')
-                    ->relationship('kegiatans', 'bidang_kerjasama')
-                    ->multiple()
-                    ->preload()
-                    ->requiredWithout('kegiatan_lainnya')
-                    ->label('Bentuk Kegiatan yang Diusulkan')
-                    ->helperText('Pilih dari daftar kegiatan yang tersedia. Isi minimal salah satu antara daftar ini atau "Kegiatan Lainnya".'),
-
-                \Filament\Forms\Components\TagsInput::make('kegiatan_lainnya')
-                    ->label('Kegiatan Lainnya (Manual)')
-                    ->placeholder('Ketik kegiatan lalu tekan Enter')
-                    ->helperText('Untuk kegiatan yang belum ada di daftar.')
-                    ->requiredWithout('kegiatans')
-                    ->columnSpanFull(),
+                \Filament\Schemas\Components\Section::make('Detail Kegiatan')
+                    ->schema([
+                        \Filament\Forms\Components\Select::make('kegiatans')
+                            ->relationship('kegiatans', 'bidang_kerjasama')
+                            ->multiple()
+                            ->preload()
+                            ->requiredWithout('kegiatan_lainnya')
+                            ->label('Bentuk Kegiatan yang Diusulkan')
+                            ->helperText('Pilih dari daftar kegiatan yang tersedia. Isi minimal salah satu antara daftar ini atau "Kegiatan Lainnya".'),
+        
+                        \Filament\Forms\Components\TagsInput::make('kegiatan_lainnya')
+                            ->label('Kegiatan Lainnya (Manual)')
+                            ->placeholder('Ketik kegiatan lalu tekan Enter')
+                            ->helperText('Untuk kegiatan yang belum ada di daftar.')
+                            ->requiredWithout('kegiatans')
+                            ->columnSpanFull(),
+                    ])->columns(2),
 
                 \Filament\Schemas\Components\Section::make('Data Pihak Pertama (Pengusul)')
                     ->description('Masukkan data pengusul yang akan dicetak pada Berita Acara Inisiasi')
@@ -84,8 +88,9 @@ class UsulanKerjasamaForm
                             ->label('Program Studi Pengusul')
                             ->placeholder('contoh: Program Studi D3 Administrasi Bisnis')
                             ->required()
-                            ->maxLength(255),
-                    ])->columns(3),
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                    ])->columns(2),
             ]);
     }
 }

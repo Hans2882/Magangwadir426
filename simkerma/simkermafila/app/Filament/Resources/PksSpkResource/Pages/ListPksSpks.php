@@ -95,7 +95,7 @@ class ListPksSpks extends ListRecords
             */
 
             Actions\CreateAction::make()
-                ->label('Tambah PKS / SPK')
+                ->label('Tambah Data')
                 ->icon('heroicon-o-plus'),
         ];
     }

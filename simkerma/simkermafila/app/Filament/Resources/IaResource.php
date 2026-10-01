@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Schemas\Components\Section;
 
 class IaResource extends Resource
 {
@@ -44,214 +45,214 @@ class IaResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Forms\Components\FileUpload::make('link_dokumen')
-                ->label('Berkas IA')
-                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
-                ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
-                ->disk('google')
-                ->directory(function (callable $get) {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
-                    return $base . '/' . date('Y/m/d');
-                })
-                ->visibility('private')
-                ->acceptedFileTypes(['application/pdf'])
-                ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
-                    $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
-                    $dir = $base . '/' . date('Y/m/d');
-                    
-                    try {
-                        $existingFiles = \Illuminate\Support\Facades\Storage::disk('google')->files($dir);
-                        $count = count($existingFiles) + 1;
-                    } catch (\Exception $e) {
-                        $count = 1;
-                    }
-                    
-                    $sequence = sprintf('%03d', $count);
-                    $type = 'IA';
-                    $originalName = str_replace('&', '_', $file->getClientOriginalName());
-                    
-                    return "{$sequence}_{$type}_{$originalName}";
-                })
-                ->columnSpanFull(),
-            Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255)->required(),
-            Forms\Components\Select::make('mitra_id')
-                ->label('Nama Mitra')
-                ->relationship('mitra', 'nama_mitra')
-                ->searchable()
-                ->preload()
-                ->live()
-                ->createOptionForm(static::getMitraCreateFormSchema())
-                ->createOptionUsing(function (array $data) {
-                    return \App\Models\Mitra::query()->create($data)->getKey();
-                })
-                ->required(),
-            ...static::getKerjasamaLocationFormSchema(),
-            Forms\Components\Select::make('parent_id')
-                ->label('Referensi MoU')
-                ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
-                    $mitraId = $get('mitra_id');
-                    if (! $mitraId) return [];
-                    return \App\Models\Kerjasama::query()
-                        ->where('mitra_id', '=', $mitraId, 'and')
-                        ->where('jenis_dokumen_id', '=', 1, 'and') // MoU
-                        ->whereNotNull('judul')
-                        ->where('judul', '!=', '')
-                        ->pluck('judul', 'id')
-                        ->map(fn ($judul): string => (string) $judul)
-                        ->all();
-                })
-                ->searchable()
-                ->preload(),
-            Forms\Components\Select::make('pks_id')
-                ->label('Referensi PKS')
-                ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
-                    $mitraId = $get('mitra_id');
-                    if (! $mitraId) return [];
-                    return \App\Models\Kerjasama::query()
-                        ->where('mitra_id', '=', $mitraId, 'and')
-                        ->where('jenis_dokumen_id', '=', 3, 'and') // PKS
-                        ->whereNotNull('judul')
-                        ->where('judul', '!=', '')
-                        ->pluck('judul', 'id')
-                        ->map(fn ($judul): string => (string) $judul)
-                        ->all();
-                })
-                ->searchable()
-                ->preload(),
-            Forms\Components\Select::make('bidang_id')
-                ->label('Bidang Kerjasama')
-                ->relationship('bidang', 'bidang_kerjasama')
-                ->searchable()
-                ->preload()
-                ->required(),
-            Forms\Components\Select::make('prodis')
-                ->label('Program Studi')
-                ->relationship('prodis', 'nama_prodi', function ($query, callable $get) {
-                    $jurusans = $get('jurusans');
-                    if (!empty($jurusans)) {
-                        $query->whereIn('jurusan_id', $jurusans);
-                    }
-                })
-                ->multiple()
-                ->preload()
-                ->searchable(),
-            Forms\Components\Select::make('jurusans')
-                ->label('Jurusan')
-                ->relationship('jurusans', 'nama_jurusan')
-                ->multiple()
-                ->preload()
-                ->searchable()
-                ->live()
-                ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
-            Forms\Components\Hidden::make('jenis_dokumen_id')->default(4),
-            Forms\Components\Select::make('status_workflow')
-                ->label('Status Proses')
-                ->options([
-                    'Draft' => 'Draft (Sedang Disusun)',
-                    'Review Internal' => 'Review Internal',
-                    'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
-                    'Menunggu TTD Direktur' => 'Menunggu TTD Direktur',
-                    'Selesai' => 'Selesai (Aktif)',
+            Section::make('Informasi Utama')
+                ->schema([
+                    Forms\Components\FileUpload::make('link_dokumen')
+                        ->label('Berkas IA')
+                        ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                        ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
+                        ->disk('google')
+                        ->directory(function (callable $get) {
+                            $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
+                            return $base . '/' . date('Y/m/d');
+                        })
+                        ->visibility('private')
+                        ->acceptedFileTypes(['application/pdf'])
+                        ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
+                            $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
+                            $dir = $base . '/' . date('Y/m/d');
+                            try {
+                                $existingFiles = \Illuminate\Support\Facades\Storage::disk('google')->files($dir);
+                                $count = count($existingFiles) + 1;
+                            } catch (\Exception $e) {
+                                $count = 1;
+                            }
+                            $sequence = sprintf('%03d', $count);
+                            $type = 'IA';
+                            $originalName = str_replace('&', '_', $file->getClientOriginalName());
+                            return "{$sequence}_{$type}_{$originalName}";
+                        })
+                        ->columnSpanFull(),
+                    Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255)->required()->columnSpanFull(),
+                    Forms\Components\Select::make('parent_id')
+                        ->label('Referensi MoU')
+                        ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                            $mitraId = $get('mitra_id');
+                            if (! $mitraId) return [];
+                            return \App\Models\Kerjasama::query()
+                                ->where('mitra_id', '=', $mitraId, 'and')
+                                ->where('jenis_dokumen_id', '=', 1, 'and') // MoU
+                                ->whereNotNull('judul')
+                                ->where('judul', '!=', '')
+                                ->pluck('judul', 'id')
+                                ->map(fn ($judul): string => (string) $judul)
+                                ->all();
+                        })
+                        ->searchable()
+                        ->preload(),
+                    Forms\Components\Select::make('pks_id')
+                        ->label('Referensi PKS')
+                        ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                            $mitraId = $get('mitra_id');
+                            if (! $mitraId) return [];
+                            return \App\Models\Kerjasama::query()
+                                ->where('mitra_id', '=', $mitraId, 'and')
+                                ->where('jenis_dokumen_id', '=', 3, 'and') // PKS
+                                ->whereNotNull('judul')
+                                ->where('judul', '!=', '')
+                                ->pluck('judul', 'id')
+                                ->map(fn ($judul): string => (string) $judul)
+                                ->all();
+                        })
+                        ->searchable()
+                        ->preload(),
                 ])
-                ->default('Draft')
-                ->live()
-                ->required(),
-            Forms\Components\Select::make('jenis_pengajuan')
-                ->label('Jenis Pengajuan')
-                ->options([
-                    'Baru' => 'Dokumen Baru',
-                    'Perpanjangan' => 'Perpanjangan (Extension)',
+                ->columns(2),
+
+            Section::make('Detail Kemitraan')
+                ->schema([
+                    Forms\Components\Select::make('mitra_id')
+                        ->label('Nama Mitra')
+                        ->relationship('mitra', 'nama_mitra')
+                        ->searchable()
+                        ->preload()
+                        ->live()
+                        ->createOptionForm(static::getMitraCreateFormSchema())
+                        ->createOptionUsing(function (array $data) {
+                            return \App\Models\Mitra::query()->create($data)->getKey();
+                        })
+                        ->required(),
+                    Forms\Components\Select::make('jenis')
+                        ->label('Cakupan (DN/LN)')
+                        ->options([
+                            'Dalam Negeri' => 'Dalam Negeri',
+                            'Luar Negeri' => 'Luar Negeri',
+                        ])
+                        ->required()
+                        ->default('Dalam Negeri'),
+                    ...static::getKerjasamaLocationFormSchema(),
+                    Forms\Components\Select::make('bidang_id')
+                        ->label('Bidang Kerjasama')
+                        ->relationship('bidang', 'bidang_kerjasama')
+                        ->searchable()
+                        ->preload()
+                        ->required(),
                 ])
-                ->default('Baru')
-                ->required(),
-            Forms\Components\Select::make('jenis')
-                ->label('Cakupan (DN/LN)')
-                ->options([
-                    'Dalam Negeri' => 'Dalam Negeri',
-                    'Luar Negeri' => 'Luar Negeri',
+                ->columns(2),
+
+            Section::make('Administrasi Dokumen')
+                ->schema([
+                    Forms\Components\TextInput::make('nomor_dokumen_polinema')
+                        ->label('Nomor IA Polinema')
+                        ->required()
+                        ->maxLength(100)
+                        ->dehydrated(false)
+                        ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+                            if ($record && $record->nomor_dokumen) {
+                                $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                                if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                    $parts = explode(' ', $record->nomor_dokumen, 2);
+                                }
+                                $component->state(trim($parts[0] ?? ''));
+                            }
+                        })
+                        ->rule(function (?Model $record) {
+                            return function ($attribute, $value, $fail) use ($record) {
+                                $query = \App\Models\Kerjasama::query()->where(
+                                    'nomor_dokumen',
+                                    'like',
+                                    $value . "\n%",
+                                    'and'
+                                );
+                                if ($record) {
+                                    $query->where('id', '!=', $record->id);
+                                }
+                                if ($query->exists()) {
+                                    $fail('Nomor IA Polinema sudah digunakan.');
+                                }
+                            };
+                        }),
+                    Forms\Components\TextInput::make('nomor_dokumen_mitra')
+                        ->label('Nomor IA Mitra')
+                        ->maxLength(100)
+                        ->dehydrated(false)
+                        ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
+                            if ($record && $record->nomor_dokumen) {
+                                $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                                if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                    $parts = explode(' ', $record->nomor_dokumen, 2);
+                                }
+                                $component->state(trim($parts[1] ?? ''));
+                            }
+                        }),
+                    Forms\Components\Hidden::make('nomor_dokumen')
+                        ->dehydrateStateUsing(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                            $pol = trim($get('nomor_dokumen_polinema') ?? '');
+                            $mit = trim($get('nomor_dokumen_mitra') ?? '');
+                            if (empty($pol) && empty($mit)) {
+                                return null;
+                            }
+                            if (empty($pol)) {
+                                return $mit;
+                            }
+                            if (empty($mit)) {
+                                return $pol;
+                            }
+                            return $pol . "\n" . $mit;
+                        }),
+                    Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+                    Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
                 ])
-                ->required()
-                ->default('Dalam Negeri'),
-            Forms\Components\TextInput::make('nomor_dokumen_polinema')
-    ->label('Nomor IA Polinema')
-    ->required()
-    ->maxLength(100)
-    ->dehydrated(false)
-    ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
-        if ($record && $record->nomor_dokumen) {
-            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                ->columns(2),
 
-            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
-                $parts = explode(' ', $record->nomor_dokumen, 2);
-            }
-
-            $component->state(trim($parts[0] ?? ''));
-        }
-    })
-    ->rule(function (?Model $record) {
-        return function ($attribute, $value, $fail) use ($record) {
-
-            $query = \App\Models\Kerjasama::query()->where(
-                'nomor_dokumen',
-                'like',
-                $value . "\n%",
-                'and'
-            );
-
-            if ($record) {
-                $query->where('id', '!=', $record->id);
-            }
-
-            if ($query->exists()) {
-                $fail('Nomor IA Polinema sudah digunakan.');
-            }
-        };
-    }),
-
-Forms\Components\TextInput::make('nomor_dokumen_mitra')
-    ->label('Nomor IA Mitra')
-    ->maxLength(100)
-    ->dehydrated(false)
-    ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Model $record) {
-        if ($record && $record->nomor_dokumen) {
-            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-
-            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
-                $parts = explode(' ', $record->nomor_dokumen, 2);
-            }
-
-            $component->state(trim($parts[1] ?? ''));
-        }
-    }),
-
-Forms\Components\Hidden::make('nomor_dokumen')
-    ->dehydrateStateUsing(function (\Filament\Schemas\Components\Utilities\Get $get) {
-
-        $pol = trim($get('nomor_dokumen_polinema') ?? '');
-        $mit = trim($get('nomor_dokumen_mitra') ?? '');
-
-        if (empty($pol) && empty($mit)) {
-            return null;
-        }
-
-        if (empty($pol)) {
-            return $mit;
-        }
-
-        if (empty($mit)) {
-            return $pol;
-        }
-
-        return $pol . "\n" . $mit;
-    }),
-            Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
-            Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
-            Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
-            Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),
-            Forms\Components\TextInput::make('link_laporan_kegiatan')->label('Link Laporan Kegiatan')->url()->maxLength(500),
+            Section::make('Klasifikasi & Tambahan')
+                ->schema([
+                    Forms\Components\Select::make('jurusans')
+                        ->label('Jurusan')
+                        ->relationship('jurusans', 'nama_jurusan')
+                        ->multiple()
+                        ->preload()
+                        ->searchable()
+                        ->live()
+                        ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
+                    Forms\Components\Select::make('prodis')
+                        ->label('Program Studi')
+                        ->relationship('prodis', 'nama_prodi', function ($query, callable $get) {
+                            $jurusans = $get('jurusans');
+                            if (!empty($jurusans)) {
+                                $query->whereIn('jurusan_id', $jurusans);
+                            }
+                        })
+                        ->multiple()
+                        ->preload()
+                        ->searchable(),
+                    Forms\Components\Select::make('status_workflow')
+                        ->label('Status Proses')
+                        ->options([
+                            'Draft' => 'Draft (Sedang Disusun)',
+                            'Review Internal' => 'Review Internal',
+                            'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
+                            'Menunggu TTD Direktur' => 'Menunggu TTD Direktur',
+                            'Selesai' => 'Selesai (Aktif)',
+                        ])
+                        ->default('Draft')
+                        ->live()
+                        ->required(),
+                    Forms\Components\Select::make('jenis_pengajuan')
+                        ->label('Jenis Pengajuan')
+                        ->options([
+                            'Baru' => 'Dokumen Baru',
+                            'Perpanjangan' => 'Perpanjangan (Extension)',
+                        ])
+                        ->default('Baru')
+                        ->required(),
+                    Forms\Components\Hidden::make('jenis_dokumen_id')->default(4),
+                    Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
+                    Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500)->columnSpanFull(),
+                ])
+                ->columns(2),
         ]);
     }
-
     public static function table(Table $table): Table
     {
         return $table
