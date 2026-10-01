@@ -14,10 +14,10 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -74,9 +74,7 @@ class MitraAwardPeriodResource extends Resource
                         ->label('Nama Periode')
                         ->required()
                         ->maxLength(255)
-                        ->placeholder(
-                            'Contoh: Mitra Award 2026'
-                        ),
+                        ->placeholder('Contoh: Mitra Award 2026'),
 
                     TextInput::make('tahun')
                         ->label('Tahun')
@@ -160,23 +158,11 @@ class MitraAwardPeriodResource extends Resource
                     ->alignCenter()
                     ->width('110px'),
             ])
-
-            ->defaultSort(
-                'tahun',
-                'desc'
-            )
-
+            ->defaultSort('tahun', 'desc')
             ->recordUrl(
-                fn (
-                    MitraAwardPeriod $record
-                ): string => static::getUrl(
-                    'view',
-                    [
-                        'record' => $record,
-                    ]
-                )
+                fn (MitraAwardPeriod $record): string =>
+                    static::getUrl('view', ['record' => $record])
             )
-
             ->actions([
                 ViewAction::make(),
 
@@ -190,105 +176,73 @@ class MitraAwardPeriodResource extends Resource
                     ->label('Skala & Bobot')
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
-
                     ->modalHeading(
-                        fn (
-                            MitraAwardPeriod $record
-                        ): string =>
+                        fn (MitraAwardPeriod $record): string =>
                             'Skala & Bobot — ' . $record->nama
                     )
-
                     ->modalDescription(
                         'Atur bobot dan skala penilaian khusus untuk periode ini.'
                     )
-
                     ->modalWidth('4xl')
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | LOAD DATA
-                    |--------------------------------------------------------------------------
-                    */
-
                     ->fillForm(
-                        fn (
-                            MitraAwardPeriod $record
-                        ): array =>
+                        fn (MitraAwardPeriod $record): array =>
                             static::configurationFormData($record)
                     )
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | WIZARD
-                    |--------------------------------------------------------------------------
-                    */
-
-                    ->steps(
-    fn (): array => static::configurationWizard()
-)
-->skippableSteps()
-->modalSubmitActionLabel('Selesai')
-->modalCancelActionLabel('Batal')
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SAVE
-                    |--------------------------------------------------------------------------
-                    */
-
+                    ->steps(fn (): array => static::configurationWizard())
+                    ->skippableSteps()
+                    ->modalSubmitActionLabel('Selesai')
+                    ->modalCancelActionLabel('Batal')
                     ->action(
                         function (
                             MitraAwardPeriod $record,
                             array $data
                         ): void {
-                            $config =
-                                static::normalizeConfiguration(
-                                    $data
-                                );
+                            $config  = static::normalizeConfiguration($data);
+                            $weights = $config['bobot'] ?? [];
 
-                            $weights = [];
-
-                            foreach (
-                                ($config['bobot'] ?? [])
-                                as $key => $value
-                            ) {
-                                $weights[$key] =
-                                    (float) $value;
-                            }
-
-                            $calculator =
-                                app(
-                                    MitraAwardCalculator::class
-                                );
+                            $calculator = app(MitraAwardCalculator::class);
 
                             /*
                             |--------------------------------------------------------------------------
-                            | VALIDASI BOBOT
+                            | VALIDASI BOBOT DARI FORM (PERSEN)
                             |--------------------------------------------------------------------------
                             */
 
-                            if (
-                                ! $calculator->validateWeights(
-                                    $weights
-                                )
-                            ) {
-                                $total =
-                                    $calculator
-                                        ->getWeightPercentage(
-                                            $weights
-                                        );
+                            $total = collect($data['bobot'] ?? [])
+                                ->sum(
+                                    fn ($row) =>
+                                        (float) ($row['nilai'] ?? 0)
+                                );
 
+                            if (abs($total - 100) >= 0.001) {
                                 Notification::make()
-                                    ->title(
-                                        'Bobot tidak valid'
-                                    )
+                                    ->title('Bobot tidak valid')
                                     ->body(
                                         'Total bobot harus tepat 100%. Saat ini totalnya ' .
-                                        number_format(
-                                            $total,
-                                            2,
-                                            ',',
-                                            '.'
-                                        ) .
+                                        number_format($total, 2, ',', '.') .
+                                        '%.'
+                                    )
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | VALIDASI BOBOT NORMALISASI (0.05, 0.10, dst.)
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (! $calculator->validateWeights($weights)) {
+                                $total = $calculator
+                                    ->getWeightPercentage($weights);
+
+                                Notification::make()
+                                    ->title('Bobot tidak valid')
+                                    ->body(
+                                        'Total bobot harus tepat 100%. Saat ini totalnya ' .
+                                        number_format($total, 2, ',', '.') .
                                         '%.'
                                     )
                                     ->danger()
@@ -304,8 +258,7 @@ class MitraAwardPeriodResource extends Resource
                             */
 
                             $record->update([
-                                'konfigurasi_penilaian' =>
-                                    $config,
+                                'konfigurasi_penilaian' => $config,
                             ]);
 
                             /*
@@ -314,40 +267,24 @@ class MitraAwardPeriodResource extends Resource
                             |--------------------------------------------------------------------------
                             */
 
-                            $scores =
-                                $record
-                                    ->scores()
-                                    ->with('mitra')
-                                    ->get();
+                            $scores = $record
+                                ->scores()
+                                ->with('mitra')
+                                ->get();
 
-                            foreach (
-                                $scores as $score
-                            ) {
-                                $documentScore =
-                                    $calculator
-                                        ->getDocumentScore(
-                                            $score->mitra
-                                        );
+                            foreach ($scores as $score) {
+                                $documentScore = $calculator
+                                    ->getDocumentScore($score->mitra);
 
-                                $score->setRelation(
-                                    'period',
-                                    $record
-                                );
+                                $score->setRelation('period', $record);
 
-                                $score->dokumen_score =
-                                    $documentScore;
-
+                                $score->dokumen_score = $documentScore;
                                 $score->total_score =
-                                    $calculator->calculate(
-                                        $score
-                                    );
+                                    $calculator->calculate($score);
 
                                 $score->updateQuietly([
-                                    'dokumen_score' =>
-                                        $score->dokumen_score,
-
-                                    'total_score' =>
-                                        $score->total_score,
+                                    'dokumen_score' => $score->dokumen_score,
+                                    'total_score'   => $score->total_score,
                                 ]);
                             }
 
@@ -357,11 +294,8 @@ class MitraAwardPeriodResource extends Resource
                             |--------------------------------------------------------------------------
                             */
 
-                            app(
-                                MitraAwardRanking::class
-                            )->recalculate(
-                                $record->getKey()
-                            );
+                            app(MitraAwardRanking::class)
+                                ->recalculate($record->getKey());
 
                             /*
                             |--------------------------------------------------------------------------
@@ -370,9 +304,7 @@ class MitraAwardPeriodResource extends Resource
                             */
 
                             Notification::make()
-                                ->title(
-                                    'Konfigurasi berhasil disimpan'
-                                )
+                                ->title('Konfigurasi berhasil disimpan')
                                 ->body(
                                     'Bobot, skala, nilai, dan ranking mitra telah diperbarui.'
                                 )
@@ -421,72 +353,64 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
-        $steps[] =
-    Step::make('Bobot')
-        ->icon('heroicon-o-scale')
-        ->description(
-            'Atur bobot setiap kriteria'
-        )
-        ->schema([
-                    Section::make('Bobot Penilaian')
-                        ->description(
-                            'Total seluruh bobot harus tepat 100%.'
-                        )
-                        ->schema([
-                            Forms\Components\Repeater::make(
-                                'bobot'
+        $steps[] = Step::make('Bobot')
+            ->icon('heroicon-o-scale')
+            ->description('Atur bobot setiap kriteria')
+            ->schema([
+                Section::make('Bobot Penilaian')
+                    ->description('Total seluruh bobot harus tepat 100%.')
+                    ->schema([
+                        Forms\Components\Repeater::make('bobot')
+                            ->label('')
+                            ->itemLabel(
+                                fn (array $state): ?string =>
+                                    MitraAwardCalculator::CRITERIA_LABELS[
+                                        $state['kriteria'] ?? ''
+                                    ]
+                                    ?? ($state['kriteria'] ?? null)
                             )
-                                ->label('')
-                                ->schema([
-                                    TextInput::make(
-                                        'kriteria'
-                                    )
-                                        ->label('Kriteria')
-                                        ->disabled()
-                                        ->dehydrated(true)
-                                        ->formatStateUsing(
-                                            fn (
-                                                ?string $state
-                                            ): string =>
-                                                MitraAwardCalculator::CRITERIA_LABELS[
-                                                    $state
-                                                ]
-                                                ?? $state
-                                                ?? '-'
-                                        ),
+                            ->schema([
+                                /*
+                                |--------------------------------------------------------------------------
+                                | PENTING:
+                                | Field "kriteria" harus dikirim apa adanya (key),
+                                | JANGAN di-format menjadi label. Karena kalau
+                                | di-format, saat submit yang terkirim adalah
+                                | label, dan normalizeConfiguration akan bikin
+                                | key baru (duplikat) → total jadi 200%.
+                                |
+                                | Tampilan label ditangani oleh ->itemLabel()
+                                | di atas.
+                                |--------------------------------------------------------------------------
+                                */
 
-                                    TextInput::make(
-                                        'nilai'
-                                    )
-                                        ->label('Bobot (%)')
-                                        ->numeric()
-                                        ->minValue(0)
-                                        ->maxValue(100)
-                                        ->step(0.1)
-                                        ->suffix('%')
-                                        ->required()
-                                        ->live(),
-                                ])
-                                ->columns(2)
-                                ->disableItemCreation()
-                                ->disableItemDeletion()
-                                ->disableItemMovement()
-                                ->reorderable(false),
-                        ]),
+                                Hidden::make('kriteria')
+                                    ->dehydrated(true),
 
-                    Placeholder::make(
-                        'total_bobot_summary'
-                    )
-                        ->label('Total Bobot')
-                        ->content(
-                            fn (
-                                Get $get
-                            ): HtmlString =>
-                                static::totalBobotHtml(
-                                    $get('bobot')
-                                )
-                        ),
-                ]);
+                                TextInput::make('nilai')
+                                    ->label('Bobot (%)')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->step(0.1)
+                                    ->suffix('%')
+                                    ->required()
+                                    ->live(),
+                            ])
+                            ->columns(2)
+                            ->disableItemCreation()
+                            ->disableItemDeletion()
+                            ->disableItemMovement()
+                            ->reorderable(false),
+                    ]),
+
+                Placeholder::make('total_bobot_summary')
+                    ->label('Total Bobot')
+                    ->content(
+                        fn (Get $get): HtmlString =>
+                            static::totalBobotHtml($get('bobot'))
+                    ),
+            ]);
 
         /*
         |--------------------------------------------------------------------------
@@ -494,366 +418,227 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
-        foreach (
-    MitraAwardCalculator::CRITERIA_LABELS
-    as $key => $label
-) {
-    $steps[] =
-        Step::make($label)
-            ->icon('heroicon-o-chart-bar')
-            ->description(
-                'Atur skala ' . $label
-            )
-            ->schema([
-                        Section::make(
-                            $label
+        foreach (MitraAwardCalculator::CRITERIA_LABELS as $key => $label) {
+            $steps[] = Step::make($label)
+                ->icon('heroicon-o-chart-bar')
+                ->description('Atur skala ' . $label)
+                ->schema([
+                    Section::make($label)
+                        ->description(
+                            'Tentukan tipe skala dan nilai batas untuk kriteria ini.'
                         )
-                            ->description(
-                                'Tentukan tipe skala dan nilai batas untuk kriteria ini.'
-                            )
-                            ->schema([
-                                TextInput::make(
-                                    "skala.{$key}.kriteria"
+                        ->schema([
+                            TextInput::make("skala.{$key}.kriteria")
+                                ->label('Kriteria')
+                                ->default($key)
+                                ->formatStateUsing(
+                                    fn (?string $state): string =>
+                                        MitraAwardCalculator::CRITERIA_LABELS[
+                                            $state
+                                        ]
+                                        ?? $label
                                 )
-                                    ->label(
-                                        'Kriteria'
-                                    )
-                                    ->default(
-                                        $key
-                                    )
-                                    ->formatStateUsing(
-                                        fn (
-                                            ?string $state
-                                        ): string =>
-                                            MitraAwardCalculator::CRITERIA_LABELS[
-                                                $state
-                                            ]
-                                            ?? $label
-                                    )
-                                    ->disabled()
-                                    ->dehydrated(true),
+                                ->disabled()
+                                ->dehydrated(true),
 
-                                Select::make(
-                                    "skala.{$key}.type"
+                            Select::make("skala.{$key}.type")
+                                ->label('Tipe Skala')
+                                ->options([
+                                    'count'    => 'Jumlah',
+                                    'money'    => 'Nominal Uang',
+                                    'likert'   => 'Likert',
+                                    'document' => 'Dokumen',
+                                ])
+                                ->required()
+                                ->live(),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | THRESHOLD 1
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.thresholds.0")
+                                ->label('Batas 1')
+                                ->numeric()
+                                ->required()
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        ! in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | THRESHOLD 2
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.thresholds.1")
+                                ->label('Batas 2')
+                                ->numeric()
+                                ->required()
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        ! in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | THRESHOLD 3
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.thresholds.2")
+                                ->label('Batas 3')
+                                ->numeric()
+                                ->required()
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        ! in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | THRESHOLD 4
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.thresholds.3")
+                                ->label('Batas 4')
+                                ->numeric()
+                                ->required()
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        ! in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | LABEL SCORE 0
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.labels.0")
+                                ->label('Skor 0')
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | LABEL SCORE 1
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.labels.1")
+                                ->label('Skor 1')
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | LABEL SCORE 2
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.labels.2")
+                                ->label('Skor 2')
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | LABEL SCORE 3
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.labels.3")
+                                ->label('Skor 3')
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | LABEL SCORE 4
+                            |--------------------------------------------------------------------------
+                            */
+
+                            TextInput::make("skala.{$key}.labels.4")
+                                ->label('Skor 4')
+                                ->visible(
+                                    fn (Get $get): bool =>
+                                        in_array(
+                                            $get("skala.{$key}.type"),
+                                            ['likert', 'document'],
+                                            true
+                                        )
+                                ),
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | PREVIEW
+                            |--------------------------------------------------------------------------
+                            */
+
+                            Placeholder::make("preview_{$key}")
+                                ->label('Ringkasan Skala')
+                                ->content(
+                                    fn (Get $get): HtmlString =>
+                                        static::scaleDescription([
+                                            'type' => $get(
+                                                "skala.{$key}.type"
+                                            ),
+                                            'thresholds' => $get(
+                                                "skala.{$key}.thresholds"
+                                            ),
+                                            'labels' => $get(
+                                                "skala.{$key}.labels"
+                                            ),
+                                        ])
                                 )
-                                    ->label(
-                                        'Tipe Skala'
-                                    )
-                                    ->options([
-                                        'count' =>
-                                            'Jumlah',
-
-                                        'money' =>
-                                            'Nominal Uang',
-
-                                        'likert' =>
-                                            'Likert',
-
-                                        'document' =>
-                                            'Dokumen',
-                                    ])
-                                    ->required()
-                                    ->live(),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | THRESHOLD 1
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.thresholds.0"
-                                )
-                                    ->label(
-                                        'Batas 1'
-                                    )
-                                    ->numeric()
-                                    ->required()
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            ! in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | THRESHOLD 2
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.thresholds.1"
-                                )
-                                    ->label(
-                                        'Batas 2'
-                                    )
-                                    ->numeric()
-                                    ->required()
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            ! in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | THRESHOLD 3
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.thresholds.2"
-                                )
-                                    ->label(
-                                        'Batas 3'
-                                    )
-                                    ->numeric()
-                                    ->required()
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            ! in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | THRESHOLD 4
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.thresholds.3"
-                                )
-                                    ->label(
-                                        'Batas 4'
-                                    )
-                                    ->numeric()
-                                    ->required()
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            ! in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | LABEL SCORE 0
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.labels.0"
-                                )
-                                    ->label(
-                                        'Skor 0'
-                                    )
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | LABEL SCORE 1
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.labels.1"
-                                )
-                                    ->label(
-                                        'Skor 1'
-                                    )
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | LABEL SCORE 2
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.labels.2"
-                                )
-                                    ->label(
-                                        'Skor 2'
-                                    )
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | LABEL SCORE 3
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.labels.3"
-                                )
-                                    ->label(
-                                        'Skor 3'
-                                    )
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | LABEL SCORE 4
-                                |--------------------------------------------------------------------------
-                                */
-
-                                TextInput::make(
-                                    "skala.{$key}.labels.4"
-                                )
-                                    ->label(
-                                        'Skor 4'
-                                    )
-                                    ->visible(
-                                        fn (
-                                            Get $get
-                                        ): bool =>
-                                            in_array(
-                                                $get(
-                                                    "skala.{$key}.type"
-                                                ),
-                                                [
-                                                    'likert',
-                                                    'document',
-                                                ],
-                                                true
-                                            )
-                                    ),
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | PREVIEW
-                                |--------------------------------------------------------------------------
-                                */
-
-                                Placeholder::make(
-                                    "preview_{$key}"
-                                )
-                                    ->label(
-                                        'Ringkasan Skala'
-                                    )
-                                    ->content(
-                                        fn (
-                                            Get $get
-                                        ): HtmlString =>
-                                            static::scaleDescription(
-                                                [
-                                                    'type' =>
-                                                        $get(
-                                                            "skala.{$key}.type"
-                                                        ),
-
-                                                    'thresholds' =>
-                                                        $get(
-                                                            "skala.{$key}.thresholds"
-                                                        ),
-
-                                                    'labels' =>
-                                                        $get(
-                                                            "skala.{$key}.labels"
-                                                        ),
-                                                ]
-                                            )
-                                    )
-                                    ->columnSpanFull(),
-                            ])
-                            ->columns(2),
-                    ]);
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(2),
+                ]);
         }
 
         return $steps;
@@ -865,139 +650,74 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    public static function infolist(
-        Schema $schema
-    ): Schema {
+    public static function infolist(Schema $schema): Schema
+    {
         return $schema->components([
-            Section::make(
-                'Informasi Periode'
-            )
+            Section::make('Informasi Periode')
                 ->schema([
                     TextEntry::make('nama')
-                        ->label(
-                            'Nama Periode'
-                        ),
+                        ->label('Nama Periode'),
 
                     TextEntry::make('tahun')
-                        ->label(
-                            'Tahun'
-                        ),
+                        ->label('Tahun'),
 
-                    TextEntry::make(
-                        'tanggal_mulai'
-                    )
-                        ->label(
-                            'Tanggal Mulai'
-                        )
-                        ->date(
-                            'd M Y'
-                        ),
+                    TextEntry::make('tanggal_mulai')
+                        ->label('Tanggal Mulai')
+                        ->date('d M Y'),
 
-                    TextEntry::make(
-                        'tanggal_selesai'
-                    )
-                        ->label(
-                            'Tanggal Selesai'
-                        )
-                        ->date(
-                            'd M Y'
-                        ),
+                    TextEntry::make('tanggal_selesai')
+                        ->label('Tanggal Selesai')
+                        ->date('d M Y'),
 
-                    TextEntry::make(
-                        'is_active'
-                    )
-                        ->label(
-                            'Status'
-                        )
+                    TextEntry::make('is_active')
+                        ->label('Status')
                         ->formatStateUsing(
-                            fn (
-                                bool $state
-                            ): string =>
-                                $state
-                                    ? 'Aktif'
-                                    : 'Tidak Aktif'
+                            fn (bool $state): string =>
+                                $state ? 'Aktif' : 'Tidak Aktif'
                         )
                         ->badge()
                         ->color(
-                            fn (
-                                bool $state
-                            ): string =>
-                                $state
-                                    ? 'success'
-                                    : 'gray'
+                            fn (bool $state): string =>
+                                $state ? 'success' : 'gray'
                         ),
                 ])
                 ->columns(2),
 
-            Section::make(
-                'Top 3 Mitra'
-            )
+            Section::make('Top 3 Mitra')
                 ->schema([
-                    RepeatableEntry::make(
-                        'scores'
-                    )
+                    RepeatableEntry::make('scores')
                         ->label('')
                         ->state(
-                            fn (
-                                MitraAwardPeriod $record
-                            ) =>
+                            fn (MitraAwardPeriod $record) =>
                                 $record
                                     ->scores()
                                     ->with([
                                         'mitra.kategori',
                                         'mitra.negara',
                                     ])
-                                    ->orderBy(
-                                        'ranking'
-                                    )
+                                    ->orderBy('ranking')
                                     ->limit(3)
                                     ->get()
                         )
                         ->schema([
-                            TextEntry::make(
-                                'ranking'
-                            )
-                                ->label(
-                                    'Ranking'
-                                )
+                            TextEntry::make('ranking')
+                                ->label('Ranking')
                                 ->badge(),
 
-                            TextEntry::make(
-                                'mitra.nama_mitra'
-                            )
-                                ->label(
-                                    'Mitra'
-                                ),
+                            TextEntry::make('mitra.nama_mitra')
+                                ->label('Mitra'),
 
-                            TextEntry::make(
-                                'mitra.kategori.kategori'
-                            )
-                                ->label(
-                                    'Kategori'
-                                )
-                                ->placeholder(
-                                    '-'
-                                ),
+                            TextEntry::make('mitra.kategori.kategori')
+                                ->label('Kategori')
+                                ->placeholder('-'),
 
-                            TextEntry::make(
-                                'mitra.negara.nama_negara'
-                            )
-                                ->label(
-                                    'Negara'
-                                )
-                                ->placeholder(
-                                    'Indonesia'
-                                ),
+                            TextEntry::make('mitra.negara.nama_negara')
+                                ->label('Negara')
+                                ->placeholder('Indonesia'),
 
-                            TextEntry::make(
-                                'total_score'
-                            )
-                                ->label(
-                                    'Total Score'
-                                )
-                                ->numeric(
-                                    decimalPlaces: 4
-                                ),
+                            TextEntry::make('total_score')
+                                ->label('Total Score')
+                                ->numeric(decimalPlaces: 4),
                         ])
                         ->columns(5),
                 ]),
@@ -1012,16 +732,6 @@ class MitraAwardPeriodResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        /*
-        |--------------------------------------------------------------------------
-        | Jangan gunakan withCount('scores') di sini.
-        |
-        | Kolom tabel sudah menggunakan:
-        |
-        | ->counts('scores')
-        |--------------------------------------------------------------------------
-        */
-
         return parent::getEloquentQuery();
     }
 
@@ -1047,23 +757,10 @@ class MitraAwardPeriodResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' =>
-                Pages\ListMitraAwardPeriods::route('/'),
-
-            'create' =>
-                Pages\CreateMitraAwardPeriod::route(
-                    '/create'
-                ),
-
-            'view' =>
-                Pages\ViewMitraAwardPeriod::route(
-                    '/{record}'
-                ),
-
-            'edit' =>
-                Pages\EditMitraAwardPeriod::route(
-                    '/{record}/edit'
-                ),
+            'index'  => Pages\ListMitraAwardPeriods::route('/'),
+            'create' => Pages\CreateMitraAwardPeriod::route('/create'),
+            'view'   => Pages\ViewMitraAwardPeriod::route('/{record}'),
+            'edit'   => Pages\EditMitraAwardPeriod::route('/{record}/edit'),
         ];
     }
 
@@ -1075,24 +772,14 @@ class MitraAwardPeriodResource extends Resource
 
     protected static function defaultBobot(): array
     {
-        $config =
-            MitraAwardCalculator::defaultConfig();
+        $config = MitraAwardCalculator::defaultConfig();
 
         $result = [];
 
-        foreach (
-            ($config['bobot'] ?? [])
-            as $kriteria => $weight
-        ) {
+        foreach (($config['bobot'] ?? []) as $kriteria => $weight) {
             $result[] = [
-                'kriteria' =>
-                    $kriteria,
-
-                'nilai' =>
-                    round(
-                        ((float) $weight) * 100,
-                        2
-                    ),
+                'kriteria' => $kriteria,
+                'nilai'    => round(((float) $weight) * 100, 2),
             ];
         }
 
@@ -1107,52 +794,22 @@ class MitraAwardPeriodResource extends Resource
 
     protected static function defaultSkala(): array
     {
-        $config =
-            MitraAwardCalculator::defaultConfig();
+        $config = MitraAwardCalculator::defaultConfig();
 
         $result = [];
 
-        foreach (
-            ($config['skala'] ?? [])
-            as $kriteria => $scale
-        ) {
-            $thresholds =
-                array_values(
-                    $scale['thresholds'] ?? []
-                );
+        foreach (($config['skala'] ?? []) as $kriteria => $scale) {
+            $thresholds = array_values($scale['thresholds'] ?? []);
+            $labels     = array_values($scale['labels'] ?? []);
 
-            $labels =
-                array_values(
-                    $scale['labels'] ?? []
-                );
-
-            $thresholds =
-                array_pad(
-                    $thresholds,
-                    4,
-                    null
-                );
-
-            $labels =
-                array_pad(
-                    $labels,
-                    5,
-                    null
-                );
+            $thresholds = array_pad($thresholds, 4, null);
+            $labels     = array_pad($labels, 5, null);
 
             $result[] = [
-                'kriteria' =>
-                    $kriteria,
-
-                'type' =>
-                    $scale['type']
-                    ?? 'count',
-
-                'thresholds' =>
-                    $thresholds,
-
-                'labels' =>
-                    $labels,
+                'kriteria'   => $kriteria,
+                'type'       => $scale['type'] ?? 'count',
+                'thresholds' => $thresholds,
+                'labels'     => $labels,
             ];
         }
 
@@ -1168,18 +825,11 @@ class MitraAwardPeriodResource extends Resource
     protected static function configurationFormData(
         MitraAwardPeriod $record
     ): array {
-        $default =
-            MitraAwardCalculator::defaultConfig();
+        $default = MitraAwardCalculator::defaultConfig();
+        $config  = $record->konfigurasi_penilaian;
 
-        $config =
-            $record->konfigurasi_penilaian;
-
-        if (
-            ! is_array($config) ||
-            empty($config)
-        ) {
-            $config =
-                $default;
+        if (! is_array($config) || empty($config)) {
+            $config = $default;
         }
 
         /*
@@ -1188,28 +838,14 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
-        if (
-            isset($config['weights']) &&
-            ! isset($config['bobot'])
-        ) {
-            $config['bobot'] =
-                $config['weights'];
-
-            unset(
-                $config['weights']
-            );
+        if (isset($config['weights']) && ! isset($config['bobot'])) {
+            $config['bobot'] = $config['weights'];
+            unset($config['weights']);
         }
 
-        if (
-            isset($config['scales']) &&
-            ! isset($config['skala'])
-        ) {
-            $config['skala'] =
-                $config['scales'];
-
-            unset(
-                $config['scales']
-            );
+        if (isset($config['scales']) && ! isset($config['skala'])) {
+            $config['skala'] = $config['scales'];
+            unset($config['scales']);
         }
 
         /*
@@ -1218,11 +854,7 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
-        $config =
-            array_replace_recursive(
-                $default,
-                $config
-            );
+        $config = array_replace_recursive($default, $config);
 
         /*
         |--------------------------------------------------------------------------
@@ -1232,19 +864,10 @@ class MitraAwardPeriodResource extends Resource
 
         $bobot = [];
 
-        foreach (
-            ($config['bobot'] ?? [])
-            as $kriteria => $weight
-        ) {
+        foreach (($config['bobot'] ?? []) as $kriteria => $weight) {
             $bobot[] = [
-                'kriteria' =>
-                    $kriteria,
-
-                'nilai' =>
-                    round(
-                        ((float) $weight) * 100,
-                        2
-                    ),
+                'kriteria' => $kriteria,
+                'nilai'    => round(((float) $weight) * 100, 2),
             ];
         }
 
@@ -1256,73 +879,24 @@ class MitraAwardPeriodResource extends Resource
 
         $skala = [];
 
-        foreach (
-            ($config['skala'] ?? [])
-            as $kriteria => $scale
-        ) {
-            $thresholds =
-                array_values(
-                    $scale['thresholds'] ?? []
-                );
+        foreach (($config['skala'] ?? []) as $kriteria => $scale) {
+            $thresholds = array_values($scale['thresholds'] ?? []);
+            $labels     = array_values($scale['labels'] ?? []);
 
-            $labels =
-                array_values(
-                    $scale['labels'] ?? []
-                );
-
-            $thresholds =
-                array_pad(
-                    $thresholds,
-                    4,
-                    null
-                );
-
-            $labels =
-                array_pad(
-                    $labels,
-                    5,
-                    null
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | IMPORTANT
-            |--------------------------------------------------------------------------
-            |
-            | Wizard membutuhkan struktur associative:
-            |
-            | skala:
-            |   kriteria_1:
-            |       kriteria: kriteria_1
-            |       type: count
-            |       thresholds: [...]
-            |       labels: [...]
-            |
-            |--------------------------------------------------------------------------
-            */
+            $thresholds = array_pad($thresholds, 4, null);
+            $labels     = array_pad($labels, 5, null);
 
             $skala[$kriteria] = [
-                'kriteria' =>
-                    $kriteria,
-
-                'type' =>
-                    $scale['type']
-                    ?? 'count',
-
-                'thresholds' =>
-                    $thresholds,
-
-                'labels' =>
-                    $labels,
+                'kriteria'   => $kriteria,
+                'type'       => $scale['type'] ?? 'count',
+                'thresholds' => $thresholds,
+                'labels'     => $labels,
             ];
         }
 
         return [
-            'bobot' =>
-                $bobot,
-
-            'skala' =>
-                $skala,
+            'bobot' => $bobot,
+            'skala' => $skala,
         ];
     }
 
@@ -1335,8 +909,7 @@ class MitraAwardPeriodResource extends Resource
     protected static function normalizeConfiguration(
         array $data
     ): array {
-        $default =
-            MitraAwardCalculator::defaultConfig();
+        $default = MitraAwardCalculator::defaultConfig();
 
         /*
         |--------------------------------------------------------------------------
@@ -1344,25 +917,41 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
+        $validKeys  = array_keys($default['bobot'] ?? []);
+        $labelToKey = array_flip(MitraAwardCalculator::CRITERIA_LABELS);
+
         $bobot = [];
 
-        foreach (
-            ($data['bobot'] ?? [])
-            as $row
-        ) {
-            $key =
-                $row['kriteria']
-                ?? null;
-
-            if (! $key) {
+        foreach (($data['bobot'] ?? []) as $row) {
+            if (! is_array($row)) {
                 continue;
             }
 
-            $nilai =
-                (float) (
-                    $row['nilai']
-                    ?? 0
-                );
+            $key = $row['kriteria'] ?? null;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Kalau yang dikirim adalah label (bukan key), balikkan ke key-nya.
+            | Ini pengaman kalau data lama / form masih mengirim label.
+            |--------------------------------------------------------------------------
+            */
+
+            if ($key && ! in_array($key, $validKeys, true)) {
+                $key = $labelToKey[$key] ?? $key;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Kalau masih bukan key valid, skip — jangan bikin key sampah
+            | (yang bisa menyebabkan total bobot membengkak jadi 200%).
+            |--------------------------------------------------------------------------
+            */
+
+            if (! $key || ! in_array($key, $validKeys, true)) {
+                continue;
+            }
+
+            $nilai = (float) ($row['nilai'] ?? 0);
 
             /*
             |--------------------------------------------------------------------------
@@ -1373,8 +962,7 @@ class MitraAwardPeriodResource extends Resource
             |--------------------------------------------------------------------------
             */
 
-            $bobot[$key] =
-                $nilai / 100;
+            $bobot[$key] = $nilai / 100;
         }
 
         /*
@@ -1383,18 +971,9 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
-        foreach (
-            ($default['bobot'] ?? [])
-            as $key => $value
-        ) {
-            if (
-                ! array_key_exists(
-                    $key,
-                    $bobot
-                )
-            ) {
-                $bobot[$key] =
-                    $value;
+        foreach (($default['bobot'] ?? []) as $key => $value) {
+            if (! array_key_exists($key, $bobot)) {
+                $bobot[$key] = $value;
             }
         }
 
@@ -1406,43 +985,20 @@ class MitraAwardPeriodResource extends Resource
 
         $skala = [];
 
-        /*
-        |--------------------------------------------------------------------------
-        | Wizard menghasilkan associative array:
-        |
-        | skala[key][kriteria]
-        | skala[key][type]
-        | skala[key][thresholds]
-        | skala[key][labels]
-        |--------------------------------------------------------------------------
-        */
-
-        foreach (
-            ($data['skala'] ?? [])
-            as $key => $row
-        ) {
+        foreach (($data['skala'] ?? []) as $key => $row) {
             if (! is_array($row)) {
                 continue;
             }
 
-            $key =
-                $row['kriteria']
-                ?? $key;
+            $key = $row['kriteria'] ?? $key;
 
             if (! $key) {
                 continue;
             }
 
-            $defaultScale =
-                $default['skala'][$key]
-                ?? [];
+            $defaultScale = $default['skala'][$key] ?? [];
 
-            $type =
-                $row['type']
-                ?? (
-                    $defaultScale['type']
-                    ?? 'count'
-                );
+            $type = $row['type'] ?? ($defaultScale['type'] ?? 'count');
 
             /*
             |--------------------------------------------------------------------------
@@ -1452,19 +1008,12 @@ class MitraAwardPeriodResource extends Resource
 
             $thresholds = [];
 
-            foreach (
-                ($row['thresholds'] ?? [])
-                as $value
-            ) {
-                if (
-                    $value === null ||
-                    $value === ''
-                ) {
+            foreach (($row['thresholds'] ?? []) as $value) {
+                if ($value === null || $value === '') {
                     continue;
                 }
 
-                $thresholds[] =
-                    (float) $value;
+                $thresholds[] = (float) $value;
             }
 
             /*
@@ -1475,30 +1024,18 @@ class MitraAwardPeriodResource extends Resource
 
             $labels = [];
 
-            foreach (
-                ($row['labels'] ?? [])
-                as $value
-            ) {
-                if (
-                    $value === null ||
-                    $value === ''
-                ) {
+            foreach (($row['labels'] ?? []) as $value) {
+                if ($value === null || $value === '') {
                     $labels[] = '';
                 } else {
-                    $labels[] =
-                        (string) $value;
+                    $labels[] = (string) $value;
                 }
             }
 
             $skala[$key] = [
-                'type' =>
-                    $type,
-
-                'thresholds' =>
-                    $thresholds,
-
-                'labels' =>
-                    $labels,
+                'type'       => $type,
+                'thresholds' => $thresholds,
+                'labels'     => $labels,
             ];
         }
 
@@ -1508,18 +1045,9 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
-        foreach (
-            ($default['skala'] ?? [])
-            as $key => $scale
-        ) {
-            if (
-                ! array_key_exists(
-                    $key,
-                    $skala
-                )
-            ) {
-                $skala[$key] =
-                    $scale;
+        foreach (($default['skala'] ?? []) as $key => $scale) {
+            if (! array_key_exists($key, $skala)) {
+                $skala[$key] = $scale;
             }
         }
 
@@ -1530,11 +1058,8 @@ class MitraAwardPeriodResource extends Resource
         */
 
         return [
-            'bobot' =>
-                $bobot,
-
-            'skala' =>
-                $skala,
+            'bobot' => $bobot,
+            'skala' => $skala,
         ];
     }
 
@@ -1544,18 +1069,13 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    protected static function getCriteriaUnit(
-        ?string $key
-    ): string {
+    protected static function getCriteriaUnit(?string $key): string
+    {
         if (! $key) {
             return '-';
         }
 
-        return
-            MitraAwardCalculator::CRITERIA_UNITS[
-                $key
-            ]
-            ?? '-';
+        return MitraAwardCalculator::CRITERIA_UNITS[$key] ?? '-';
     }
 
     /*
@@ -1564,46 +1084,29 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    protected static function totalBobotHtml(
-        mixed $state
-    ): HtmlString {
+    protected static function totalBobotHtml(mixed $state): HtmlString
+    {
         $total = 0;
 
         if (is_array($state)) {
-            foreach (
-                $state as $row
-            ) {
+            foreach ($state as $row) {
                 if (! is_array($row)) {
                     continue;
                 }
 
-                $total +=
-                    (float) (
-                        $row['nilai']
-                        ?? 0
-                    );
+                $total += (float) ($row['nilai'] ?? 0);
             }
         }
 
-        $class =
-            abs($total - 100) < 0.001
-                ? 'text-success-600'
-                : 'text-danger-600';
+        $class = abs($total - 100) < 0.001
+            ? 'text-success-600'
+            : 'text-danger-600';
 
-        $formatted =
-            number_format(
-                $total,
-                2,
-                ',',
-                '.'
-            );
+        $formatted = number_format($total, 2, ',', '.');
 
         return new HtmlString(
-            '<span class="font-bold ' .
-            $class .
-            '">' .
-            $formatted .
-            '%</span>'
+            '<span class="font-bold ' . $class . '">' .
+            $formatted . '%</span>'
         );
     }
 
@@ -1613,51 +1116,28 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    protected static function scaleDescription(
-        mixed $state
-    ): HtmlString {
+    protected static function scaleDescription(mixed $state): HtmlString
+    {
         if (! is_array($state)) {
             return new HtmlString('-');
         }
 
-        $type =
-            $state['type']
-            ?? 'count';
-
-        $thresholds =
-            array_values(
-                $state['thresholds']
-                ?? []
-            );
-
-        $labels =
-            array_values(
-                $state['labels']
-                ?? []
-            );
+        $type       = $state['type'] ?? 'count';
+        $thresholds = array_values($state['thresholds'] ?? []);
+        $labels     = array_values($state['labels'] ?? []);
 
         /*
         |--------------------------------------------------------------------------
-        | DOCUMENT
+        | DOCUMENT / LIKERT
         |--------------------------------------------------------------------------
         */
 
         if ($type === 'document') {
-            return static::labelDescription(
-                $labels
-            );
+            return static::labelDescription($labels);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | LIKERT
-        |--------------------------------------------------------------------------
-        */
-
         if ($type === 'likert') {
-            return static::labelDescription(
-                $labels
-            );
+            return static::labelDescription($labels);
         }
 
         /*
@@ -1686,9 +1166,7 @@ class MitraAwardPeriodResource extends Resource
             $items[] =
                 '<div>' .
                 '<span class="font-semibold">0:</span> ≤ ' .
-                e(
-                    (string) $thresholds[0]
-                ) .
+                e((string) $thresholds[0]) .
                 '</div>';
         }
 
@@ -1698,42 +1176,27 @@ class MitraAwardPeriodResource extends Resource
         |--------------------------------------------------------------------------
         */
 
-        foreach (
-            array_slice(
-                $thresholds,
-                1
-            ) as $index => $threshold
-        ) {
-            if (
-                $threshold === null ||
-                $threshold === ''
-            ) {
+        foreach (array_slice($thresholds, 1) as $index => $threshold) {
+            if ($threshold === null || $threshold === '') {
                 continue;
             }
 
-            $score =
-                $index + 1;
+            $score = $index + 1;
 
             $items[] =
                 '<div>' .
-                '<span class="font-semibold">' .
-                $score .
-                ':</span> ≤ ' .
-                e(
-                    (string) $threshold
-                ) .
+                '<span class="font-semibold">' . $score . ':</span> ≤ ' .
+                e((string) $threshold) .
                 '</div>';
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Nilai di atas threshold terakhir
-        | mendapatkan score 4.
+        | Nilai di atas threshold terakhir mendapatkan score 4.
         |--------------------------------------------------------------------------
         */
 
-        $lastThreshold =
-            end($thresholds);
+        $lastThreshold = end($thresholds);
 
         if (
             $lastThreshold !== false &&
@@ -1743,19 +1206,12 @@ class MitraAwardPeriodResource extends Resource
             $items[] =
                 '<div>' .
                 '<span class="font-semibold">4:</span> > ' .
-                e(
-                    (string) $lastThreshold
-                ) .
+                e((string) $lastThreshold) .
                 '</div>';
         }
 
         return new HtmlString(
-            empty($items)
-                ? '-'
-                : implode(
-                    '',
-                    $items
-                )
+            empty($items) ? '-' : implode('', $items)
         );
     }
 
@@ -1765,39 +1221,24 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    protected static function labelDescription(
-        array $labels
-    ): HtmlString {
+    protected static function labelDescription(array $labels): HtmlString
+    {
         $items = [];
 
-        foreach (
-            $labels as $score => $label
-        ) {
-            if (
-                $label === null ||
-                $label === ''
-            ) {
+        foreach ($labels as $score => $label) {
+            if ($label === null || $label === '') {
                 continue;
             }
 
             $items[] =
                 '<div>' .
-                '<span class="font-semibold">' .
-                $score .
-                ':</span> ' .
-                e(
-                    (string) $label
-                ) .
+                '<span class="font-semibold">' . $score . ':</span> ' .
+                e((string) $label) .
                 '</div>';
         }
 
         return new HtmlString(
-            empty($items)
-                ? '-'
-                : implode(
-                    '',
-                    $items
-                )
+            empty($items) ? '-' : implode('', $items)
         );
     }
 }
