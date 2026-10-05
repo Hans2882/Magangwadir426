@@ -1,24 +1,84 @@
 <x-filament-panels::page>
     {{-- Header Database --}}
     <x-filament::section>
-        <div style="display:flex;align-items:center;gap:.75rem;">
-            <div style="padding:.75rem;border-radius:.75rem;background:rgba(59,130,246,.1);">
-                <x-filament::icon
-                    icon="heroicon-o-circle-stack"
-                    style="height:1.5rem;width:1.5rem;"
-                    class="text-primary-500"
-                />
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:.75rem;">
+                <div style="padding:.75rem;border-radius:.75rem;background:rgba(59,130,246,.1);">
+                    <x-filament::icon
+                        icon="heroicon-o-circle-stack"
+                        style="height:1.5rem;width:1.5rem;"
+                        class="text-primary-500"
+                    />
+                </div>
+                <div>
+                    <h2 style="font-size:1.125rem;font-weight:700;">
+                        Database Explorer
+                    </h2>
+                    <p style="font-size:.8rem;color:#6b7280;">
+                        Lihat struktur, isi tabel, dan unduh query SQL.
+                    </p>
+                </div>
             </div>
-            <div>
-                <h2 style="font-size:1.125rem;font-weight:700;">
-                    Database Explorer
-                </h2>
-                <p style="font-size:.8rem;color:#6b7280;">
-                    Lihat struktur, isi tabel, dan unduh query SQL.
-                </p>
+
+            {{-- Filter Tabel + Download Semua --}}
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+                <div style="position:relative;">
+                    <input
+                        type="text"
+                        wire:model.live.debounce.300ms="searchTable"
+                        placeholder="Cari tabel..."
+                        style="
+                            padding:.55rem .75rem .55rem 2rem;
+                            border:1px solid #d1d5db;
+                            border-radius:.5rem;
+                            background:white;
+                            color:#1f2937;
+                            font-size:.85rem;
+                            min-width:220px;
+                        "
+                    />
+                    <x-filament::icon
+                        icon="heroicon-m-magnifying-glass"
+                        style="
+                            position:absolute;
+                            left:.6rem;
+                            top:50%;
+                            transform:translateY(-50%);
+                            height:1rem;
+                            width:1rem;
+                            pointer-events:none;
+                        "
+                        class="text-gray-400"
+                    />
+                </div>
+
+                <x-filament::button
+                    color="success"
+                    icon="heroicon-o-arrow-down-tray"
+                    wire:click="downloadAllSql"
+                    wire:confirm="Download seluruh tabel sebagai satu file SQL?"
+                >
+                    Download Semua
+                </x-filament::button>
             </div>
         </div>
     </x-filament::section>
+
+    @if (count($this->getTables()) === 0)
+        <x-filament::section>
+            <div style="padding:2rem;text-align:center;color:#6b7280;">
+                <x-filament::icon
+                    icon="heroicon-o-magnifying-glass"
+                    style="height:2rem;width:2rem;margin:0 auto .5rem;"
+                    class="text-gray-400"
+                />
+                <p style="font-size:.9rem;">
+                    Tidak ada tabel yang cocok dengan
+                    "<strong>{{ $searchTable }}</strong>".
+                </p>
+            </div>
+        </x-filament::section>
+    @endif
 
     {{-- Navigasi Tabel --}}
     @foreach ($this->getAvailableTableGroups() as $group => $tables)
@@ -101,7 +161,6 @@
         <div style="display:flex;flex-direction:column;gap:1.5rem;">
             @foreach ($this->getAvailableTableGroups() as $group => $tables)
                 <div>
-                    {{-- Nama Grup --}}
                     <div style="
                         display:flex;
                         align-items:center;
@@ -126,7 +185,6 @@
                         </x-filament::badge>
                     </div>
 
-                    {{-- Daftar Tabel --}}
                     <div style="display:flex;flex-direction:column;gap:.75rem;">
                         @foreach ($tables as $table)
                             <details
@@ -138,7 +196,6 @@
                                     background:white;
                                 "
                             >
-                                {{-- Header Tabel --}}
                                 <summary style="
                                     display:flex;
                                     align-items:center;
@@ -187,7 +244,6 @@
                                         </div>
                                     </div>
 
-                                    {{-- Tombol Aksi --}}
                                     <div
                                         style="
                                             display:flex;
@@ -228,7 +284,6 @@
                                     </div>
                                 </summary>
 
-                                {{-- Struktur Kolom --}}
                                 <div style="border-top:1px solid rgba(156,163,175,.2);">
                                     <div style="overflow-x:auto;">
                                         <table style="
@@ -290,44 +345,26 @@
                                                         </td>
                                                         <td style="padding:.75rem 1rem;">
                                                             @if ($column['Null'] === 'YES')
-                                                                <x-filament::badge color="success">
-                                                                    YES
-                                                                </x-filament::badge>
+                                                                <x-filament::badge color="success">YES</x-filament::badge>
                                                             @else
-                                                                <x-filament::badge color="danger">
-                                                                    NO
-                                                                </x-filament::badge>
+                                                                <x-filament::badge color="danger">NO</x-filament::badge>
                                                             @endif
                                                         </td>
                                                         <td style="padding:.75rem 1rem;">
                                                             @if ($column['Key'] === 'PRI')
-                                                                <x-filament::badge color="info">
-                                                                    PRIMARY
-                                                                </x-filament::badge>
+                                                                <x-filament::badge color="info">PRIMARY</x-filament::badge>
                                                             @elseif ($column['Key'] === 'UNI')
-                                                                <x-filament::badge color="success">
-                                                                    UNIQUE
-                                                                </x-filament::badge>
+                                                                <x-filament::badge color="success">UNIQUE</x-filament::badge>
                                                             @elseif ($column['Key'] === 'MUL')
-                                                                <x-filament::badge color="warning">
-                                                                    INDEX
-                                                                </x-filament::badge>
+                                                                <x-filament::badge color="warning">INDEX</x-filament::badge>
                                                             @else
                                                                 <span style="color:#9ca3af;">-</span>
                                                             @endif
                                                         </td>
-                                                        <td style="
-                                                            padding:.75rem 1rem;
-                                                            color:#4b5563;
-                                                            white-space:nowrap;
-                                                        ">
+                                                        <td style="padding:.75rem 1rem;color:#4b5563;white-space:nowrap;">
                                                             {{ $column['Default'] ?? 'NULL' }}
                                                         </td>
-                                                        <td style="
-                                                            padding:.75rem 1rem;
-                                                            color:#4b5563;
-                                                            white-space:nowrap;
-                                                        ">
+                                                        <td style="padding:.75rem 1rem;color:#4b5563;white-space:nowrap;">
                                                             {{ $column['Extra'] ?: '-' }}
                                                         </td>
                                                     </tr>
@@ -350,15 +387,13 @@
             $tableData = $this->getTableData();
             $lastPage = max(
                 1,
-                (int) ceil(
-                    $tableData['total'] / max(1, $perPage)
-                )
+                (int) ceil($tableData['total'] / max(1, $perPage))
             );
         @endphp
 
         <div
             x-data
-            x-on:keydown.escape.window="$wire.set('showDataModal', false)"
+            x-on:keydown.escape.window="$wire.closeDataModal()"
             wire:key="table-data-modal-{{ $selectedTable }}"
             style="
                 position:fixed;
@@ -405,9 +440,61 @@
                     <x-filament::icon-button
                         icon="heroicon-m-x-mark"
                         color="gray"
-                        wire:click="$set('showDataModal', false)"
+                        wire:click="closeDataModal"
                         label="Tutup"
                     />
+                </div>
+
+                {{-- Filter Pencarian Data --}}
+                <div style="
+                    display:flex;
+                    align-items:center;
+                    gap:.5rem;
+                    flex-wrap:wrap;
+                    margin-bottom:1rem;
+                ">
+                    <div style="position:relative;flex:1;min-width:220px;">
+                        <input
+                            type="text"
+                            wire:model.live.debounce.300ms="searchData"
+                            placeholder="Cari di semua kolom..."
+                            style="
+                                width:100%;
+                                box-sizing:border-box;
+                                padding:.55rem .75rem .55rem 2rem;
+                                border:1px solid #d1d5db;
+                                border-radius:.5rem;
+                                background:white;
+                                color:#1f2937;
+                                font-size:.85rem;
+                            "
+                        />
+                        <x-filament::icon
+                            icon="heroicon-m-magnifying-glass"
+                            style="
+                                position:absolute;
+                                left:.6rem;
+                                top:50%;
+                                transform:translateY(-50%);
+                                height:1rem;
+                                width:1rem;
+                                pointer-events:none;
+                            "
+                            class="text-gray-400"
+                        />
+                    </div>
+
+                    @if ($searchData !== '')
+                        <x-filament::button
+                            size="sm"
+                            color="gray"
+                            outlined
+                            icon="heroicon-m-x-mark"
+                            wire:click="$set('searchData', '')"
+                        >
+                            Bersihkan
+                        </x-filament::button>
+                    @endif
                 </div>
 
                 {{-- Pilihan Jumlah Baris --}}
@@ -420,7 +507,11 @@
                     margin-bottom:1rem;
                 ">
                     <div style="font-size:.8rem;color:#6b7280;">
-                        Halaman {{ $page ?? 1 }} dari {{ $lastPage }}
+                        Halaman {{ $dataPage }} dari {{ $lastPage }}
+                        @if ($searchData !== '')
+                            &middot;
+                            hasil filter "{{ $searchData }}"
+                        @endif
                     </div>
 
                     <div style="display:flex;align-items:center;gap:.5rem;">
@@ -498,9 +589,7 @@
                                                 max-width:250px;
                                             ">
                                                 @if (($row[$column] ?? null) === null)
-                                                    <span style="color:#9ca3af;">
-                                                        NULL
-                                                    </span>
+                                                    <span style="color:#9ca3af;">NULL</span>
                                                 @else
                                                     {{ $row[$column] }}
                                                 @endif
@@ -517,7 +606,12 @@
                                                 color:#6b7280;
                                             "
                                         >
-                                            Belum ada data.
+                                            @if ($searchData !== '')
+                                                Tidak ada data yang cocok dengan
+                                                "<strong>{{ $searchData }}</strong>".
+                                            @else
+                                                Belum ada data.
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforelse
@@ -525,11 +619,7 @@
                         </table>
                     </div>
                 @else
-                    <div style="
-                        padding:2rem;
-                        text-align:center;
-                        color:#6b7280;
-                    ">
+                    <div style="padding:2rem;text-align:center;color:#6b7280;">
                         Tidak ada kolom atau data yang dapat ditampilkan.
                     </div>
                 @endif
@@ -558,7 +648,7 @@
                             outlined
                             icon="heroicon-m-chevron-left"
                             wire:click="previousPage"
-                            :disabled="($page ?? 1) <= 1"
+                            :disabled="$dataPage <= 1"
                         >
                             Sebelumnya
                         </x-filament::button>
@@ -568,7 +658,7 @@
                             color:#374151;
                             white-space:nowrap;
                         ">
-                            {{ $page ?? 1 }} / {{ $lastPage }}
+                            {{ $dataPage }} / {{ $lastPage }}
                         </span>
 
                         <x-filament::button
@@ -578,7 +668,7 @@
                             icon="heroicon-m-chevron-right"
                             icon-position="after"
                             wire:click="nextPage"
-                            :disabled="($page ?? 1) >= $lastPage"
+                            :disabled="$dataPage >= $lastPage"
                         >
                             Berikutnya
                         </x-filament::button>
