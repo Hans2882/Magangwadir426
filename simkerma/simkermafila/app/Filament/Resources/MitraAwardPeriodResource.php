@@ -651,78 +651,149 @@ class MitraAwardPeriodResource extends Resource
     */
 
     public static function infolist(Schema $schema): Schema
-    {
-        return $schema->components([
-            Section::make('Informasi Periode')
-                ->schema([
-                    TextEntry::make('nama')
-                        ->label('Nama Periode'),
+{
+    return $schema->components([
+        Section::make('Informasi Periode')
+            ->icon('heroicon-o-calendar-days')
+            ->description('Ringkasan periode award mitra')
+            ->schema([
+                TextEntry::make('nama')
+                    ->label('Nama Periode')
+                    ->weight('bold')
+                    ->size('lg')
+                    ->columnSpanFull(),
 
-                    TextEntry::make('tahun')
-                        ->label('Tahun'),
+                TextEntry::make('tahun')
+                    ->label('Tahun')
+                    ->badge()
+                    ->color('info')
+                    ->icon('heroicon-o-calendar'),
 
-                    TextEntry::make('tanggal_mulai')
-                        ->label('Tanggal Mulai')
-                        ->date('d M Y'),
+                TextEntry::make('is_active')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(
+                        fn (bool $state): string =>
+                            $state ? 'Aktif' : 'Tidak Aktif'
+                    )
+                    ->color(
+                        fn (bool $state): string =>
+                            $state ? 'success' : 'gray'
+                    )
+                    ->icon(
+                        fn (bool $state): string =>
+                            $state
+                                ? 'heroicon-o-check-circle'
+                                : 'heroicon-o-x-circle'
+                    ),
 
-                    TextEntry::make('tanggal_selesai')
-                        ->label('Tanggal Selesai')
-                        ->date('d M Y'),
+                TextEntry::make('scores_count')
+                    ->label('Jumlah Mitra')
+                    ->state(
+                        fn (MitraAwardPeriod $record): int =>
+                            $record->scores()->count()
+                    )
+                    ->badge()
+                    ->color('primary')
+                    ->icon('heroicon-o-users'),
 
-                    TextEntry::make('is_active')
-                        ->label('Status')
-                        ->formatStateUsing(
-                            fn (bool $state): string =>
-                                $state ? 'Aktif' : 'Tidak Aktif'
-                        )
-                        ->badge()
-                        ->color(
-                            fn (bool $state): string =>
-                                $state ? 'success' : 'gray'
-                        ),
-                ])
-                ->columns(2),
+                TextEntry::make('tanggal_mulai')
+                    ->label('Tanggal Mulai')
+                    ->date('d F Y')
+                    ->icon('heroicon-o-play-circle'),
 
-            Section::make('Top 3 Mitra')
-                ->schema([
-                    RepeatableEntry::make('scores')
-                        ->label('')
-                        ->state(
-                            fn (MitraAwardPeriod $record) =>
-                                $record
-                                    ->scores()
-                                    ->with([
-                                        'mitra.kategori',
-                                        'mitra.negara',
-                                    ])
-                                    ->orderBy('ranking')
-                                    ->limit(3)
-                                    ->get()
-                        )
-                        ->schema([
-                            TextEntry::make('ranking')
-                                ->label('Ranking')
-                                ->badge(),
+                TextEntry::make('tanggal_selesai')
+                    ->label('Tanggal Selesai')
+                    ->date('d F Y')
+                    ->icon('heroicon-o-stop-circle'),
 
-                            TextEntry::make('mitra.nama_mitra')
-                                ->label('Mitra'),
+                TextEntry::make('durasi')
+                    ->label('Durasi')
+                    ->icon('heroicon-o-clock')
+                    ->state(function (MitraAwardPeriod $record): string {
+                        if (! $record->tanggal_mulai || ! $record->tanggal_selesai) {
+                            return '-';
+                        }
 
-                            TextEntry::make('mitra.kategori.kategori')
-                                ->label('Kategori')
-                                ->placeholder('-'),
+                        $days = \Carbon\Carbon::parse($record->tanggal_mulai)
+                            ->diffInDays(
+                                \Carbon\Carbon::parse($record->tanggal_selesai)
+                            );
 
-                            TextEntry::make('mitra.negara.nama_negara')
-                                ->label('Negara')
-                                ->placeholder('Indonesia'),
+                        return $days . ' hari';
+                    }),
+            ])
+            ->columns(3)
+            ->columnSpanFull(),
 
-                            TextEntry::make('total_score')
-                                ->label('Total Score')
-                                ->numeric(decimalPlaces: 4),
-                        ])
-                        ->columns(5),
-                ]),
-        ]);
-    }
+        Section::make('Top 3 Mitra')
+            ->icon('heroicon-o-trophy')
+            ->description('Peringkat teratas berdasarkan total score')
+            ->schema([
+                RepeatableEntry::make('scores')
+                    ->hiddenLabel()
+                    ->state(
+                        fn (MitraAwardPeriod $record) =>
+                            $record
+                                ->scores()
+                                ->with([
+                                    'mitra.kategori',
+                                    'mitra.negara',
+                                ])
+                                ->orderBy('ranking')
+                                ->limit(3)
+                                ->get()
+                    )
+                    ->schema([
+                        TextEntry::make('ranking')
+                            ->label('Peringkat')
+                            ->badge()
+                            ->size('lg')
+                            ->formatStateUsing(
+                                fn ($state): string => match ((int) $state) {
+                                    1 => '🥇 #1',
+                                    2 => '🥈 #2',
+                                    3 => '🥉 #3',
+                                    default => '#' . $state,
+                                }
+                            )
+                            ->color(
+                                fn ($state): string => match ((int) $state) {
+                                    1 => 'warning',
+                                    2 => 'gray',
+                                    3 => 'danger',
+                                    default => 'primary',
+                                }
+                            ),
+
+                        TextEntry::make('mitra.nama_mitra')
+                            ->label('Mitra')
+                            ->weight('bold')
+                            ->size('lg'),
+
+                        TextEntry::make('mitra.kategori.kategori')
+                            ->label('Kategori')
+                            ->badge()
+                            ->color('info')
+                            ->placeholder('-'),
+
+                        TextEntry::make('mitra.negara.nama_negara')
+                            ->label('Negara')
+                            ->icon('heroicon-o-globe-alt')
+                            ->placeholder('Indonesia'),
+
+                        TextEntry::make('total_score')
+                            ->label('Total Score')
+                            ->numeric(decimalPlaces: 4)
+                            ->weight('bold')
+                            ->size('lg')
+                            ->color('success'),
+                    ])
+                    ->columns(5),
+            ])
+            ->columnSpanFull(),
+    ]);
+}
 
     /*
     |--------------------------------------------------------------------------
