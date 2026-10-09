@@ -208,9 +208,7 @@ class ScoresRelationManager extends RelationManager
                     ->description('Isi aktivitas kemitraan bidang akademik.')
                     ->schema([
                         Section::make('Kemitraan Akademik')
-                            ->description(
-                                'Masukkan jumlah aktivitas aktual.'
-                            )
+                            ->description('Masukkan jumlah aktivitas aktual.')
                             ->schema([
                                 $this->countField(
                                     'kurikulum',
@@ -537,121 +535,444 @@ class ScoresRelationManager extends RelationManager
             )
 
             ->striped()
-->paginated([10, 25, 50])
-->extraAttributes([
-    'class' => 'text-sm [&_.fi-ta-row>td]:py-2',
-])
+            ->paginated([10, 25, 50])
+            ->extraAttributes([
+                'class' => 'text-sm [&_.fi-ta-row>td]:py-2',
+            ])
 
             ->columns([
-    Tables\Columns\TextColumn::make('ranking')
-        ->label('#')
-        ->badge()
-        ->color(
-            fn ($state): string => match ((int) $state) {
-                1 => 'warning',
-                2 => 'gray',
-                3 => 'orange',
-                default => 'primary',
-            }
-        )
-        ->sortable()
-        ->alignCenter()
-        ->width('60px'),
+                Tables\Columns\TextColumn::make('ranking')
+                    ->label('#')
+                    ->badge()
+                    ->color(
+                        fn ($state): string => match ((int) $state) {
+                            1 => 'warning',
+                            2 => 'gray',
+                            3 => 'orange',
+                            default => 'primary',
+                        }
+                    )
+                    ->sortable()
+                    ->alignCenter()
+                    ->width('60px'),
 
-    Tables\Columns\TextColumn::make('mitra.nama_mitra')
-        ->label('Nama Mitra')
-        ->searchable()
-        ->sortable()
-        ->limit(35)
-        ->tooltip(
-            fn ($record): ?string => $record->mitra?->nama_mitra
-        )
-        ->wrap(false),
+                Tables\Columns\TextColumn::make('mitra.nama_mitra')
+                    ->label('Nama Mitra')
+                    ->searchable()
+                    ->sortable()
+                    ->limit(35)
+                    ->tooltip(
+                        fn ($record): ?string => $record->mitra?->nama_mitra
+                    )
+                    ->wrap(false),
 
-    Tables\Columns\TextColumn::make('mitra.kategori.kategori')
-        ->label('Kategori')
-        ->badge()
-        ->default('-')
-        ->limit(20),
+                Tables\Columns\TextColumn::make('mitra.kategori.kategori')
+                    ->label('Kategori')
+                    ->badge()
+                    ->default('-')
+                    ->limit(20),
 
-    Tables\Columns\TextColumn::make('mitra.negara.nama_negara')
-        ->label('Negara')
-        ->default('Indonesia')
-        ->limit(18),
+                Tables\Columns\TextColumn::make('mitra.negara.nama_negara')
+                    ->label('Negara')
+                    ->default('Indonesia')
+                    ->limit(18),
 
-    Tables\Columns\TextColumn::make('dokumen_score')
-        ->label('Dokumen')
-        ->formatStateUsing(
-            fn ($state): string => $this->documentLevelFromScore(
-                (int) ($state ?? 0)
-            )
-        )
-        ->badge()
-        ->color(
-            fn ($state): string => match ((int) $state) {
-                4 => 'success',
-                3 => 'info',
-                2 => 'warning',
-                1 => 'gray',
-                default => 'danger',
-            }
-        )
-        ->alignCenter(),
+                Tables\Columns\TextColumn::make('dokumen_score')
+                    ->label('Dokumen')
+                    ->formatStateUsing(
+                        fn ($state): string => $this->documentLevelFromScore(
+                            (int) ($state ?? 0)
+                        )
+                    )
+                    ->badge()
+                    ->color(
+                        fn ($state): string => match ((int) $state) {
+                            4 => 'success',
+                            3 => 'info',
+                            2 => 'warning',
+                            1 => 'gray',
+                            default => 'danger',
+                        }
+                    )
+                    ->alignCenter(),
 
-    Tables\Columns\TextColumn::make('total_score')
-        ->label('Score')
-        ->numeric(2)
-        ->sortable()
-        ->weight('bold')
-        ->alignCenter(),
-])
+                Tables\Columns\TextColumn::make('total_score')
+                    ->label('Score')
+                    ->numeric(2)
+                    ->sortable()
+                    ->weight('bold')
+                    ->alignCenter(),
+            ])
 
+            /*
+            |--------------------------------------------------------------------------
+            | FILTERS
+            |--------------------------------------------------------------------------
+            */
             ->filters([
+                /*
+                |------------------------------------------------------------------
+                | SCOPE PESERTA (Top N / Semua)
+                |------------------------------------------------------------------
+                */
                 Tables\Filters\SelectFilter::make('participant_scope')
                     ->label('Tampilkan')
                     ->options([
                         'all' => 'Semua peserta',
                         'top3' => 'Top 3',
+                        'top5' => 'Top 5',
                         'top10' => 'Top 10',
+                        'top25' => 'Top 25',
+                        'top50' => 'Top 50',
+                        'unranked' => 'Belum ada ranking',
                     ])
+                    ->default('all')
                     ->query(
                         function ($query, array $data) {
                             return match ($data['value'] ?? 'all') {
                                 'top3' => $query->where('ranking', '<=', 3),
+                                'top5' => $query->where('ranking', '<=', 5),
                                 'top10' => $query->where('ranking', '<=', 10),
+                                'top25' => $query->where('ranking', '<=', 25),
+                                'top50' => $query->where('ranking', '<=', 50),
+                                'unranked' => $query->whereNull('ranking'),
                                 default => $query,
                             };
                         }
                     ),
+
+                /*
+                |------------------------------------------------------------------
+                | FILTER PESERTA — KATEGORI MITRA
+                |------------------------------------------------------------------
+                */
+                Tables\Filters\SelectFilter::make('kategori_mitra')
+                    ->label('Kategori Mitra')
+                    ->relationship('mitra.kategori', 'kategori')
+                    ->searchable()
+                    ->preload()
+                    ->multiple(),
+
+                /*
+                |------------------------------------------------------------------
+                | FILTER PESERTA — NEGARA
+                |------------------------------------------------------------------
+                */
+                Tables\Filters\SelectFilter::make('negara')
+                    ->label('Negara')
+                    ->relationship('mitra.negara', 'nama_negara')
+                    ->searchable()
+                    ->preload()
+                    ->multiple(),
+
+                /*
+                |------------------------------------------------------------------
+                | FILTER PENILAIAN — LEVEL DOKUMEN
+                |------------------------------------------------------------------
+                */
+                Tables\Filters\SelectFilter::make('dokumen_level')
+                    ->label('Level Dokumen')
+                    ->options([
+                        4 => 'MoU',
+                        3 => 'PKS / SPK',
+                        2 => 'IA',
+                        1 => 'Inisiasi / Tracking',
+                        0 => 'Tidak Ada',
+                    ])
+                    ->multiple()
+                    ->query(
+                        function ($query, array $data) {
+                            $values = array_filter(
+                                (array) ($data['values'] ?? []),
+                                fn ($v) => $v !== null && $v !== ''
+                            );
+
+                            if (empty($values)) {
+                                return $query;
+                            }
+
+                            return $query->whereIn('dokumen_score', $values);
+                        }
+                    ),
+
+                /*
+                |------------------------------------------------------------------
+                | FILTER PENILAIAN — RENTANG SKOR (PRE-SET)
+                |------------------------------------------------------------------
+                */
+                Tables\Filters\SelectFilter::make('score_range')
+                    ->label('Rentang Skor')
+                    ->options([
+                        'excellent' => 'Sangat Tinggi (≥ 80)',
+                        'high' => 'Tinggi (60 – 79,99)',
+                        'medium' => 'Sedang (40 – 59,99)',
+                        'low' => 'Rendah (> 0 – < 40)',
+                        'zero' => 'Belum Dinilai (0)',
+                    ])
+                    ->query(
+                        function ($query, array $data) {
+                            return match ($data['value'] ?? null) {
+                                'excellent' => $query->where('total_score', '>=', 80),
+                                'high' => $query->whereBetween(
+                                    'total_score',
+                                    [60, 79.9999]
+                                ),
+                                'medium' => $query->whereBetween(
+                                    'total_score',
+                                    [40, 59.9999]
+                                ),
+                                'low' => $query
+                                    ->where('total_score', '>', 0)
+                                    ->where('total_score', '<', 40),
+                                'zero' => $query->where(
+                                    fn ($q) => $q
+                                        ->whereNull('total_score')
+                                        ->orWhere('total_score', 0)
+                                ),
+                                default => $query,
+                            };
+                        }
+                    ),
+
+                /*
+                |------------------------------------------------------------------
+                | FILTER PENILAIAN — SKOR KUSTOM (MIN/MAX)
+                |------------------------------------------------------------------
+                */
+                Tables\Filters\Filter::make('score_custom')
+                    ->label('Skor Kustom')
+                    ->form([
+                        Forms\Components\TextInput::make('min_score')
+                            ->label('Skor Minimum')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->placeholder('0'),
+
+                        Forms\Components\TextInput::make('max_score')
+                            ->label('Skor Maksimum')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->placeholder('100'),
+                    ])
+                    ->query(
+                        function ($query, array $data) {
+                            return $query
+                                ->when(
+                                    filled($data['min_score'] ?? null),
+                                    fn ($q) => $q->where(
+                                        'total_score',
+                                        '>=',
+                                        (float) $data['min_score']
+                                    )
+                                )
+                                ->when(
+                                    filled($data['max_score'] ?? null),
+                                    fn ($q) => $q->where(
+                                        'total_score',
+                                        '<=',
+                                        (float) $data['max_score']
+                                    )
+                                );
+                        }
+                    )
+                    ->indicateUsing(
+                        function (array $data): array {
+                            $indicators = [];
+
+                            if (filled($data['min_score'] ?? null)) {
+                                $indicators[] = Tables\Filters\Indicator::make(
+                                    'Min: ' . $data['min_score']
+                                )->removeField('min_score');
+                            }
+
+                            if (filled($data['max_score'] ?? null)) {
+                                $indicators[] = Tables\Filters\Indicator::make(
+                                    'Max: ' . $data['max_score']
+                                )->removeField('max_score');
+                            }
+
+                            return $indicators;
+                        }
+                    ),
+
+                /*
+                |------------------------------------------------------------------
+                | FILTER PENILAIAN — STATUS SUDAH DINILAI
+                |------------------------------------------------------------------
+                */
+                Tables\Filters\TernaryFilter::make('sudah_dinilai')
+                    ->label('Status Penilaian')
+                    ->placeholder('Semua')
+                    ->trueLabel('Sudah Dinilai')
+                    ->falseLabel('Belum Dinilai')
+                    ->queries(
+                        true: fn ($query) => $query->where('total_score', '>', 0),
+                        false: fn ($query) => $query->where(
+                            fn ($q) => $q
+                                ->whereNull('total_score')
+                                ->orWhere('total_score', 0)
+                        ),
+                        blank: fn ($query) => $query,
+                    ),
+
+                /*
+                |------------------------------------------------------------------
+                | FILTER PENILAIAN — INDIKATOR AKTIVITAS
+                |------------------------------------------------------------------
+                */
+                Tables\Filters\Filter::make('indikator_aktivitas')
+                    ->label('Indikator Aktivitas')
+                    ->form([
+                        Forms\Components\Checkbox::make('has_kurikulum')
+                            ->label('Ada aktivitas Kurikulum'),
+
+                        Forms\Components\Checkbox::make('has_magang')
+                            ->label('Ada aktivitas Magang'),
+
+                        Forms\Components\Checkbox::make('has_dosen_industri')
+                            ->label('Ada Dosen Industri'),
+
+                        Forms\Components\Checkbox::make('has_rekrutmen')
+                            ->label('Ada Rekrutmen'),
+
+                        Forms\Components\Checkbox::make('has_penelitian')
+                            ->label('Ada Penelitian'),
+
+                        Forms\Components\Checkbox::make('has_pkm')
+                            ->label('Ada PkM'),
+
+                        Forms\Components\Checkbox::make('has_income')
+                            ->label('Ada Income Generation'),
+
+                        Forms\Components\Checkbox::make('has_nilai_tambah')
+                            ->label('Ada Nilai Tambah'),
+                    ])
+                    ->columns(2)
+                    ->query(
+                        function ($query, array $data) {
+                            if (! empty($data['has_kurikulum'])) {
+                                $query->where('kurikulum', '>', 0);
+                            }
+
+                            if (! empty($data['has_magang'])) {
+                                $query->where('magang', '>', 0);
+                            }
+
+                            if (! empty($data['has_dosen_industri'])) {
+                                $query->where('dosen_industri', '>', 0);
+                            }
+
+                            if (! empty($data['has_rekrutmen'])) {
+                                $query->where('rekrutmen', '>', 0);
+                            }
+
+                            if (! empty($data['has_penelitian'])) {
+                                $query->where(
+                                    fn ($q) => $q
+                                        ->where('penelitian_cash', '>', 0)
+                                        ->orWhere('penelitian_kind', '>', 0)
+                                        ->orWhere('hilirisasi', '>', 0)
+                                );
+                            }
+
+                            if (! empty($data['has_pkm'])) {
+                                $query->where(
+                                    fn ($q) => $q
+                                        ->where('khalayak_pkm', '>', 0)
+                                        ->orWhere('publikasi_bersama', '>', 0)
+                                        ->orWhere('co_hosting', '>', 0)
+                                );
+                            }
+
+                            if (! empty($data['has_income'])) {
+                                $query->where(
+                                    fn ($q) => $q
+                                        ->where('pelatihan_sertifikasi', '>', 0)
+                                        ->orWhere('kajian_tenaga_ahli', '>', 0)
+                                        ->orWhere('hibah_alat', '>', 0)
+                                );
+                            }
+
+                            if (! empty($data['has_nilai_tambah'])) {
+                                $query->where(
+                                    fn ($q) => $q
+                                        ->where('reputasi', '>', 0)
+                                        ->orWhere('perluasan_jejaring', '>', 0)
+                                );
+                            }
+
+                            return $query;
+                        }
+                    )
+                    ->indicateUsing(
+                        function (array $data): array {
+                            $map = [
+                                'has_kurikulum' => 'Kurikulum',
+                                'has_magang' => 'Magang',
+                                'has_dosen_industri' => 'Dosen Industri',
+                                'has_rekrutmen' => 'Rekrutmen',
+                                'has_penelitian' => 'Penelitian',
+                                'has_pkm' => 'PkM',
+                                'has_income' => 'Income Generation',
+                                'has_nilai_tambah' => 'Nilai Tambah',
+                            ];
+
+                            $indicators = [];
+
+                            foreach ($map as $key => $label) {
+                                if (! empty($data[$key])) {
+                                    $indicators[] = Tables\Filters\Indicator::make($label)
+                                        ->removeField($key);
+                                }
+                            }
+
+                            return $indicators;
+                        }
+                    ),
+            ])
+            ->filtersFormColumns(2)
+            ->persistFiltersInSession()
+            ->deferFilters()
+
+            /*
+            |--------------------------------------------------------------------------
+            | HEADER ACTIONS
+            |--------------------------------------------------------------------------
+            */
+            ->headerActions([
+                Action::make('exportExcel')
+                    ->label('Export Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->action(function () {
+                        return Excel::download(
+                            new MitraAwardScoreExport(
+                                $this->ownerRecord->getKey()
+                            ),
+                            'mitra-award-' . $this->ownerRecord->getKey() . '.xlsx'
+                        );
+                    }),
+
+                CreateAction::make()
+                    ->label('Buat Mitra Award Score')
+                    ->icon('heroicon-o-plus')
+                    ->modalHeading('Buat Mitra Award Score')
+                    ->modalDescription(
+                        'Isi penilaian secara bertahap. Skor akhir akan dihitung otomatis.'
+                    )
+                    ->modalWidth('7xl')
+                    ->mutateFormDataUsing(
+                        fn (array $data): array => $this->prepareScoreData($data)
+                    ),
             ])
 
-            ->headerActions([
-    Action::make('exportExcel')
-        ->label('Export Excel')
-        ->icon('heroicon-o-arrow-down-tray')
-        ->color('success')
-        ->action(function () {
-            return Excel::download(
-                new MitraAwardScoreExport(
-                    $this->ownerRecord->getKey()
-                ),
-                'mitra-award-' . $this->ownerRecord->getKey() . '.xlsx'
-            );
-        }),
-
-    CreateAction::make()
-        ->label('Buat Mitra Award Score')
-        ->icon('heroicon-o-plus')
-        ->modalHeading('Buat Mitra Award Score')
-        ->modalDescription(
-            'Isi penilaian secara bertahap. Skor akhir akan dihitung otomatis.'
-        )
-        ->modalWidth('7xl')
-        ->mutateFormDataUsing(
-            fn (array $data): array => $this->prepareScoreData($data)
-        ),
-])
-
+            /*
+            |--------------------------------------------------------------------------
+            | RECORD ACTIONS
+            |--------------------------------------------------------------------------
+            */
             ->recordActions([
                 EditAction::make()
                     ->label('Edit Penilaian')
@@ -753,9 +1074,7 @@ class ScoresRelationManager extends RelationManager
         }
 
         return Section::make('Panduan Skala & Bobot')
-            ->description(
-                'Panduan pengisian indikator.'
-            )
+            ->description('Panduan pengisian indikator.')
             ->schema($schema)
             ->collapsed()
             ->columns(1)
