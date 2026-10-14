@@ -78,7 +78,7 @@ class MitraAwardPeriodResource extends Resource
 
                     TextInput::make('tahun')
                         ->label('Tahun')
-                        ->numeric()
+                        ->numeric(decimalPlaces: 2)
                         ->required()
                         ->minValue(2000)
                         ->maxValue(2100),
@@ -389,7 +389,7 @@ class MitraAwardPeriodResource extends Resource
 
                                 TextInput::make('nilai')
                                     ->label('Bobot (%)')
-                                    ->numeric()
+                                    ->numeric(decimalPlaces: 2)
                                     ->minValue(0)
                                     ->maxValue(100)
                                     ->step(0.1)
@@ -460,7 +460,7 @@ class MitraAwardPeriodResource extends Resource
 
                             TextInput::make("skala.{$key}.thresholds.0")
                                 ->label('Batas 1')
-                                ->numeric()
+                                ->numeric(decimalPlaces: 2)
                                 ->required()
                                 ->visible(
                                     fn (Get $get): bool =>
@@ -479,7 +479,7 @@ class MitraAwardPeriodResource extends Resource
 
                             TextInput::make("skala.{$key}.thresholds.1")
                                 ->label('Batas 2')
-                                ->numeric()
+                                ->numeric(decimalPlaces: 2)
                                 ->required()
                                 ->visible(
                                     fn (Get $get): bool =>
@@ -517,7 +517,7 @@ class MitraAwardPeriodResource extends Resource
 
                             TextInput::make("skala.{$key}.thresholds.3")
                                 ->label('Batas 4')
-                                ->numeric()
+                                ->numeric(decimalPlaces: 2)
                                 ->required()
                                 ->visible(
                                     fn (Get $get): bool =>
@@ -784,7 +784,7 @@ class MitraAwardPeriodResource extends Resource
 
                         TextEntry::make('total_score')
                             ->label('Total Score')
-                            ->numeric(decimalPlaces: 4)
+                            ->numeric(decimalPlaces: 2)
                             ->weight('bold')
                             ->size('lg')
                             ->color('success'),

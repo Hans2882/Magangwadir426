@@ -942,18 +942,20 @@ class ScoresRelationManager extends RelationManager
             |--------------------------------------------------------------------------
             */
             ->headerActions([
-                Action::make('exportExcel')
-                    ->label('Export Excel')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('success')
-                    ->action(function () {
-                        return Excel::download(
-                            new MitraAwardScoreExport(
-                                $this->ownerRecord->getKey()
-                            ),
-                            'mitra-award-' . $this->ownerRecord->getKey() . '.xlsx'
-                        );
-                    }),
+    Action::make('exportExcel')
+        ->label('Export Excel')
+        ->icon('heroicon-o-arrow-down-tray')
+        ->color('success')
+        ->action(function () {
+    $period = $this->ownerRecord;
+
+    $fileName = \Illuminate\Support\Str::slug($period->nama) . '.xlsx';
+
+    return Excel::download(
+        new MitraAwardScoreExport($period->getKey()),
+        $fileName
+    );
+}),
 
                 CreateAction::make()
                     ->label('Buat Mitra Award Score')
