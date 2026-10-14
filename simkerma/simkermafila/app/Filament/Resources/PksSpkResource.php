@@ -38,6 +38,24 @@ class PksSpkResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function canViewAny(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canViewAny();
+    }
+
+    public static function canCreate(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canCreate();
+    }
+
     public static function getEloquentQuery(): Builder
     {
         // 3 = PKS, 5 = SPK

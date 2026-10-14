@@ -109,7 +109,7 @@ class PermintaanKerjasamasTable
                         $record->update(['status_permintaan' => 'Disetujui']);
                         \Filament\Notifications\Notification::make()->title('Mitra Resmi Ditambahkan')->success()->send();
                     })
-                    ->visible(fn ($record) => $record->status_permintaan === 'Proses'),
+                    ->visible(fn ($record) => $record->status_permintaan === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
                     
                 Action::make('tolak')
                     ->label('Tolak')
@@ -128,7 +128,7 @@ class PermintaanKerjasamasTable
                         ]);
                         \Filament\Notifications\Notification::make()->title('Permintaan Ditolak')->success()->send();
                     })
-                    ->visible(fn ($record) => $record->status_permintaan === 'Proses'),
+                    ->visible(fn ($record) => $record->status_permintaan === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
                     
                 ViewAction::make(),
                 EditAction::make(),

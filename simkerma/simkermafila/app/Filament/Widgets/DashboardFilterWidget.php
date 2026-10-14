@@ -21,6 +21,11 @@ class DashboardFilterWidget extends Widget implements HasForms
 
     protected static ?int $sort = 4;
 
+    public static function canView(): bool
+    {
+        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+    }
+
     protected int | string | array $columnSpan = 'full';
 
     public ?string $preset = 'this_year';

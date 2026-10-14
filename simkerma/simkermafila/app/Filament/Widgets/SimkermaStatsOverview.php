@@ -12,6 +12,11 @@ class SimkermaStatsOverview extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+    }
+
     protected function getStats(): array
     {
         $mitraDN = Mitra::whereNull('negara_id')->orWhere('negara_id', '<', 1)->count();

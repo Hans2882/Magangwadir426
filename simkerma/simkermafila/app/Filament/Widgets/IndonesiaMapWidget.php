@@ -8,6 +8,12 @@ class IndonesiaMapWidget extends Widget
 { 
     protected static ?string $heading = 'Peta Sebaran Kerjasama'; 
     protected static ?int $sort = 1; 
+
+    public static function canView(): bool
+    {
+        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+    }
+
     protected int | string | array $columnSpan = 'full'; 
     protected string $view = 'filament.widgets.indonesia-map-widget'; 
 

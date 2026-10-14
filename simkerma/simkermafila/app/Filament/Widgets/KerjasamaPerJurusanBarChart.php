@@ -15,6 +15,11 @@ class KerjasamaPerJurusanBarChart extends ChartWidget
 
     protected static ?int $sort = 8;
 
+    public static function canView(): bool
+    {
+        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+    }
+
     protected ?string $maxHeight = '380px';
 
     protected int | string | array $columnSpan = 'full';

@@ -28,6 +28,15 @@ class UsulanKerjasamaResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+    public static function canViewAny(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canViewAny();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UsulanKerjasamaForm::configure($schema);

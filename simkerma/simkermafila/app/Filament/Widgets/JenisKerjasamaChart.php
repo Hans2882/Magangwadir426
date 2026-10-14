@@ -12,6 +12,11 @@ class JenisKerjasamaChart extends ChartWidget
 
     protected static ?int $sort = 2;
 
+    public static function canView(): bool
+    {
+        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+    }
+
     protected int | string | array $columnSpan = 1;
 
     protected string $view = 'filament.widgets.pie-chart-with-details';

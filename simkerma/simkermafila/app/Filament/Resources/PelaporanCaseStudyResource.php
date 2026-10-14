@@ -30,10 +30,52 @@ class PelaporanCaseStudyResource extends Resource
 
     protected static ?int $navigationSort = 7;
 
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return true;
+    }
+
+    public static function canCreate(): bool
+    {
+        return true;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canEdit($record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canDelete($record);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canDeleteAny();
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['mitra'])
+            ->with(['mitra', 'pengusul'])
             ->where('jenis_dokumen_id', 8);
     }
 
@@ -42,7 +84,7 @@ class PelaporanCaseStudyResource extends Resource
         return $schema->schema([
             Forms\Components\FileUpload::make('link_dokumen')
                 ->label('Berkas Case Study')
-                ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                ->required()
                 ->validationMessages(['required' => 'Berkas wajib diunggah.'])
                 ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
@@ -102,8 +144,16 @@ class PelaporanCaseStudyResource extends Resource
             Forms\Components\Toggle::make('is_mitra_anonim')
                 ->label('Sembunyikan Nama Mitra untuk Publik (Anonymize)'),
             Forms\Components\Hidden::make('jenis_dokumen_id')->default(8),
-            Forms\Components\Hidden::make('status_workflow')->default('Selesai'),
+            Forms\Components\Hidden::make('status_workflow')->default(fn () => \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'Proses' : 'Selesai'),
+            Forms\Components\Hidden::make('user_id')->default(fn () => \Illuminate\Support\Facades\Auth::id()),
             Forms\Components\Hidden::make('jenis_pengajuan')->default('Baru'),
+            \Filament\Schemas\Components\Section::make('Catatan Penolakan')
+                ->schema([
+                    \Filament\Forms\Components\Placeholder::make('feedback_placeholder')
+                        ->label('')
+                        ->content(fn ($record) => $record?->feedback ?: '-'),
+                ])
+                ->visible(fn ($record) => $record && $record->status_workflow === 'Ditolak'),
             Forms\Components\Select::make('jenis')
                 ->label('Cakupan (DN/LN)')
                 ->options([
@@ -151,12 +201,23 @@ class PelaporanCaseStudyResource extends Resource
         return $schema->schema([
             \Filament\Schemas\Components\Section::make('Detail Pelaporan Case Study')->columnSpan('full')
                 ->schema([
+                    \Filament\Infolists\Components\TextEntry::make('status_workflow')
+                        ->label('Status Approval')
+                        ->badge()
+                        ->color(fn ($state) => match ($state) {
+                            'Proses' => 'warning',
+                            'Selesai' => 'success',
+                            'Ditolak' => 'danger',
+                            default => 'primary',
+                        }),
+                    \Filament\Infolists\Components\TextEntry::make('pengusul.name')
+                        ->label('Pengusul')
+                        ->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('jenis')
                         ->label('Cakupan (DN/LN)')
                         ->badge()
                         ->color(fn ($state) => $state === 'Dalam Negeri' ? 'success' : 'warning')
-                        ->icon(fn ($state) => $state === 'Dalam Negeri' ? 'heroicon-o-building-office' : 'heroicon-o-globe-americas')
-                        ->columnSpanFull(),
+                        ->icon(fn ($state) => $state === 'Dalam Negeri' ? 'heroicon-o-building-office' : 'heroicon-o-globe-americas'),
                     \Filament\Infolists\Components\TextEntry::make('judul')
                         ->label('Judul Laporan / Kegiatan')
                         ->columnSpanFull(),
@@ -170,6 +231,7 @@ class PelaporanCaseStudyResource extends Resource
                         })
                         ->url(function ($record) {
                             if (!$record->parent) return null;
+                            if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) return null;
                             $panel = filament()->getCurrentPanel()->getId();
                             return match ($record->parent->jenis_dokumen_id) {
                                 1 => route("filament.{$panel}.resources.data-mou.view", ['record' => $record->parent_id]),
@@ -215,8 +277,9 @@ class PelaporanCaseStudyResource extends Resource
                         ->icon('heroicon-o-document-arrow-down')
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('feedback')
-                        ->label('Feedback / Catatan Evaluasi')
+                        ->label('Alasan Penolakan / Catatan Evaluasi')
                         ->default('-')
+                        ->color(fn ($record) => $record->status_workflow === 'Ditolak' ? 'danger' : 'gray')
                         ->columnSpanFull(),
                 ])->columns(2),
         ]);
@@ -229,13 +292,29 @@ class PelaporanCaseStudyResource extends Resource
                 Tables\Columns\TextColumn::make('judul')
                     ->label('Judul')
                     ->searchable()
-                    ->limit(50)
+                    ->limit(40)
                     ->tooltip(fn ($record) => $record->judul),
                 Tables\Columns\TextColumn::make('mitra.nama_mitra')
                     ->label('Nama Mitra')
                     ->searchable()
-                    ->limit(30)
+                    ->limit(25)
                     ->tooltip(fn ($record) => $record->mitra?->nama_mitra),
+                Tables\Columns\TextColumn::make('pengusul.name')
+                    ->label('Pengusul')
+                    ->searchable()
+                    ->default('-')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('status_workflow')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Proses' => 'warning',
+                        'Selesai' => 'success',
+                        'Ditolak' => 'danger',
+                        default => 'primary',
+                    })
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('negara')
                     ->label('Negara')
                     ->getStateUsing(function ($record) {
@@ -270,9 +349,48 @@ class PelaporanCaseStudyResource extends Resource
                     ->wrap(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('status_workflow')
+                    ->label('Status')
+                    ->options([
+                        'Proses' => 'Proses',
+                        'Selesai' => 'Selesai',
+                        'Ditolak' => 'Ditolak',
+                    ]),
             ])
             ->actions([
+                \Filament\Actions\Action::make('setujui')
+                    ->label('Setujui')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Setujui Pelaporan Case Study')
+                    ->modalDescription('Apakah Anda yakin ingin menyetujui laporan case study ini?')
+                    ->action(function ($record) {
+                        $record->update(['status_workflow' => 'Selesai']);
+                        \Filament\Notifications\Notification::make()->title('Pelaporan Case Study Disetujui')->success()->send();
+                    })
+                    ->visible(fn ($record) => $record->status_workflow === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
+
+                \Filament\Actions\Action::make('tolak')
+                    ->label('Tolak')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Tolak Pelaporan Case Study')
+                    ->form([
+                        Forms\Components\Textarea::make('feedback')
+                            ->label('Alasan Penolakan')
+                            ->required(),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'status_workflow' => 'Ditolak',
+                            'feedback' => $data['feedback'],
+                        ]);
+                        \Filament\Notifications\Notification::make()->title('Pelaporan Case Study Ditolak')->success()->send();
+                    })
+                    ->visible(fn ($record) => $record->status_workflow === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
+
                 \Filament\Actions\ViewAction::make()->slideOver(),
                 \Filament\Actions\EditAction::make()->slideOver(),
                 \Filament\Actions\DeleteAction::make(),

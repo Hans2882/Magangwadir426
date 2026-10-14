@@ -16,4 +16,12 @@ class Templat extends Page
     
     protected static ?string $title = 'Download Templat Dokumen';
 
+    public static function canAccess(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return true;
+    }
 }

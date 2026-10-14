@@ -28,6 +28,15 @@ class KuisionerKepuasanResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
+    public static function canViewAny(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canViewAny();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([

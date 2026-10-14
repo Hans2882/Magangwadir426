@@ -59,6 +59,15 @@ class MitraAwardPeriodResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function canViewAny(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return parent::canViewAny();
+    }
+
     /*
     |--------------------------------------------------------------------------
     | FORM

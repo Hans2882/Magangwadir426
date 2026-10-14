@@ -79,19 +79,23 @@ public function getFilamentName(): string
     return $this->name;
 }
 
-public function canAccessPanel(Panel $panel): bool
-{
-    $isAdmin = $this->userPrivilege?->privilege?->is_admin_panel ?? false;
-    
-    if ($panel->getId() === 'admin') {
-        return $isAdmin;
+    public function isMahasiswa(): bool
+    {
+        return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Mahasiswa') === 0;
     }
 
-    if ($panel->getId() === 'user') {
-        return true; // All authenticated users can access the user panel
+    public function canAccessPanel(Panel $panel): bool
+    {
+        $isAdmin = $this->userPrivilege?->privilege?->is_admin_panel ?? false;
+        
+        if ($panel->getId() === 'admin') {
+            return $isAdmin;
+        }
+
+        if ($panel->getId() === 'user') {
+            return true; // All authenticated users can access the user panel
+        }
+
+        return false;
     }
-
-    return false;
-}
-
 }

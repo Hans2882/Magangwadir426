@@ -28,6 +28,15 @@ class TrackingInisialisasiKerjasama extends Page implements HasForms, HasTable
 
     protected string $view = 'filament.pages.tracking-inisialisasi-kerjasama';
 
+    public static function canAccess(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        return true;
+    }
+
     public function table(Table $table): Table
     {
         return $table

@@ -16,6 +16,11 @@ class PertumbuhanMouAktifChart extends ChartWidget
 
     protected static ?int $sort = 6;
 
+    public static function canView(): bool
+    {
+        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+    }
+
     protected ?string $maxHeight = '320px';
 
     protected int | string | array $columnSpan = 2;

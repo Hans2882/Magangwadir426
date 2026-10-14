@@ -16,6 +16,11 @@ class KerjasamaMatiBulananChart extends ChartWidget
 
     protected static ?int $sort = 7;
 
+    public static function canView(): bool
+    {
+        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+    }
+
     protected ?string $maxHeight = '340px';
 
     protected int | string | array $columnSpan = 2;

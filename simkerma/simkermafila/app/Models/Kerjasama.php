@@ -48,6 +48,7 @@ class Kerjasama extends Model
 
     protected $fillable = [
         'parent_id',
+        'user_id',
         'feedback',
         'mitra_id',
         'provinsi_id',
@@ -76,6 +77,11 @@ class Kerjasama extends Model
         'tanggal_akhir' => 'date',
         'is_mitra_anonim' => 'boolean',
     ];
+
+    public function pengusul(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 
     public function mitra(): BelongsTo
     {
