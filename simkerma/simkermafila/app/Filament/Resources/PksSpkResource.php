@@ -22,6 +22,7 @@ class PksSpkResource extends Resource
 {
     use \App\Filament\Resources\Traits\HasKerjasamaLocationFormSchema;
     use HasMitraFormSchema;
+
     protected static ?string $model = Kerjasama::class;
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-document-check';
@@ -40,7 +41,7 @@ class PksSpkResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // 3 = PKS, 5 = SPK
+        // 2 = MoA, 3 = PKS, 5 = SPK, 6 = LoC
         return parent::getEloquentQuery()
             ->with(['mitra', 'provinsi', 'kota'])
             ->whereIn('jenis_dokumen_id', [2, 3, 5, 6]);
@@ -79,7 +80,12 @@ class PksSpkResource extends Resource
                             return "{$sequence}_{$type}_{$originalName}";
                         })
                         ->columnSpanFull(),
-                    Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255)->columnSpanFull(),
+
+                    Forms\Components\TextInput::make('judul')
+                        ->label('Judul')
+                        ->maxLength(255)
+                        ->columnSpanFull(),
+
                     Forms\Components\Select::make('jenis_dokumen_id')
                         ->label('Jenis Dokumen')
                         ->options([
@@ -92,12 +98,13 @@ class PksSpkResource extends Resource
                         ->native(false)
                         ->live()
                         ->afterStateUpdated(function ($state, callable $set) {
-                            if (in_array($state, [2, 6])) { // MoA, LoC usually Luar Negeri
+                            if (in_array($state, [2, 6])) {
                                 $set('jenis', 'Luar Negeri');
-                            } else if (in_array($state, [3, 5])) { // PKS, SPK usually Dalam Negeri
+                            } else if (in_array($state, [3, 5])) {
                                 $set('jenis', 'Dalam Negeri');
                             }
                         }),
+
                     Forms\Components\Select::make('parent_id')
                         ->label('Referensi MoU')
                         ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
@@ -131,12 +138,13 @@ class PksSpkResource extends Resource
                         ->afterStateUpdated(function ($state, Set $set) {
                             $mou = \App\Models\Kerjasama::query()
                                 ->where('mitra_id', $state)
-                                ->where('jenis_dokumen_id', 1) // MoU
+                                ->where('jenis_dokumen_id', 1)
                                 ->latest('tanggal_awal')
                                 ->first();
                             $set('parent_id', $mou?->id);
                         })
                         ->required(),
+
                     Forms\Components\Select::make('jenis')
                         ->label('Cakupan (DN/LN)')
                         ->options([
@@ -145,7 +153,9 @@ class PksSpkResource extends Resource
                         ])
                         ->required()
                         ->default('Dalam Negeri'),
+
                     ...static::getKerjasamaLocationFormSchema(),
+
                     Forms\Components\Select::make('bidang_id')
                         ->label('Bidang Kerjasama')
                         ->relationship('bidang', 'bidang_kerjasama')
@@ -187,6 +197,7 @@ class PksSpkResource extends Resource
                                 }
                             };
                         }),
+
                     Forms\Components\TextInput::make('nomor_dokumen_mitra')
                         ->label('Nomor Dokumen Mitra')
                         ->maxLength(100)
@@ -200,6 +211,7 @@ class PksSpkResource extends Resource
                                 $component->state(trim($parts[1] ?? ''));
                             }
                         }),
+
                     Forms\Components\Hidden::make('nomor_dokumen')
                         ->dehydrateStateUsing(function (\Filament\Schemas\Components\Utilities\Get $get) {
                             $pol = trim($get('nomor_dokumen_polinema') ?? '');
@@ -215,8 +227,14 @@ class PksSpkResource extends Resource
                             }
                             return $pol . "\n" . $mit;
                         }),
-                    Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
-                    Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+
+                    Forms\Components\DatePicker::make('tanggal_awal')
+                        ->label('Tanggal Berlaku')
+                        ->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+
+                    Forms\Components\DatePicker::make('tanggal_akhir')
+                        ->label('Tanggal Akhir')
+                        ->required(fn ($get) => $get('status_workflow') === 'Selesai'),
                 ])
                 ->columns(2),
 
@@ -227,20 +245,16 @@ class PksSpkResource extends Resource
                         ->relationship('jurusans', 'nama_jurusan')
                         ->multiple()
                         ->preload()
-                        ->searchable()
-                        ->live()
-                        ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
+                        ->searchable(),
+
+                    // Prodi sekarang langsung dari master_program_studi (tanpa filter jurusan)
                     Forms\Components\Select::make('prodis')
                         ->label('Program Studi')
-                        ->relationship('prodis', 'nama_prodi', function ($query, callable $get) {
-                            $jurusans = $get('jurusans');
-                            if (!empty($jurusans)) {
-                                $query->whereIn('jurusan_id', $jurusans);
-                            }
-                        })
+                        ->relationship('prodis', 'nama_prodi')
                         ->multiple()
                         ->preload()
                         ->searchable(),
+
                     Forms\Components\Select::make('status_workflow')
                         ->label('Status Proses')
                         ->options([
@@ -253,6 +267,7 @@ class PksSpkResource extends Resource
                         ->default('Draft')
                         ->live()
                         ->required(),
+
                     Forms\Components\Select::make('jenis_pengajuan')
                         ->label('Jenis Pengajuan')
                         ->options([
@@ -261,12 +276,21 @@ class PksSpkResource extends Resource
                         ])
                         ->default('Baru')
                         ->required(),
-                    Forms\Components\TextInput::make('link_perbaikan')->label('Link Perbaikan')->url()->maxLength(500),
-                    Forms\Components\TextInput::make('bukti_kegiatan')->label('Bukti Kegiatan')->url()->maxLength(500),
+
+                    Forms\Components\TextInput::make('link_perbaikan')
+                        ->label('Link Perbaikan')
+                        ->url()
+                        ->maxLength(500),
+
+                    Forms\Components\TextInput::make('bukti_kegiatan')
+                        ->label('Bukti Kegiatan')
+                        ->url()
+                        ->maxLength(500),
                 ])
                 ->columns(2),
         ]);
     }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -283,12 +307,14 @@ class PksSpkResource extends Resource
                         default => 'gray',
                     })
                     ->sortable(),
+
                 Tables\Columns\TextColumn::make('judul')
                     ->label('Judul')
                     ->searchable()
                     ->sortable()
                     ->limit(50)
                     ->tooltip(fn ($record) => $record->judul),
+
                 Tables\Columns\TextColumn::make('mitra.nama_mitra')
                     ->label('Nama Mitra')
                     ->searchable()
@@ -296,10 +322,11 @@ class PksSpkResource extends Resource
                     ->limit(50)
                     ->tooltip(fn ($record) => $record->mitra?->nama_mitra)
                     ->default('-'),
+
                 Tables\Columns\TextColumn::make('link_dokumen')
                     ->label('Dokumen')
                     ->formatStateUsing(fn ($state) => $state && $state !== '-' ? 'Lihat' : '-')
-                    ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
+                    ->url(fn ($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
                     ->openUrlInNewTab()
                     ->badge()
                     ->icon(fn ($state) => $state && $state !== '-' ? 'heroicon-o-eye' : null)
@@ -310,33 +337,40 @@ class PksSpkResource extends Resource
                         'onmouseout' => "this.style.opacity='1'",
                     ] : [])
                     ->default('-'),
+
                 Tables\Columns\TextColumn::make('prodis.nama_prodi')
                     ->label('Program Studi')
                     ->badge()
                     ->searchable()
                     ->default('-'),
+
                 Tables\Columns\TextColumn::make('jurusans')
                     ->label('Jurusan')
                     ->badge()
                     ->getStateUsing(fn ($record) => $record->jurusans->pluck('nama_jurusan')->unique()->all())
                     ->default('-'),
+
                 Tables\Columns\TextColumn::make('nomor_dokumen')
                     ->label('Nomor Dokumen')
                     ->searchable()
                     ->default('-'),
+
                 Tables\Columns\TextColumn::make('tahun')
                     ->label('Tahun')
                     ->sortable()
                     ->default('-')
                     ->alignCenter(),
+
                 Tables\Columns\TextColumn::make('tanggal_awal')
                     ->label('Tgl. Awal')
                     ->date('d/m/Y')
                     ->sortable(),
+
                 Tables\Columns\TextColumn::make('tanggal_akhir')
                     ->label('Tgl. Akhir')
                     ->date('d/m/Y')
                     ->sortable(),
+
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Status')
                     ->getStateUsing(fn (Model $record) => $record->status)
@@ -348,85 +382,79 @@ class PksSpkResource extends Resource
             ])
             ->paginated([10, 25, 50, 100])
             ->filters([
-    Tables\Filters\SelectFilter::make('jenis_dokumen_id')
-        ->label('Jenis Dokumen')
-        ->options([
-            2 => 'MoA',
-            3 => 'PKS',
-            5 => 'SPK',
-            6 => 'LoC',
-        ]),
+                Tables\Filters\SelectFilter::make('jenis_dokumen_id')
+                    ->label('Jenis Dokumen')
+                    ->options([
+                        2 => 'MoA',
+                        3 => 'PKS',
+                        5 => 'SPK',
+                        6 => 'LoC',
+                    ]),
 
-    Tables\Filters\Filter::make('jurusan_prodi')
-        ->form([
-            \Filament\Forms\Components\Select::make('jurusans')
-                ->label('Jurusan')
-                ->options(\App\Models\MasterJurusan::pluck('nama_jurusan', 'id'))
-                ->multiple()
-                ->searchable()
-                ->preload()
-                ->live()
-                ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
-                
-            \Filament\Forms\Components\Select::make('prodis')
-                ->label('Program Studi')
-                ->options(function (callable $get) {
-                    $jurusans = $get('jurusans');
-                    if (!empty($jurusans)) {
-                        return \App\Models\MasterProgramStudi::whereIn('jurusan_id', $jurusans)->pluck('nama_prodi', 'id');
-                    }
-                    return \App\Models\MasterProgramStudi::pluck('nama_prodi', 'id');
-                })
-                ->multiple()
-                ->searchable()
-                ->preload(),
-        ])
-        ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
-            return $query
-                ->when(
-                    $data['jurusans'] ?? null,
-                    fn (\Illuminate\Database\Eloquent\Builder $query, $jurusans) => $query->whereHas('jurusans', fn ($query) => $query->whereIn('master_jurusans.id', $jurusans))
-                )
-                ->when(
-                    $data['prodis'] ?? null,
-                    fn (\Illuminate\Database\Eloquent\Builder $query, $prodis) => $query->whereHas('prodis', fn ($query) => $query->whereIn('master_program_studis.id', $prodis))
-                );
-        }),
-        
-    Tables\Filters\SelectFilter::make('bidang')
-        ->label('Bidang Kerjasama')
-        ->relationship('bidang', 'bidang_kerjasama')
-        ->searchable()
-        ->preload(),
+                // Filter Jurusan & Prodi terpisah (tidak saling bergantung)
+                Tables\Filters\Filter::make('jurusan_prodi')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('jurusans')
+                            ->label('Jurusan')
+                            ->options(\App\Models\MasterJurusan::pluck('nama_jurusan', 'id'))
+                            ->multiple()
+                            ->searchable()
+                            ->preload(),
 
-    Tables\Filters\SelectFilter::make('status')
-        ->label('Status')
-        ->options([
-            'AKTIF' => 'Aktif',
-            'AKAN BERAKHIR' => 'Akan Berakhir',
-            'BERAKHIR' => 'Berakhir',
-        ])
-        ->default('AKTIF')
-        ->query(function (Builder $query, array $data): Builder {
+                        \Filament\Forms\Components\Select::make('prodis')
+                            ->label('Program Studi')
+                            ->options(\App\Models\MasterProgramStudi::pluck('nama_prodi', 'id'))
+                            ->multiple()
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['jurusans'] ?? null,
+                                fn (Builder $query, $jurusans) => $query->whereHas(
+                                    'jurusans',
+                                    fn ($q) => $q->whereIn('master_jurusans.id', $jurusans)
+                                )
+                            )
+                            ->when(
+                                $data['prodis'] ?? null,
+                                fn (Builder $query, $prodis) => $query->whereHas(
+                                    'prodis',
+                                    fn ($q) => $q->whereIn('master_program_studi.id', $prodis)
+                                )
+                            );
+                    }),
 
-            return match ($data['value'] ?? null) {
+                Tables\Filters\SelectFilter::make('bidang')
+                    ->label('Bidang Kerjasama')
+                    ->relationship('bidang', 'bidang_kerjasama')
+                    ->searchable()
+                    ->preload(),
 
-                'AKTIF' => $query->where(function ($q) {
-    $q->whereNull('tanggal_akhir')
-      ->orWhereDate('tanggal_akhir', '>', now()->addMonth());
-}),
-
-                'MAU HABIS' => $query
-                    ->whereDate('tanggal_akhir', '>=', now())
-                    ->whereDate('tanggal_akhir', '<=', now()->addMonth()),
-
-                'HABIS' => $query
-                    ->whereDate('tanggal_akhir', '<', now()),
-
-                default => $query,
-            };
-        }),
-])
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
+                    ->options([
+                        'AKTIF' => 'Aktif',
+                        'AKAN BERAKHIR' => 'Akan Berakhir',
+                        'BERAKHIR' => 'Berakhir',
+                    ])
+                    ->default('AKTIF')
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'AKTIF' => $query->where(function ($q) {
+                                $q->whereNull('tanggal_akhir')
+                                  ->orWhereDate('tanggal_akhir', '>', now()->addMonth());
+                            }),
+                            'AKAN BERAKHIR' => $query
+                                ->whereDate('tanggal_akhir', '>=', now())
+                                ->whereDate('tanggal_akhir', '<=', now()->addMonth()),
+                            'BERAKHIR' => $query
+                                ->whereDate('tanggal_akhir', '<', now()),
+                            default => $query,
+                        };
+                    }),
+            ])
             ->actions([
                 \Filament\Actions\ViewAction::make(),
                 \Filament\Actions\EditAction::make(),
@@ -441,116 +469,148 @@ class PksSpkResource extends Resource
         return $schema->schema([
             \Filament\Schemas\Components\Section::make('Detail PKS / SPK')->columnSpan('full')
                 ->schema([
-                    \Filament\Infolists\Components\TextEntry::make('jenisDokumen.nama')->label('Jenis Dokumen')->badge()
+                    \Filament\Infolists\Components\TextEntry::make('jenisDokumen.nama')
+                        ->label('Jenis Dokumen')
+                        ->badge()
                         ->color(fn ($state) => match ($state) {
                             'PKS' => 'primary',
                             'SPK' => 'info',
                             default => 'gray',
                         }),
-                    \Filament\Infolists\Components\TextEntry::make('judul')->label('Judul')->columnSpanFull(),
+
+                    \Filament\Infolists\Components\TextEntry::make('judul')
+                        ->label('Judul')
+                        ->columnSpanFull(),
+
                     \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')
-    ->label('Nama Mitra')
-    ->default('-')
-    ->color('primary')
-    ->url(fn ($record) => $record->mitra
-        ? \App\Filament\Resources\MitraResource::getUrl('view', [
-            'record' => $record->mitra,
-        ])
-        : null
-    )
-    ->openUrlInNewTab(),
+                        ->label('Nama Mitra')
+                        ->default('-')
+                        ->color('primary')
+                        ->url(fn ($record) => $record->mitra
+                            ? \App\Filament\Resources\MitraResource::getUrl('view', [
+                                'record' => $record->mitra,
+                            ])
+                            : null
+                        )
+                        ->openUrlInNewTab(),
 
-\Filament\Infolists\Components\TextEntry::make('provinsi.nama_provinsi')
-    ->label('Provinsi')
-    ->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('provinsi.nama_provinsi')
+                        ->label('Provinsi')
+                        ->default('-'),
 
-\Filament\Infolists\Components\TextEntry::make('kota.nama_kota')
-    ->label('Kota')
-    ->default('-'),
+                    \Filament\Infolists\Components\TextEntry::make('kota.nama_kota')
+                        ->label('Kota')
+                        ->default('-'),
+
                     \Filament\Infolists\Components\TextEntry::make('bidang.bidang_kerjasama')
                         ->label('Bidang Kerjasama')
                         ->badge()
                         ->default('-')
                         ->columnSpanFull(),
+
                     \Filament\Infolists\Components\TextEntry::make('prodis.nama_prodi')
                         ->label('Program Studi')
                         ->badge()
                         ->getStateUsing(fn ($record) => $record->prodis->pluck('nama_prodi')->unique()->all())
                         ->default('-')
                         ->columnSpanFull(),
+
                     \Filament\Infolists\Components\TextEntry::make('jurusans')
                         ->label('Jurusan')
                         ->badge()
                         ->getStateUsing(fn ($record) => $record->jurusans->pluck('nama_jurusan')->unique()->all())
                         ->default('-')
                         ->columnSpanFull(),
-                    \Filament\Infolists\Components\TextEntry::make('nomor_polinema')
-    ->label('Nomor Polinema')
-    ->getStateUsing(function ($record) {
-        if (!$record->nomor_dokumen) return null;
-        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
-            $parts = explode(' ', $record->nomor_dokumen, 2);
-        }
-        return trim($parts[0] ?? '-');
-    })->default('-'),
 
-\Filament\Infolists\Components\TextEntry::make('nomor_mitra')
-    ->label('Nomor Mitra')
-    ->getStateUsing(function ($record) {
-        if (!$record->nomor_dokumen) return null;
-        $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
-        if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
-            $parts = explode(' ', $record->nomor_dokumen, 2);
-        }
-        return trim($parts[1] ?? '-');
-    })->default('-'),
-                    \Filament\Infolists\Components\TextEntry::make('tahun')->label('Tahun')->default('-'),
-                    \Filament\Infolists\Components\TextEntry::make('tanggal_awal')->label('Tgl. Berlaku')->date('d/m/Y'),
-                    \Filament\Infolists\Components\TextEntry::make('tanggal_akhir')->label('Tgl. Berakhir')->date('d/m/Y'),
-                    \Filament\Infolists\Components\TextEntry::make('status')->label('Status')->badge()
+                    \Filament\Infolists\Components\TextEntry::make('nomor_polinema')
+                        ->label('Nomor Polinema')
+                        ->getStateUsing(function ($record) {
+                            if (!$record->nomor_dokumen) return null;
+                            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                $parts = explode(' ', $record->nomor_dokumen, 2);
+                            }
+                            return trim($parts[0] ?? '-');
+                        })
+                        ->default('-'),
+
+                    \Filament\Infolists\Components\TextEntry::make('nomor_mitra')
+                        ->label('Nomor Mitra')
+                        ->getStateUsing(function ($record) {
+                            if (!$record->nomor_dokumen) return null;
+                            $parts = explode("\n", str_replace("\r", "", $record->nomor_dokumen));
+                            if (count($parts) === 1 && strpos($record->nomor_dokumen, ' ') !== false) {
+                                $parts = explode(' ', $record->nomor_dokumen, 2);
+                            }
+                            return trim($parts[1] ?? '-');
+                        })
+                        ->default('-'),
+
+                    \Filament\Infolists\Components\TextEntry::make('tahun')
+                        ->label('Tahun')
+                        ->default('-'),
+
+                    \Filament\Infolists\Components\TextEntry::make('tanggal_awal')
+                        ->label('Tgl. Berlaku')
+                        ->date('d/m/Y'),
+
+                    \Filament\Infolists\Components\TextEntry::make('tanggal_akhir')
+                        ->label('Tgl. Berakhir')
+                        ->date('d/m/Y'),
+
+                    \Filament\Infolists\Components\TextEntry::make('status')
+                        ->label('Status')
+                        ->badge()
                         ->getStateUsing(fn (Model $record) => $record->status)
                         ->colors([
                             'AKTIF' => 'success',
                             'BERAKHIR' => 'danger',
                             'AKAN BERAKHIR' => 'warning',
                         ]),
+
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Link Dokumen')
-                        ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
+                        ->url(fn ($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
                         ->openUrlInNewTab()
                         ->default('-')
                         ->columnSpanFull(),
-                    \Filament\Infolists\Components\TextEntry::make('link_perbaikan')->label('Link Perbaikan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
-                    \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')->label('Bukti Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
+
+                    \Filament\Infolists\Components\TextEntry::make('link_perbaikan')
+                        ->label('Link Perbaikan')
+                        ->url(fn ($state) => $state !== '-' ? $state : null)
+                        ->default('-')
+                        ->columnSpanFull(),
+
+                    \Filament\Infolists\Components\TextEntry::make('bukti_kegiatan')
+                        ->label('Bukti Kegiatan')
+                        ->url(fn ($state) => $state !== '-' ? $state : null)
+                        ->default('-')
+                        ->columnSpanFull(),
                 ])
                 ->columns(2),
 
             Section::make('Hubungan Dokumen')
-    ->schema([
+                ->schema([
+                    TextEntry::make('parent.jenisDokumen.nama')
+                        ->label('Jenis')
+                        ->badge()
+                        ->default('-'),
 
-        TextEntry::make('parent.jenisDokumen.nama')
-            ->label('Jenis')
-            ->badge()
-            ->default('-'),
-
-        TextEntry::make('parent.judul')
-            ->label('Dokumen Induk')
-            ->default('-')
-            ->url(function ($record) {
-                if (! $record->parent) {
-                    return null;
-                }
-
-                return MouResource::getUrl('view', [
-                    'record' => $record->parent,
-                ]);
-            })
-            ->openUrlInNewTab(false)
-            ->color('primary'),
-
-    ])
-    ->columns(2),
+                    TextEntry::make('parent.judul')
+                        ->label('Dokumen Induk')
+                        ->default('-')
+                        ->url(function ($record) {
+                            if (! $record->parent) {
+                                return null;
+                            }
+                            return MouResource::getUrl('view', [
+                                'record' => $record->parent,
+                            ]);
+                        })
+                        ->openUrlInNewTab(false)
+                        ->color('primary'),
+                ])
+                ->columns(2),
         ]);
     }
 
