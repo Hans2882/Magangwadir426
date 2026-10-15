@@ -16,34 +16,50 @@
             line-height: 1.25;
         }
         .header {
-            text-align: center;
             border-bottom: 3px solid black;
-            padding-bottom: 8px;
+            padding-bottom: 6px;
             margin-bottom: 12px;
-            position: relative;
         }
-        .logo {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 90px;
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
         }
-        .header-text {
-            /* removed margin-left to center perfectly */
-            line-height: 1.0;
+        .header-table td {
+            padding: 0;
+            border: none;
+        }
+        .logo-cell {
+            width: 3.2cm;
+            vertical-align: middle;
+            text-align: left;
+        }
+        .logo-img {
+            width: 3.11cm;
+            height: 3.19cm;
+            display: block;
+        }
+        .header-text-cell {
+            vertical-align: middle;
+            text-align: center;
         }
         .kementerian {
-            font-size: 14pt;
+            font-size: 16pt;
             margin: 0;
+            line-height: 1.15;
+            letter-spacing: 0.2px;
         }
         .polinema {
-            font-size: 16pt;
+            font-size: 14pt;
             font-weight: bold;
-            margin: 0;
+            margin: 2px 0;
+            line-height: 1.15;
+            letter-spacing: 0.3px;
         }
         .alamat {
-            font-size: 10pt;
+            font-size: 12pt;
             margin: 0;
+            line-height: 1.15;
         }
         .title {
             text-align: center;
@@ -118,15 +134,20 @@
             $mime = (pathinfo($logoPath, PATHINFO_EXTENSION) === 'png') ? 'image/png' : 'image/jpeg';
             $logoSrc = 'data:' . $mime . ';base64,' . $logoData;
         @endphp
-        @if($logoData)
-            <img src="{{ $logoSrc }}" class="logo" alt="Polinema Logo">
-        @endif
-        
-        <div class="header-text">
-            <p class="kementerian">KEMENTERIAN PENDIDIKAN TINGGI, SAINS,<br>DAN TEKNOLOGI</p>
-            <p class="polinema">POLITEKNIK NEGERI MALANG</p>
-            <p class="alamat">Jalan Soekarno Hatta Nomor 9 Jatimulyo, Lowokwaru, Malang 65141<br>Telepon (0341) 404424, 404425, Faksimile (0341) 404420<br>Laman www.polinema.ac.id</p>
-        </div>
+        <table class="header-table" width="100%" border="0" cellspacing="0" cellpadding="0">
+            <tr>
+                <td class="logo-cell">
+                    @if($logoData)
+                        <img src="{{ $logoSrc }}" class="logo-img" alt="Polinema Logo">
+                    @endif
+                </td>
+                <td class="header-text-cell">
+                    <p class="kementerian">KEMENTERIAN PENDIDIKAN TINGGI, SAINS,<br>DAN TEKNOLOGI</p>
+                    <p class="polinema">POLITEKNIK NEGERI MALANG</p>
+                    <p class="alamat">Jalan Soekarno Hatta Nomor 9 Jatimulyo, Lowokwaru, Malang 65141<br>Telepon (0341) 404424, 404425, Faksimile (0341) 404420<br>Laman www.polinema.ac.id</p>
+                </td>
+            </tr>
+        </table>
     </div>
 
     <div class="title">
