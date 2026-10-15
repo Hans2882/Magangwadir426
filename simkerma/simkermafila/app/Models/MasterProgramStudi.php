@@ -10,16 +10,10 @@ class MasterProgramStudi extends Model
     use HasFactory;
 
     protected $table = 'master_program_studi';
-    public $timestamps = false; // Assuming it doesn't have timestamps since dump didn't show them
+    public $timestamps = false;
 
     protected $fillable = [
         'nama_prodi',
         'nama_prodi_eng',
-        'jurusan_id',
     ];
-
-    public function jurusan()
-    {
-        return $this->belongsTo(MasterJurusan::class, 'jurusan_id');
-    }
 }
