@@ -6,16 +6,20 @@
     <style>
         body {
             font-family: "Times New Roman", Times, serif;
-            font-size: 12pt;
-            line-height: 1.0;
+            font-size: 11pt;
+            line-height: 1.2;
             margin: 0;
-            padding: 30px 40px;
+            padding: 25px 40px;
+        }
+        p {
+            margin: 4px 0;
+            line-height: 1.25;
         }
         .header {
             text-align: center;
             border-bottom: 3px solid black;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
             position: relative;
         }
         .logo {
@@ -44,7 +48,7 @@
         .title {
             text-align: center;
             font-weight: bold;
-            margin-top: 20px;
+            margin-top: 10px;
         }
         .title h3 {
             margin: 0;
@@ -52,21 +56,23 @@
             font-size: 12pt;
         }
         .title p {
-            margin: 5px 0 20px 0;
+            margin: 2px 0 10px 0;
         }
         .content {
             text-align: justify;
         }
         .identitas {
-            margin-left: 30px;
-            margin-bottom: 20px;
+            margin-left: 25px;
+            margin-top: 3px;
+            margin-bottom: 6px;
         }
         .identitas table {
             width: 100%;
         }
         .identitas td {
             vertical-align: top;
-            padding: 2px 0;
+            padding: 1px 0;
+            line-height: 1.2;
         }
         .identitas td:first-child {
             width: 180px; /* Lebar untuk Nama/NIP/Jabatan agar rapi */
@@ -75,11 +81,16 @@
             width: 15px;
         }
         .list-kegiatan {
-            margin-top: 0;
-            margin-bottom: 20px;
+            margin-top: 3px;
+            margin-bottom: 8px;
+            padding-left: 20px;
+        }
+        .list-kegiatan li {
+            margin-bottom: 2px;
+            line-height: 1.2;
         }
         .signature-section {
-            margin-top: 50px;
+            margin-top: 25px;
             width: 100%;
         }
         .signature-table {
@@ -91,7 +102,7 @@
             vertical-align: top;
         }
         .signature-space {
-            height: 100px;
+            height: 65px;
         }
     </style>
 </head>
@@ -99,9 +110,13 @@
 
     <div class="header">
         @php
-            $logoPath = public_path('favicon.png');
+            $logoPath = public_path('HitamPutih.jpg');
+            if (!file_exists($logoPath)) {
+                $logoPath = public_path('favicon.png');
+            }
             $logoData = file_exists($logoPath) ? base64_encode(file_get_contents($logoPath)) : '';
-            $logoSrc = 'data:image/png;base64,' . $logoData;
+            $mime = (pathinfo($logoPath, PATHINFO_EXTENSION) === 'png') ? 'image/png' : 'image/jpeg';
+            $logoSrc = 'data:' . $mime . ';base64,' . $logoData;
         @endphp
         @if($logoData)
             <img src="{{ $logoSrc }}" class="logo" alt="Polinema Logo">
