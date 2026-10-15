@@ -79,16 +79,49 @@ class UsulanKerjasamaForm
                             ->label('Jabatan Pengusul')
                             ->required()
                             ->maxLength(255),
-                        \Filament\Forms\Components\TextInput::make('pengusul_jurusan')
+                        \Filament\Forms\Components\Select::make('pengusul_jurusan')
                             ->label('Jurusan Pengusul')
-                            ->placeholder('contoh: Jurusan Administrasi Niaga')
-                            ->required()
-                            ->maxLength(255),
-                        \Filament\Forms\Components\TextInput::make('pengusul_prodi')
+                            ->placeholder('Pilih Jurusan')
+                            ->options(function (?string $state) {
+                                $options = \App\Models\MasterJurusan::query()
+                                    ->orderBy('nama_jurusan')
+                                    ->pluck('nama_jurusan', 'nama_jurusan')
+                                    ->toArray();
+                                if ($state && !isset($options[$state])) {
+                                    $options[$state] = $state;
+                                }
+                                return $options;
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(fn ($set) => $set('pengusul_prodi', null))
+                            ->required(),
+                        \Filament\Forms\Components\Select::make('pengusul_prodi')
                             ->label('Program Studi Pengusul')
-                            ->placeholder('contoh: Program Studi D3 Administrasi Bisnis')
+                            ->placeholder('Pilih Program Studi')
+                            ->options(function ($get, ?string $state) {
+                                $jurusanNama = $get('pengusul_jurusan');
+                                $query = \App\Models\MasterProgramStudi::query()->orderBy('nama_prodi');
+
+                                if (!empty($jurusanNama)) {
+                                    $jurusan = \App\Models\MasterJurusan::where('nama_jurusan', $jurusanNama)
+                                        ->orWhere('nama_jurusan', 'like', '%' . $jurusanNama . '%')
+                                        ->first();
+                                    if ($jurusan) {
+                                        $query->where('jurusan_id', $jurusan->id);
+                                    }
+                                }
+
+                                $options = $query->pluck('nama_prodi', 'nama_prodi')->toArray();
+                                if ($state && !isset($options[$state])) {
+                                    $options[$state] = $state;
+                                }
+                                return $options;
+                            })
+                            ->searchable()
+                            ->preload()
                             ->required()
-                            ->maxLength(255)
                             ->columnSpanFull(),
                     ])->columns(2),
             ]);
