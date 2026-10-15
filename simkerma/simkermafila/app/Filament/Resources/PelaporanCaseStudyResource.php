@@ -265,16 +265,24 @@ class PelaporanCaseStudyResource extends Resource
                         ->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Berkas Dokumen')
-                        ->formatStateUsing(fn ($state) => $state ? 'Lihat Dokumen' : '-')
+                        ->formatStateUsing(function ($state) {
+                            if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
+                                return 'Dokumen Terkunci (Hanya Staf/Admin)';
+                            }
+                            return $state ? 'Lihat Dokumen' : '-';
+                        })
                         ->url(function ($record) {
+                            if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
+                                return null;
+                            }
                             if (!$record->link_dokumen) return null;
                             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
                             $disk = \Illuminate\Support\Facades\Storage::disk('google');
                             return $disk->url(is_array($record->link_dokumen) ? array_values($record->link_dokumen)[0] : $record->link_dokumen);
                         }, true)
-                        ->color('primary')
+                        ->color(fn () => \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'gray' : 'primary')
                         ->badge()
-                        ->icon('heroicon-o-document-arrow-down')
+                        ->icon(fn () => \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'heroicon-o-lock-closed' : 'heroicon-o-document-arrow-down')
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('feedback')
                         ->label('Alasan Penolakan / Catatan Evaluasi')
@@ -325,17 +333,32 @@ class PelaporanCaseStudyResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('link_dokumen')
                     ->label('Dokumen')
-                    ->formatStateUsing(fn ($state) => $state && $state !== '-' ? 'Lihat' : '-')
-                    ->url(fn($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => is_array($state) ? array_values($state)[0] : $state]) : null)
+                    ->formatStateUsing(function ($state) {
+                        if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
+                            return 'Terkunci';
+                        }
+                        return $state && $state !== '-' ? 'Lihat' : '-';
+                    })
+                    ->url(function ($state) {
+                        if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
+                            return null;
+                        }
+                        return $state && $state !== '-' ? route('view-dokumen', ['path' => is_array($state) ? array_values($state)[0] : $state]) : null;
+                    })
                     ->openUrlInNewTab()
                     ->badge()
-                    ->icon(fn ($state) => $state && $state !== '-' ? 'heroicon-o-eye' : null)
-                    ->color(fn ($state) => $state && $state !== '-' ? 'primary' : 'gray')
-                    ->extraAttributes(fn ($state) => $state && $state !== '-' ? [
-                        'style' => 'cursor: pointer; transition: opacity 0.2s;',
-                        'onmouseover' => "this.style.opacity='0.6'",
-                        'onmouseout' => "this.style.opacity='1'",
-                    ] : [])
+                    ->icon(fn () => \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'heroicon-o-lock-closed' : 'heroicon-o-eye')
+                    ->color(fn () => \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'gray' : 'primary')
+                    ->extraAttributes(function ($state) {
+                        if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
+                            return [];
+                        }
+                        return $state && $state !== '-' ? [
+                            'style' => 'cursor: pointer; transition: opacity 0.2s;',
+                            'onmouseover' => "this.style.opacity='0.6'",
+                            'onmouseout' => "this.style.opacity='1'",
+                        ] : [];
+                    })
                     ->default('-'),
                 Tables\Columns\TextColumn::make('jurusan_prodi')
                     ->label('Jurusan / Prodi')
@@ -349,13 +372,60 @@ class PelaporanCaseStudyResource extends Resource
                     ->wrap(),
             ])
             ->filters([
-                \Filament\Tables\Filters\SelectFilter::make('status_workflow')
+                Tables\Filters\SelectFilter::make('status_workflow')
                     ->label('Status')
                     ->options([
                         'Proses' => 'Proses',
                         'Selesai' => 'Selesai',
                         'Ditolak' => 'Ditolak',
                     ]),
+                Tables\Filters\SelectFilter::make('tahun')
+                    ->label('Tahun Pelaksanaan')
+                    ->options(function () {
+                        return Kerjasama::query()
+                            ->where('jenis_dokumen_id', 8)
+                            ->whereNotNull('tahun')
+                            ->distinct()
+                            ->orderByDesc('tahun')
+                            ->pluck('tahun', 'tahun')
+                            ->toArray();
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->where(function ($q) use ($data) {
+                                $q->where('tahun', $data['value'])
+                                  ->orWhereYear('tanggal_awal', $data['value']);
+                            });
+                        }
+                    }),
+                Tables\Filters\Filter::make('tanggal_pelaksanaan')
+                    ->form([
+                        Forms\Components\DatePicker::make('dari_tanggal')
+                            ->label('Dari Tanggal Pelaksanaan'),
+                        Forms\Components\DatePicker::make('sampai_tanggal')
+                            ->label('Sampai Tanggal Pelaksanaan'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['dari_tanggal'],
+                                fn ($query, $date) => $query->whereDate('tanggal_awal', '>=', $date),
+                            )
+                            ->when(
+                                $data['sampai_tanggal'],
+                                fn ($query, $date) => $query->whereDate('tanggal_awal', '<=', $date),
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if (!empty($data['dari_tanggal'])) {
+                            $indicators['dari_tanggal'] = 'Dari: ' . \Carbon\Carbon::parse($data['dari_tanggal'])->translatedFormat('d M Y');
+                        }
+                        if (!empty($data['sampai_tanggal'])) {
+                            $indicators['sampai_tanggal'] = 'Sampai: ' . \Carbon\Carbon::parse($data['sampai_tanggal'])->translatedFormat('d M Y');
+                        }
+                        return $indicators;
+                    }),
             ])
             ->actions([
                 \Filament\Actions\Action::make('setujui')

@@ -16,6 +16,46 @@
     </div>
 
     @if($activeTab === 'caseStudies')
+        <div class="cs-filter-bar">
+            <div class="cs-filter-fields">
+                <div class="cs-filter-group">
+                    <label class="cs-filter-label" for="csYearSelect">
+                        <i data-lucide="calendar" class="cs-icon"></i>
+                        <span>Tahun:</span>
+                    </label>
+                    <select id="csYearSelect" wire:model.live="caseStudyYear" class="cs-filter-select">
+                        <option value="">Semua Tahun</option>
+                        @foreach($caseStudyYears as $yr)
+                            <option value="{{ $yr }}">{{ $yr }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="cs-filter-group">
+                    <label class="cs-filter-label" for="csDateFrom">
+                        <i data-lucide="calendar-days" class="cs-icon"></i>
+                        <span>Dari Tanggal:</span>
+                    </label>
+                    <input type="date" id="csDateFrom" wire:model.live="caseStudyDateFrom" class="cs-filter-date">
+                </div>
+
+                <div class="cs-filter-group">
+                    <label class="cs-filter-label" for="csDateTo">
+                        <i data-lucide="calendar-days" class="cs-icon"></i>
+                        <span>Sampai Tanggal:</span>
+                    </label>
+                    <input type="date" id="csDateTo" wire:model.live="caseStudyDateTo" class="cs-filter-date">
+                </div>
+            </div>
+
+            @if(!empty($caseStudyYear) || !empty($caseStudyDateFrom) || !empty($caseStudyDateTo))
+                <button type="button" wire:click="resetCaseStudyFilters" class="cs-btn-reset" title="Reset Filter">
+                    <i data-lucide="rotate-ccw" class="cs-icon"></i>
+                    <span>Reset Filter</span>
+                </button>
+            @endif
+        </div>
+
         <div class="grid-container">
             @forelse($caseStudies as $study)
                 <div class="glass-card">
@@ -966,6 +1006,122 @@
             .pagination-container .sm\:flex-1 { flex: 1 1 0%; }
             .pagination-container .sm\:items-center { align-items: center; }
             .pagination-container .sm\:justify-between { justify-content: space-between; }
+        }
+
+        /* Case Study Filter Bar */
+        .cs-filter-bar {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        .cs-filter-fields {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .cs-filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cs-filter-label {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .cs-icon {
+            width: 16px;
+            height: 16px;
+            color: var(--primary);
+        }
+
+        .cs-filter-select,
+        .cs-filter-date {
+            padding: 0.5rem 0.85rem !important;
+            border-radius: 10px !important;
+            border: 1px solid #cbd5e1 !important;
+            background: white !important;
+            font-size: 0.9rem !important;
+            color: var(--text-main) !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            min-height: unset !important;
+            height: 38px;
+        }
+
+        .cs-filter-select:focus,
+        .cs-filter-date:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+        }
+
+        .cs-btn-reset {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.08);
+            color: #dc2626;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .cs-btn-reset:hover {
+            background: rgba(239, 68, 68, 0.16);
+            border-color: rgba(239, 68, 68, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .cs-btn-reset .cs-icon {
+            color: #dc2626;
+        }
+
+        @media (max-width: 768px) {
+            .cs-filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .cs-filter-fields {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .cs-filter-group {
+                flex-direction: column;
+                align-items: flex-start;
+                width: 100%;
+            }
+            .cs-filter-select,
+            .cs-filter-date {
+                width: 100% !important;
+            }
+            .cs-btn-reset {
+                justify-content: center;
+            }
         }
 
         .grid-container {

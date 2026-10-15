@@ -15,6 +15,10 @@ Route::middleware(['auth'])->get('/view-dokumen', function (\Illuminate\Http\Req
         return abort(404);
     }
     
+    if ($request->user()?->isMahasiswa() && (str_contains($path, 'StudyCase') || str_contains($path, 'Case_Study'))) {
+        return abort(403, 'Anda tidak memiliki hak akses untuk mengunduh atau melihat dokumen ini.');
+    }
+
     if (str_starts_with($path, 'http')) {
         return redirect($path);
     }

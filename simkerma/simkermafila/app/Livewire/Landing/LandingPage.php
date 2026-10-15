@@ -19,6 +19,17 @@ class LandingPage extends Component
     public string $activeTab = 'caseStudies';
     public string $search = '';
 
+    public ?string $caseStudyYear = '';
+    public ?string $caseStudyDateFrom = '';
+    public ?string $caseStudyDateTo = '';
+
+    public function resetCaseStudyFilters(): void
+    {
+        $this->caseStudyYear = '';
+        $this->caseStudyDateFrom = '';
+        $this->caseStudyDateTo = '';
+    }
+
     public function updatedSearch()
     {
         $this->resetPage();
@@ -267,7 +278,19 @@ class LandingPage extends Component
     // Case Study: jenis_dokumen_id = 8, status = Selesai
     $caseStudyQuery = Kerjasama::query()
         ->where('jenis_dokumen_id', 8)
-        ->where('status_workflow', 'Selesai');
+        ->where('status_workflow', 'Selesai')
+        ->when($this->caseStudyYear, function ($q) {
+            $q->where(function ($sub) {
+                $sub->where('tahun', $this->caseStudyYear)
+                    ->orWhereYear('tanggal_awal', $this->caseStudyYear);
+            });
+        })
+        ->when($this->caseStudyDateFrom, function ($q) {
+            $q->whereDate('tanggal_awal', '>=', $this->caseStudyDateFrom);
+        })
+        ->when($this->caseStudyDateTo, function ($q) {
+            $q->whereDate('tanggal_awal', '<=', $this->caseStudyDateTo);
+        });
 
     $caseStudyCount = (clone $caseStudyQuery)->count();
 
@@ -275,6 +298,15 @@ class LandingPage extends Component
         ->with(['mitra', 'mitra.negara'])
         ->latest('tanggal_awal')
         ->get();
+
+    $caseStudyYears = Kerjasama::query()
+        ->where('jenis_dokumen_id', 8)
+        ->where('status_workflow', 'Selesai')
+        ->whereNotNull('tanggal_awal')
+        ->selectRaw('DISTINCT YEAR(tanggal_awal) as year')
+        ->orderByDesc('year')
+        ->pluck('year')
+        ->toArray();
 
     $programStudiOptions = MasterProgramStudi::orderBy('nama_prodi', 'asc')
         ->pluck('nama_prodi', 'id')
@@ -296,6 +328,7 @@ class LandingPage extends Component
     return view('livewire.landing.landing-page', [
         'caseStudies' => $caseStudies,
         'caseStudyCount' => $caseStudyCount,
+        'caseStudyYears' => $caseStudyYears,
         'programStudiOptions' => $programStudiOptions,
         'mitras' => $mitras,
     ]);
