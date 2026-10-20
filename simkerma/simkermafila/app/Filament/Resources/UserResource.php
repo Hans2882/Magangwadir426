@@ -166,7 +166,18 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('privilege')
+                    ->label('Filter Privilege')
+                    ->options(fn () => \App\Models\Privilege::pluck('nama', 'id')->toArray())
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->whereHas('userPrivilege', function ($q) use ($data) {
+                                $q->where('privilege_id', $data['value']);
+                            });
+                        }
+                    })
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 \Filament\Actions\EditAction::make(),

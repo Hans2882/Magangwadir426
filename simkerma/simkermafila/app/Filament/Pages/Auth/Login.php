@@ -233,12 +233,13 @@ class Login extends BaseLogin
                 ]
             );
 
-            // Hanya set privilege jika user belum memiliki privilege khusus (misal Admin)
-            if (!$user->userPrivilege) {
-                UserPrivilege::create([
-                    'user_id' => $user->id,
-                    'privilege_id' => $dosenPrivilege->id,
-                ]);
+            // Hanya set privilege Dosen jika user belum memiliki privilege khusus dari Super Admin
+            $currentPrivName = $user->userPrivilege?->privilege?->nama;
+            if (!$currentPrivName || $currentPrivName === 'User biasa') {
+                UserPrivilege::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['privilege_id' => $dosenPrivilege->id]
+                );
             }
         }
 

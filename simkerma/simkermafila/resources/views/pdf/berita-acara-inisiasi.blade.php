@@ -193,12 +193,12 @@
                 <tr>
                     <td>Nama</td>
                     <td>:</td>
-                    <td>Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.</td>
+                    <td>{{ $wadir4['nama'] ?? 'Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.' }}</td>
                 </tr>
                 <tr>
                     <td>NIP</td>
                     <td>:</td>
-                    <td>198010102005011001</td>
+                    <td>{{ $wadir4['nip'] ?? '198010102005011001' }}</td>
                 </tr>
                 <tr>
                     <td>Jabatan</td>
