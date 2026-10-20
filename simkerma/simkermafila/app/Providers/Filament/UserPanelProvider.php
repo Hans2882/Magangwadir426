@@ -40,6 +40,10 @@ class UserPanelProvider extends PanelProvider
                 \Filament\View\PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
                 fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.topbar-button")')
             )
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.calendar-button")')
+            )
             ->colors([
                 'primary' => Color::Indigo,
             ])
