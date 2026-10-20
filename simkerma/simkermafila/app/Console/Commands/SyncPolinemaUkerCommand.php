@@ -90,6 +90,74 @@ class SyncPolinemaUkerCommand extends Command
         $prodis = $apiService->getProdiList();
         $syncedProdiCount = 0;
 
+        // Pembersihan & Penggabungan Otomatis Baris Duplikat (ID > 48) ke Master Asli (ID <= 48)
+        $duplicates = MasterProgramStudi::where('id', '>', 48)->get();
+        if ($duplicates->isNotEmpty()) {
+            $originals = MasterProgramStudi::where('id', '<=', 48)->get();
+            foreach ($duplicates as $dup) {
+                // Hapus langsung unit non-prodi (UPT, dll)
+                if (stripos($dup->nama_prodi, 'UPT') !== false || stripos($dup->nama_prodi, 'PROGRAM DIPLOMA LAIN') !== false || stripos($dup->nama_prodi, 'PROGRAM DILUAR DOMISILI') !== false) {
+                    $dup->delete();
+                    continue;
+                }
+
+                $cleanDup = trim(preg_replace('/^(Sarjana Terapan|D-?IV|D-?III|D-?II|D-?I|S-?[1-3]|D4|D3|D2)\s+/i', '', $dup->nama_prodi));
+                $psdkuDup = null;
+                if (stripos($dup->nama_prodi, 'Kediri') !== false) $psdkuDup = 'Kediri';
+                elseif (stripos($dup->nama_prodi, 'Lumajang') !== false) $psdkuDup = 'Lumajang';
+                elseif (stripos($dup->nama_prodi, 'Pamekasan') !== false) $psdkuDup = 'Pamekasan';
+
+                $isD3Dup = stripos($dup->nama_prodi, 'D3') !== false || stripos($dup->nama_prodi, 'D-III') !== false;
+                $isD4Dup = stripos($dup->nama_prodi, 'Sarjana Terapan') !== false || stripos($dup->nama_prodi, 'D4') !== false || stripos($dup->nama_prodi, 'D-IV') !== false;
+
+                $matchedOrig = null;
+                foreach ($originals as $orig) {
+                    $cleanOrig = trim(preg_replace('/^(Sarjana Terapan|D-?IV|D-?III|D-?II|D-?I|S-?[1-3]|D4|D3|D2)\s+/i', '', $orig->nama_prodi));
+                    $psdkuOrig = null;
+                    if (stripos($orig->nama_prodi, 'Kediri') !== false) $psdkuOrig = 'Kediri';
+                    elseif (stripos($orig->nama_prodi, 'Lumajang') !== false) $psdkuOrig = 'Lumajang';
+                    elseif (stripos($orig->nama_prodi, 'Pamekasan') !== false) $psdkuOrig = 'Pamekasan';
+
+                    if ($psdkuDup !== $psdkuOrig) continue;
+
+                    $isD3Orig = stripos($orig->nama_prodi, 'D3') !== false || stripos($orig->nama_prodi, 'D-III') !== false;
+                    $isD4Orig = stripos($orig->nama_prodi, 'Sarjana Terapan') !== false || stripos($orig->nama_prodi, 'D4') !== false || stripos($orig->nama_prodi, 'D-IV') !== false;
+
+                    if ($isD3Dup !== $isD3Orig || $isD4Dup !== $isD4Orig) continue;
+
+                    $normD = strtolower(str_ireplace([' ', '-', ',', '.', 'psdku', 'kediri', 'lumajang', 'pamekasan', 'perangkat', '(', ')'], '', $cleanDup));
+                    $normO = strtolower(str_ireplace([' ', '-', ',', '.', 'psdku', 'kediri', 'lumajang', 'pamekasan', 'perangkat', '(', ')'], '', $cleanOrig));
+
+                    if ($normD === $normO || stripos($normO, $normD) !== false || stripos($normD, $normO) !== false) {
+                        $matchedOrig = $orig;
+                        break;
+                    }
+                }
+
+                if ($matchedOrig) {
+                    // Pindahkan relasi user_program_studi jika ada user yang tertaut ke baris duplikat
+                    \Illuminate\Support\Facades\DB::table('user_program_studi')
+                        ->where('program_studi_id', $dup->id)
+                        ->update(['program_studi_id' => $matchedOrig->id]);
+
+                    // Pindahkan integrasi_prodi & jurusan_id ke baris asli jika masih kosong
+                    $updates = [];
+                    if (!empty($dup->integrasi_prodi) && empty($matchedOrig->integrasi_prodi)) {
+                        $updates['integrasi_prodi'] = $dup->integrasi_prodi;
+                    }
+                    if (!empty($dup->jurusan_id) && empty($matchedOrig->jurusan_id)) {
+                        $updates['jurusan_id'] = $dup->jurusan_id;
+                    }
+                    if (!empty($updates)) {
+                        $matchedOrig->update($updates);
+                    }
+
+                    // Hapus baris duplikat
+                    $dup->delete();
+                }
+            }
+        }
+
         foreach ($prodis as $item) {
             $apiProdiId = (string) ($item['id'] ?? '');
             $apiSiakadId = (string) ($item['id_siakad'] ?? '');
@@ -173,7 +241,7 @@ class SyncPolinemaUkerCommand extends Command
                 $prodi->update($dataToUpdate);
             } else {
                 $cleanFormattedName = preg_replace('/^D-?III\s+/i', 'D3 ', $namaProdi);
-                $cleanFormattedName = preg_replace('/^D-?IV\s+/i', 'D4 ', $cleanFormattedName);
+                $cleanFormattedName = preg_replace('/^(D-?IV|D4)\s+/i', 'Sarjana Terapan ', $cleanFormattedName);
                 $cleanFormattedName = preg_replace('/^D-?II\s+/i', 'D2 ', $cleanFormattedName);
                 $cleanFormattedName = preg_replace('/^S-?2\s+/i', 'S2 ', $cleanFormattedName);
                 $cleanFormattedName = preg_replace('/^S-?3\s+/i', 'S3 ', $cleanFormattedName);
@@ -193,12 +261,18 @@ class SyncPolinemaUkerCommand extends Command
             $syncedProdiCount++;
         }
 
-        // Standardisasi nama D-III / D III menjadi D3 pada semua data prodi
-        $d3Prodis = MasterProgramStudi::where('nama_prodi', 'LIKE', '%D-III%')
-            ->orWhere('nama_prodi', 'LIKE', '%D III%')
-            ->get();
-        foreach ($d3Prodis as $dp) {
+        // Standardisasi nama D-III -> D3 dan D-IV / D4 -> Sarjana Terapan pada semua data prodi
+        $romanProdis = MasterProgramStudi::where(function ($q) {
+            $q->where('nama_prodi', 'LIKE', '%D-III%')
+              ->orWhere('nama_prodi', 'LIKE', '%D III%')
+              ->orWhere('nama_prodi', 'LIKE', '%D-IV%')
+              ->orWhere('nama_prodi', 'LIKE', '%D IV%')
+              ->orWhere('nama_prodi', 'LIKE', 'D4 %');
+        })->get();
+
+        foreach ($romanProdis as $dp) {
             $standardized = preg_replace('/^D-?III\s+/i', 'D3 ', $dp->nama_prodi);
+            $standardized = preg_replace('/^(D-?IV|D4)\s+/i', 'Sarjana Terapan ', $standardized);
             if (strtoupper($standardized) === $standardized) {
                 $standardized = ucwords(strtolower($standardized));
                 $standardized = str_ireplace('Psdku', 'PSDKU', $standardized);
