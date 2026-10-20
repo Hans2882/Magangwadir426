@@ -103,6 +103,11 @@ class SyncPolinemaUkerCommand extends Command
             // Hubungkan ke jurusan_id lokal jika id_induk cocok
             $localJurusanId = $jurusanMap[$idInduk] ?? null;
 
+            // Abaikan unit non-prodi dari API (misal UPT, Kategori umum)
+            if (stripos($namaProdi, 'UPT') !== false || stripos($namaProdi, 'PROGRAM DIPLOMA LAIN') !== false || stripos($namaProdi, 'PROGRAM DILUAR DOMISILI') !== false) {
+                continue;
+            }
+
             // Cari prodi lokal:
             // 1. Berdasarkan integrasi_prodi yang sudah tersimpan
             $prodi = MasterProgramStudi::where(function ($q) use ($apiSiakadId, $apiProdiId) {
@@ -119,9 +124,9 @@ class SyncPolinemaUkerCommand extends Command
                 $prodi = MasterProgramStudi::where('nama_prodi', 'LIKE', '%' . $namaProdi . '%')->first();
             }
 
-            // 3. Normalisasi jenjang (Sarjana Terapan <-> D-IV, D3 <-> D-III) & PSDKU
+            // 3. Normalisasi jenjang (Sarjana Terapan <-> D-IV, D3 <-> D-III, D2) & PSDKU
             if (!$prodi) {
-                $cleanApi = trim(preg_replace('/^(Sarjana Terapan|D-?IV|D-?III|D-?II|D-?I|S-?[1-3]|D3|D4)\s+/i', '', $namaProdi));
+                $cleanApi = trim(preg_replace('/^(Sarjana Terapan|D-?IV|D-?III|D-?II|D-?I|S-?[1-3]|D4|D3|D2)\s+/i', '', $namaProdi));
                 $psdkuApi = null;
                 if (stripos($namaProdi, 'Kediri') !== false) $psdkuApi = 'Kediri';
                 elseif (stripos($namaProdi, 'Lumajang') !== false) $psdkuApi = 'Lumajang';
@@ -130,9 +135,10 @@ class SyncPolinemaUkerCommand extends Command
                 $isD3Api = stripos($namaProdi, 'D3') !== false || stripos($namaProdi, 'D-III') !== false;
                 $isD4Api = stripos($namaProdi, 'Sarjana Terapan') !== false || stripos($namaProdi, 'D4') !== false || stripos($namaProdi, 'D-IV') !== false;
 
-                $existingProdis = MasterProgramStudi::all();
+                // Prioritaskan mencari di 48 prodi asli bawaan SIMKERMA
+                $existingProdis = MasterProgramStudi::orderBy('id', 'asc')->get();
                 foreach ($existingProdis as $ep) {
-                    $cleanLocal = trim(preg_replace('/^(Sarjana Terapan|D-?IV|D-?III|D-?II|D-?I|S-?[1-3]|D3|D4)\s+/i', '', $ep->nama_prodi));
+                    $cleanLocal = trim(preg_replace('/^(Sarjana Terapan|D-?IV|D-?III|D-?II|D-?I|S-?[1-3]|D4|D3|D2)\s+/i', '', $ep->nama_prodi));
                     $psdkuLocal = null;
                     if (stripos($ep->nama_prodi, 'Kediri') !== false) $psdkuLocal = 'Kediri';
                     elseif (stripos($ep->nama_prodi, 'Lumajang') !== false) $psdkuLocal = 'Lumajang';
@@ -145,8 +151,8 @@ class SyncPolinemaUkerCommand extends Command
 
                     if ($isD3Api !== $isD3Local || $isD4Api !== $isD4Local) continue;
 
-                    $normL = strtolower(str_replace([' ', '-', ',', '.'], '', $cleanLocal));
-                    $normA = strtolower(str_replace([' ', '-', ',', '.'], '', $cleanApi));
+                    $normL = strtolower(str_ireplace([' ', '-', ',', '.', 'psdku', 'kediri', 'lumajang', 'pamekasan', 'perangkat', '(', ')'], '', $cleanLocal));
+                    $normA = strtolower(str_ireplace([' ', '-', ',', '.', 'psdku', 'kediri', 'lumajang', 'pamekasan', 'perangkat', '(', ')'], '', $cleanApi));
 
                     if ($normL === $normA || stripos($normA, $normL) !== false || stripos($normL, $normA) !== false) {
                         $prodi = $ep;
@@ -166,14 +172,39 @@ class SyncPolinemaUkerCommand extends Command
             if ($prodi) {
                 $prodi->update($dataToUpdate);
             } else {
+                $cleanFormattedName = preg_replace('/^D-?III\s+/i', 'D3 ', $namaProdi);
+                $cleanFormattedName = preg_replace('/^D-?IV\s+/i', 'D4 ', $cleanFormattedName);
+                $cleanFormattedName = preg_replace('/^D-?II\s+/i', 'D2 ', $cleanFormattedName);
+                $cleanFormattedName = preg_replace('/^S-?2\s+/i', 'S2 ', $cleanFormattedName);
+                $cleanFormattedName = preg_replace('/^S-?3\s+/i', 'S3 ', $cleanFormattedName);
+                if (strtoupper($cleanFormattedName) === $cleanFormattedName) {
+                    $cleanFormattedName = ucwords(strtolower($cleanFormattedName));
+                    $cleanFormattedName = str_ireplace('Psdku', 'PSDKU', $cleanFormattedName);
+                    $cleanFormattedName = preg_replace('/^D(\d)\s+/i', 'D$1 ', $cleanFormattedName);
+                }
+
                 MasterProgramStudi::create(array_merge($dataToUpdate, [
-                    'nama_prodi' => $namaProdi,
+                    'nama_prodi' => $cleanFormattedName,
                     'nama_prodi_eng' => $item['singkatan'] ?? null,
                     'jurusan_id' => $localJurusanId,
                 ]));
             }
 
             $syncedProdiCount++;
+        }
+
+        // Standardisasi nama D-III / D III menjadi D3 pada semua data prodi
+        $d3Prodis = MasterProgramStudi::where('nama_prodi', 'LIKE', '%D-III%')
+            ->orWhere('nama_prodi', 'LIKE', '%D III%')
+            ->get();
+        foreach ($d3Prodis as $dp) {
+            $standardized = preg_replace('/^D-?III\s+/i', 'D3 ', $dp->nama_prodi);
+            if (strtoupper($standardized) === $standardized) {
+                $standardized = ucwords(strtolower($standardized));
+                $standardized = str_ireplace('Psdku', 'PSDKU', $standardized);
+                $standardized = preg_replace('/^D(\d)\s+/i', 'D$1 ', $standardized);
+            }
+            $dp->update(['nama_prodi' => $standardized]);
         }
 
         $this->info("Berhasil menyinkronkan {$syncedProdiCount} data Program Studi.");

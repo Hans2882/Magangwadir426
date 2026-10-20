@@ -178,10 +178,10 @@ class Login extends BaseLogin
                 // 1. Direct match by integrasi_prodi (id_siakad atau kode)
                 $prodi = null;
                 if (!empty($idProdi)) {
-                    $prodi = MasterProgramStudi::where('integrasi_prodi', $idProdi)->first();
+                    $prodi = MasterProgramStudi::where('integrasi_prodi', $idProdi)->orderBy('id', 'asc')->first();
                 }
                 if (!$prodi && !empty($kodeProdi)) {
-                    $prodi = MasterProgramStudi::where('integrasi_prodi', $kodeProdi)->first();
+                    $prodi = MasterProgramStudi::where('integrasi_prodi', $kodeProdi)->orderBy('id', 'asc')->first();
                 }
 
                 // 2. Lookup mapping via uker/prodi API list (menghubungkan id_siakad mahasiswa ke id uker)
@@ -192,6 +192,7 @@ class Login extends BaseLogin
                             $prodi = MasterProgramStudi::where('integrasi_prodi', $pItem['id'])
                                 ->orWhere('integrasi_prodi', $pItem['id_siakad'])
                                 ->orWhere('nama_prodi', 'LIKE', '%' . ($pItem['nama'] ?? '---') . '%')
+                                ->orderBy('id', 'asc')
                                 ->first();
                             if ($prodi) {
                                 break;
@@ -205,7 +206,7 @@ class Login extends BaseLogin
                     $cleanSearch = preg_replace('/^(d-?[i|v|x]+|s-?[1-3]|sarjana terapan)\s+/i', '', $namaProdi);
                     $cleanSearch = str_ireplace('t. ', 'teknik ', $cleanSearch);
                     $cleanSearch = trim($cleanSearch);
-                    $prodi = MasterProgramStudi::where('nama_prodi', 'LIKE', '%' . $cleanSearch . '%')->first();
+                    $prodi = MasterProgramStudi::where('nama_prodi', 'LIKE', '%' . $cleanSearch . '%')->orderBy('id', 'asc')->first();
                 }
 
                 if ($prodi) {
