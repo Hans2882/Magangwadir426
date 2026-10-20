@@ -87,12 +87,20 @@ class PolinemaApiService
                 ];
             }
 
-            $data = $json['data'] ?? [];
+            $rawPayload = $json['data'] ?? [];
+            if (is_array($rawPayload) && isset($rawPayload[0]) && is_array($rawPayload[0])) {
+                $data = $rawPayload[0];
+            } elseif (is_array($rawPayload)) {
+                $data = $rawPayload;
+            } else {
+                $data = [];
+            }
+
             $userStatus = strtolower(trim((string) ($data['user_status'] ?? '')));
             $loginStatus = strtolower(trim((string) ($data['login_status'] ?? '')));
 
             // Evaluasi status keaktifan akun
-            // Valid jika user_status aktif dan login_status valid
+            // Valid jika user_status aktif/active dan login_status valid/active
             $isUserActive = in_array($userStatus, ['aktif', 'active', '1', 'true']);
             $isLoginValid = in_array($loginStatus, ['valid', 'aktif', 'active', '1', 'true']);
 

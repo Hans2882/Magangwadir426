@@ -150,7 +150,7 @@ class Login extends BaseLogin
         }
 
         // Sinkronisasi Privilege & Prodi
-        if ($privilegeStr === 'mahasiswa') {
+        if (in_array($privilegeStr, ['mahasiswa', 'student'])) {
             $mhsPrivilege = Privilege::firstOrCreate(
                 ['nama' => 'Mahasiswa'],
                 [
@@ -187,7 +187,7 @@ class Login extends BaseLogin
                     }
                 }
             }
-        } elseif (in_array($privilegeStr, ['dosen', 'tendik'])) {
+        } elseif (in_array($privilegeStr, ['dosen', 'lecturer', 'tendik', 'staff', 'employee'])) {
             $dosenPrivilege = Privilege::firstOrCreate(
                 ['nama' => 'Dosen'],
                 [
