@@ -37,6 +37,10 @@ class PelaporanCaseStudyResource extends Resource
 
     public static function canView(Model $record): bool
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return (int) $record->user_id === (int) $user->id;
+        }
         return true;
     }
 
@@ -74,9 +78,16 @@ class PelaporanCaseStudyResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->with(['mitra', 'pengusul', 'parent.jenisDokumen'])
             ->where('jenis_dokumen_id', 8);
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query;
     }
 
     public static function form(Schema $schema): Schema

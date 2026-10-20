@@ -9,6 +9,9 @@ use App\Models\PermintaanKerjasama;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class PermintaanKerjasamaResource extends Resource
 {
@@ -18,13 +21,29 @@ class PermintaanKerjasamaResource extends Resource
     protected static \UnitEnum|string|null $navigationGroup = 'Simmagang';
     protected static ?string $navigationLabel = 'Permintaan Kerjasama';
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        if ($user?->isMahasiswa()) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query;
+    }
+
     public static function canViewAny(): bool
     {
         return true;
     }
 
-    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canView(Model $record): bool
     {
+        $user = Auth::user();
+        if ($user?->isMahasiswa()) {
+            return (int) $record->user_id === (int) $user->id;
+        }
         return true;
     }
 
