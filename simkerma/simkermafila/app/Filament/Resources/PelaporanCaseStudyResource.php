@@ -75,7 +75,7 @@ class PelaporanCaseStudyResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['mitra', 'pengusul'])
+            ->with(['mitra', 'pengusul', 'parent.jenisDokumen'])
             ->where('jenis_dokumen_id', 8);
     }
 
@@ -232,14 +232,14 @@ class PelaporanCaseStudyResource extends Resource
                         ->url(function ($record) {
                             if (!$record->parent) return null;
                             if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) return null;
-                            $panel = filament()->getCurrentPanel()->getId();
                             return match ($record->parent->jenis_dokumen_id) {
-                                1 => route("filament.{$panel}.resources.data-mou.view", ['record' => $record->parent_id]),
-                                3 => route("filament.{$panel}.resources.data-pks-spk.view", ['record' => $record->parent_id]),
-                                4 => route("filament.{$panel}.resources.data-ia.view", ['record' => $record->parent_id]),
+                                1 => \App\Filament\Resources\MouResource::getUrl('view', ['record' => $record->parent_id]),
+                                2, 3, 5, 6 => \App\Filament\Resources\PksSpkResource::getUrl('view', ['record' => $record->parent_id]),
+                                4 => \App\Filament\Resources\IaResource::getUrl('view', ['record' => $record->parent_id]),
                                 default => null,
                             };
                         })
+                        ->openUrlInNewTab()
                         ->color('primary')
                         ->columnSpanFull(),
                     \Filament\Infolists\Components\TextEntry::make('mitra.nama_mitra')
