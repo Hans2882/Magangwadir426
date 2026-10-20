@@ -168,13 +168,45 @@ class Login extends BaseLogin
                 ['privilege_id' => $mhsPrivilege->id]
             );
 
-            // Cek data mahasiswa untuk mapping prodi
+            // Cek data mahasiswa untuk mapping prodi & jurusan
             $mhsInfo = $apiService->checkMahasiswaAktif($username) ?? $apiService->getMahasiswa($username);
-            if (!empty($mhsInfo['id_prodi'])) {
-                $apiProdiId = (string) $mhsInfo['id_prodi'];
-                $prodi = MasterProgramStudi::where('integrasi_prodi', $apiProdiId)
-                    ->orWhere('nama_prodi', 'LIKE', '%' . ($mhsInfo['namaProdi'] ?? '---') . '%')
-                    ->first();
+            if (!empty($mhsInfo)) {
+                $idProdi = $mhsInfo['id_prodi'] ?? null;
+                $kodeProdi = $mhsInfo['kode_prodi'] ?? null;
+                $namaProdi = $mhsInfo['nama_prodi'] ?? $mhsInfo['namaProdi'] ?? null;
+
+                // 1. Direct match by integrasi_prodi (id_siakad atau kode)
+                $prodi = null;
+                if (!empty($idProdi)) {
+                    $prodi = MasterProgramStudi::where('integrasi_prodi', $idProdi)->first();
+                }
+                if (!$prodi && !empty($kodeProdi)) {
+                    $prodi = MasterProgramStudi::where('integrasi_prodi', $kodeProdi)->first();
+                }
+
+                // 2. Lookup mapping via uker/prodi API list (menghubungkan id_siakad mahasiswa ke id uker)
+                if (!$prodi && !empty($idProdi)) {
+                    $prodiList = $apiService->getProdiList();
+                    foreach ($prodiList as $pItem) {
+                        if (($pItem['id_siakad'] ?? '') === $idProdi || ($pItem['id_pddikti'] ?? '') === $kodeProdi) {
+                            $prodi = MasterProgramStudi::where('integrasi_prodi', $pItem['id'])
+                                ->orWhere('integrasi_prodi', $pItem['id_siakad'])
+                                ->orWhere('nama_prodi', 'LIKE', '%' . ($pItem['nama'] ?? '---') . '%')
+                                ->first();
+                            if ($prodi) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 3. Fuzzy search nama prodi jika belum ketemu
+                if (!$prodi && !empty($namaProdi)) {
+                    $cleanSearch = preg_replace('/^(d-?[i|v|x]+|s-?[1-3]|sarjana terapan)\s+/i', '', $namaProdi);
+                    $cleanSearch = str_ireplace('t. ', 'teknik ', $cleanSearch);
+                    $cleanSearch = trim($cleanSearch);
+                    $prodi = MasterProgramStudi::where('nama_prodi', 'LIKE', '%' . $cleanSearch . '%')->first();
+                }
 
                 if ($prodi) {
                     UserProgramStudi::updateOrCreate(
