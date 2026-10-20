@@ -32,6 +32,7 @@ class EditUsulanKerjasama extends EditRecord
             'record' => $record,
             'kegiatans' => $kegiatans,
             'kegiatanLainnya' => $kegiatanLainnya,
+            'wadir4' => app(\App\Services\PolinemaApiService::class)->getPejabatWadir4(),
         ]);
 
         // Clean filename and upload to Google Drive

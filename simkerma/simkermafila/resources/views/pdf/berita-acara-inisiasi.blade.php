@@ -269,7 +269,7 @@
             </tr>
             <tr>
                 <td>{{ $record->pengusul_nama ?? '-' }}</td>
-                <td>Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.</td>
+                <td>{{ $wadir4['nama'] ?? 'Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.' }}</td>
             </tr>
         </table>
     </div>

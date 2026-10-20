@@ -13,7 +13,14 @@ class MasterProgramStudi extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'jurusan_id',
         'nama_prodi',
         'nama_prodi_eng',
+        'integrasi_prodi',
     ];
+
+    public function jurusan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(MasterJurusan::class, 'jurusan_id');
+    }
 }
