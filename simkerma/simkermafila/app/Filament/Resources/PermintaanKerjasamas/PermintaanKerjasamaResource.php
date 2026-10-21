@@ -50,6 +50,10 @@ class PermintaanKerjasamaResource extends Resource
 
     public static function canViewAny(): bool
     {
+        $user = Auth::user();
+        if ($user?->isDosen()) {
+            return false;
+        }
         return true;
     }
 
@@ -57,7 +61,7 @@ class PermintaanKerjasamaResource extends Resource
     {
         $user = Auth::user();
 
-        if (! $user) {
+        if (! $user || $user->isDosen()) {
             return false;
         }
 
@@ -79,13 +83,17 @@ class PermintaanKerjasamaResource extends Resource
 
     public static function canCreate(): bool
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isDosen()) {
+            return false;
+        }
         return true;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return true;
@@ -94,7 +102,7 @@ class PermintaanKerjasamaResource extends Resource
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return true;
@@ -103,7 +111,7 @@ class PermintaanKerjasamaResource extends Resource
     public static function canDeleteAny(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return true;

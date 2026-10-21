@@ -42,7 +42,7 @@ class PksSpkResource extends Resource
     public static function canViewAny(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return parent::canViewAny();
@@ -51,7 +51,7 @@ class PksSpkResource extends Resource
     public static function canCreate(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return parent::canCreate();

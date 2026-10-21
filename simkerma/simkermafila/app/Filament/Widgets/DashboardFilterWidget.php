@@ -23,7 +23,8 @@ class DashboardFilterWidget extends Widget implements HasForms
 
     public static function canView(): bool
     {
-        return !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        return ! $user?->isMahasiswa() && ! $user?->isDosen();
     }
 
     protected int | string | array $columnSpan = 'full';

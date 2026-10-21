@@ -55,6 +55,25 @@ class PelaporanCaseStudyResource extends Resource
             return (int) $record->user_id === (int) $user->id;
         }
 
+        if ($user->isDosen()) {
+            $jurusanId = $user->getJurusanId();
+            $prodiId = $user->getProdiId();
+
+            if ($jurusanId || $prodiId) {
+                $matchesJurusan = $jurusanId && (
+                    $record->jurusans()->where('master_jurusans.id', $jurusanId)->exists()
+                    || $record->prodis()->where('master_program_studi.jurusan_id', $jurusanId)->exists()
+                );
+
+                $matchesProdi = $prodiId && $record->prodis()->where('master_program_studi.id', $prodiId)->exists();
+                $isAuthor = (int) $record->user_id === (int) $user->id;
+
+                return $matchesJurusan || $matchesProdi || $isAuthor;
+            }
+
+            return (int) $record->user_id === (int) $user->id;
+        }
+
         return true;
     }
 
@@ -69,6 +88,9 @@ class PelaporanCaseStudyResource extends Resource
         if ($user?->isMahasiswa()) {
             return false;
         }
+        if (! static::canView($record)) {
+            return false;
+        }
         return parent::canEdit($record);
     }
 
@@ -76,6 +98,9 @@ class PelaporanCaseStudyResource extends Resource
     {
         $user = \Illuminate\Support\Facades\Auth::user();
         if ($user?->isMahasiswa()) {
+            return false;
+        }
+        if (! static::canView($record)) {
             return false;
         }
         return parent::canDelete($record);
@@ -93,7 +118,7 @@ class PelaporanCaseStudyResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->with(['mitra', 'pengusul', 'parent.jenisDokumen', 'prodis'])
+            ->with(['mitra', 'pengusul', 'parent.jenisDokumen', 'prodis', 'jurusans'])
             ->where('jenis_dokumen_id', 8);
 
         $user = \Illuminate\Support\Facades\Auth::user();
@@ -111,6 +136,26 @@ class PelaporanCaseStudyResource extends Resource
             if ($prodiId) {
                 return $query->whereHas('prodis', function ($q) use ($prodiId) {
                     $q->where('master_program_studi.id', $prodiId);
+                });
+            }
+
+            return $query->where('user_id', $user->id);
+        }
+
+        if ($user->isDosen()) {
+            $jurusanId = $user->getJurusanId();
+            $prodiId = $user->getProdiId();
+
+            if ($jurusanId || $prodiId) {
+                return $query->where(function (Builder $sub) use ($jurusanId, $prodiId, $user) {
+                    if ($jurusanId) {
+                        $sub->whereHas('jurusans', fn ($q) => $q->where('master_jurusans.id', $jurusanId))
+                            ->orWhereHas('prodis', fn ($q) => $q->where('master_program_studi.jurusan_id', $jurusanId));
+                    }
+                    if ($prodiId) {
+                        $sub->orWhereHas('prodis', fn ($q) => $q->where('master_program_studi.id', $prodiId));
+                    }
+                    $sub->orWhere('user_id', $user->id);
                 });
             }
 
@@ -228,6 +273,7 @@ class PelaporanCaseStudyResource extends Resource
                 ->label('Jurusan')
                 ->relationship('jurusans', 'nama_jurusan')
                 ->multiple()
+                ->default(fn () => \Illuminate\Support\Facades\Auth::user()?->getJurusanId() ? [\Illuminate\Support\Facades\Auth::user()->getJurusanId()] : [])
                 ->searchable()
                 ->preload(),
             Forms\Components\Textarea::make('feedback')

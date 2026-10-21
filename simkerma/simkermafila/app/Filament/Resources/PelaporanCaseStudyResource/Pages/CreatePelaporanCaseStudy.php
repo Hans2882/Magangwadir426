@@ -23,10 +23,12 @@ class CreatePelaporanCaseStudy extends CreateRecord
     protected function afterCreate(): void
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user && $this->record->prodis()->count() === 0) {
-            $userProdiId = $user->getProdiId();
-            if ($userProdiId) {
+        if ($user) {
+            if ($this->record->prodis()->count() === 0 && $userProdiId = $user->getProdiId()) {
                 $this->record->prodis()->attach($userProdiId);
+            }
+            if ($this->record->jurusans()->count() === 0 && $userJurusanId = $user->getJurusanId()) {
+                $this->record->jurusans()->attach($userJurusanId);
             }
         }
     }

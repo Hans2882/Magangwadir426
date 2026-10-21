@@ -19,7 +19,7 @@ class Templat extends Page
     public static function canAccess(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return true;

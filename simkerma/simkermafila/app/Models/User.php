@@ -105,6 +105,11 @@ public function getFilamentName(): string
         return $this->userProgramStudi?->program_studi_id;
     }
 
+    public function getJurusanId(): ?int
+    {
+        return $this->jurusan_id ?? $this->userProgramStudi?->programStudi?->jurusan_id;
+    }
+
     public static function getWadir4(): object
     {
         $user = static::whereHas('userPrivilege.privilege', function ($query) {
