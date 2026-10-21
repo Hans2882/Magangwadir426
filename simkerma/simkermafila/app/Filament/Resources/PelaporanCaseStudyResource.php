@@ -38,9 +38,23 @@ class PelaporanCaseStudyResource extends Resource
     public static function canView(Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->isMahasiswa()) {
             return (int) $record->user_id === (int) $user->id;
         }
+
+        if ($user->isKoorMagang()) {
+            $prodiId = $user->getProdiId();
+            if ($prodiId) {
+                return $record->prodis()->where('master_program_studi.id', $prodiId)->exists();
+            }
+            return (int) $record->user_id === (int) $user->id;
+        }
+
         return true;
     }
 
@@ -79,12 +93,28 @@ class PelaporanCaseStudyResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->with(['mitra', 'pengusul', 'parent.jenisDokumen'])
+            ->with(['mitra', 'pengusul', 'parent.jenisDokumen', 'prodis'])
             ->where('jenis_dokumen_id', 8);
 
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
-            $query->where('user_id', $user->id);
+
+        if (! $user) {
+            return $query;
+        }
+
+        if ($user->isMahasiswa()) {
+            return $query->where('user_id', $user->id);
+        }
+
+        if ($user->isKoorMagang()) {
+            $prodiId = $user->getProdiId();
+            if ($prodiId) {
+                return $query->whereHas('prodis', function ($q) use ($prodiId) {
+                    $q->where('master_program_studi.id', $prodiId);
+                });
+            }
+
+            return $query->where('user_id', $user->id);
         }
 
         return $query;
@@ -191,6 +221,7 @@ class PelaporanCaseStudyResource extends Resource
                 ->label('Bidang Studi (Prodi)')
                 ->relationship('prodis', 'nama_prodi')
                 ->multiple()
+                ->default(fn () => \Illuminate\Support\Facades\Auth::user()?->getProdiId() ? [\Illuminate\Support\Facades\Auth::user()->getProdiId()] : [])
                 ->searchable()
                 ->preload(),
             Forms\Components\Select::make('jurusans')

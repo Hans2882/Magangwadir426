@@ -20,6 +20,17 @@ class CreatePelaporanCaseStudy extends CreateRecord
         return $data;
     }
 
+    protected function afterCreate(): void
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user && $this->record->prodis()->count() === 0) {
+            $userProdiId = $user->getProdiId();
+            if ($userProdiId) {
+                $this->record->prodis()->attach($userProdiId);
+            }
+        }
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

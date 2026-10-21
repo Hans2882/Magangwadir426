@@ -95,6 +95,16 @@ public function getFilamentName(): string
         return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Wakil Direktur IV') === 0;
     }
 
+    public function isKoorMagang(): bool
+    {
+        return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Koor Magang') === 0;
+    }
+
+    public function getProdiId(): ?int
+    {
+        return $this->userProgramStudi?->program_studi_id;
+    }
+
     public static function getWadir4(): object
     {
         $user = static::whereHas('userPrivilege.privilege', function ($query) {
