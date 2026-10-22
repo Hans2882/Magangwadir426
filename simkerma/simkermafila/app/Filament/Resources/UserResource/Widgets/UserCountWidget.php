@@ -23,6 +23,12 @@ class UserCountWidget extends BaseWidget
         $this->cachedStats = null;
     }
 
+    public function setYear(string $year): void
+    {
+        $this->selectedYear = $year;
+        $this->cachedStats = null;
+    }
+
     public function getAvailableYears(): array
     {
         $years = Kerjasama::query()
