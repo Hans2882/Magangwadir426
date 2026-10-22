@@ -14,8 +14,12 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\RepeatableEntry;
 use App\Filament\Resources\MouResource;
+use App\Filament\Resources\IaResource;
+use App\Filament\Resources\PelaporanCaseStudyResource;
 use Filament\Schemas\Components\Utilities\Set;
 
 class PksSpkResource extends Resource
@@ -609,26 +613,93 @@ class PksSpkResource extends Resource
 
             Section::make('Hubungan Dokumen')
                 ->schema([
-                    TextEntry::make('parent.jenisDokumen.nama')
-                        ->label('Jenis')
-                        ->badge()
-                        ->default('-'),
+                    Fieldset::make('Dokumen Induk (MoU / MoA)')
+                        ->schema([
+                            TextEntry::make('parent.jenisDokumen.nama')
+                                ->label('Jenis Dokumen Induk')
+                                ->badge()
+                                ->default('-'),
 
-                    TextEntry::make('parent.judul')
-                        ->label('Dokumen Induk')
-                        ->default('-')
-                        ->url(function ($record) {
-                            if (! $record->parent) {
-                                return null;
-                            }
-                            return MouResource::getUrl('view', [
-                                'record' => $record->parent,
-                            ]);
+                            TextEntry::make('parent.judul')
+                                ->label('Judul MoU Induk')
+                                ->default('-')
+                                ->url(function ($record) {
+                                    if (! $record->parent) {
+                                        return null;
+                                    }
+                                    return MouResource::getUrl('view', [
+                                        'record' => $record->parent,
+                                    ]);
+                                })
+                                ->openUrlInNewTab(false)
+                                ->color('primary'),
+                        ])
+                        ->columns(2),
+
+                    RepeatableEntry::make('children_ia')
+                        ->label('Implementation Arrangement (IA)')
+                        ->state(function ($record) {
+                            return \App\Models\Kerjasama::where('jenis_dokumen_id', 4)
+                                ->where(function ($q) use ($record) {
+                                    $q->where('pks_id', $record->id)
+                                      ->orWhere('parent_id', $record->id);
+                                })
+                                ->get();
                         })
-                        ->openUrlInNewTab(false)
-                        ->color('primary'),
-                ])
-                ->columns(2),
+                        ->placeholder('-')
+                        ->contained()
+                        ->grid(3)
+                        ->schema([
+                            TextEntry::make('jenisDokumen.nama')
+                                ->label('Jenis'),
+
+                            TextEntry::make('judul')
+                                ->label('Judul IA')
+                                ->url(function ($record) {
+                                    return IaResource::getUrl(
+                                        'view',
+                                        ['record' => $record]
+                                    );
+                                })
+                                ->color('primary'),
+
+                            TextEntry::make('status')
+                                ->badge(),
+                        ]),
+
+                    RepeatableEntry::make('children_case_study')
+                        ->label('Pelaporan Case Study')
+                        ->state(fn ($record) => $record->children
+                            ->where('jenis_dokumen_id', 8)
+                            ->values())
+                        ->placeholder('-')
+                        ->contained()
+                        ->grid(3)
+                        ->schema([
+                            TextEntry::make('judul')
+                                ->label('Judul Case Study')
+                                ->url(function ($record) {
+                                    return PelaporanCaseStudyResource::getUrl(
+                                        'view',
+                                        ['record' => $record]
+                                    );
+                                })
+                                ->color('primary'),
+
+                            TextEntry::make('nomor_dokumen')
+                                ->label('No. Surat Tugas')
+                                ->default('-'),
+
+                            TextEntry::make('status_workflow')
+                                ->label('Status')
+                                ->badge()
+                                ->colors([
+                                    'warning' => 'Proses',
+                                    'success' => 'Selesai',
+                                    'danger'  => 'Ditolak',
+                                ]),
+                        ]),
+                ]),
         ]);
     }
 

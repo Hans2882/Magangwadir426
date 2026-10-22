@@ -549,8 +549,8 @@ class PelaporanCaseStudyResource extends Resource
                     })
                     ->visible(fn ($record) => $record->status_workflow === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
 
-                \Filament\Actions\ViewAction::make()->slideOver(),
-                \Filament\Actions\EditAction::make()->slideOver(),
+                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\EditAction::make(),
                 \Filament\Actions\DeleteAction::make(),
             ]);
     }
@@ -560,6 +560,8 @@ class PelaporanCaseStudyResource extends Resource
         return [
             'index' => Pages\ListPelaporanCaseStudies::route('/'),
             'create' => Pages\CreatePelaporanCaseStudy::route('/create'),
+            'view' => Pages\ViewPelaporanCaseStudy::route('/{record}'),
+            'edit' => Pages\EditPelaporanCaseStudy::route('/{record}/edit'),
         ];
     }
 }

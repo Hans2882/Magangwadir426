@@ -14,6 +14,12 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Fieldset;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\RepeatableEntry;
+use App\Filament\Resources\MouResource;
+use App\Filament\Resources\PksSpkResource;
+use App\Filament\Resources\PelaporanCaseStudyResource;
 
 class IaResource extends Resource
 {
@@ -540,6 +546,76 @@ class IaResource extends Resource
                     \Filament\Infolists\Components\TextEntry::make('link_laporan_kegiatan')->label('Link Laporan Kegiatan')->url(fn($state) => $state !== '-' ? $state : null)->default('-')->columnSpanFull(),
                 ])
                 ->columns(2),
+
+            Section::make('Hubungan Dokumen')
+                ->schema([
+                    Fieldset::make('Dokumen Induk / Referensi')
+                        ->schema([
+                            TextEntry::make('mou_referensi')
+                                ->label('Referensi MoU / MoA')
+                                ->state(function ($record) {
+                                    $mou = ($record->parent && in_array($record->parent->jenis_dokumen_id, [1, 2]))
+                                        ? $record->parent
+                                        : ($record->pks && $record->pks->parent && in_array($record->pks->parent->jenis_dokumen_id, [1, 2]) ? $record->pks->parent : null);
+                                    return $mou?->judul ?? '-';
+                                })
+                                ->url(function ($record) {
+                                    $mou = ($record->parent && in_array($record->parent->jenis_dokumen_id, [1, 2]))
+                                        ? $record->parent
+                                        : ($record->pks && $record->pks->parent && in_array($record->pks->parent->jenis_dokumen_id, [1, 2]) ? $record->pks->parent : null);
+                                    return $mou ? MouResource::getUrl('view', ['record' => $mou]) : null;
+                                })
+                                ->openUrlInNewTab(false)
+                                ->color('primary'),
+
+                            TextEntry::make('pks_referensi')
+                                ->label('Referensi PKS / SPK')
+                                ->state(function ($record) {
+                                    $pks = $record->pks ?? (($record->parent && in_array($record->parent->jenis_dokumen_id, [3, 5, 6])) ? $record->parent : null);
+                                    return $pks?->judul ?? '-';
+                                })
+                                ->url(function ($record) {
+                                    $pks = $record->pks ?? (($record->parent && in_array($record->parent->jenis_dokumen_id, [3, 5, 6])) ? $record->parent : null);
+                                    return $pks ? PksSpkResource::getUrl('view', ['record' => $pks]) : null;
+                                })
+                                ->openUrlInNewTab(false)
+                                ->color('primary'),
+                        ])
+                        ->columns(2),
+
+                    RepeatableEntry::make('children_case_study')
+                        ->label('Pelaporan Case Study Terkait')
+                        ->state(fn ($record) => $record->children
+                            ->where('jenis_dokumen_id', 8)
+                            ->values())
+                        ->placeholder('-')
+                        ->contained()
+                        ->grid(3)
+                        ->schema([
+                            TextEntry::make('judul')
+                                ->label('Judul Case Study')
+                                ->url(function ($record) {
+                                    return PelaporanCaseStudyResource::getUrl(
+                                        'view',
+                                        ['record' => $record]
+                                    );
+                                })
+                                ->color('primary'),
+
+                            TextEntry::make('nomor_dokumen')
+                                ->label('No. Surat Tugas')
+                                ->default('-'),
+
+                            TextEntry::make('status_workflow')
+                                ->label('Status')
+                                ->badge()
+                                ->colors([
+                                    'warning' => 'Proses',
+                                    'success' => 'Selesai',
+                                    'danger'  => 'Ditolak',
+                                ]),
+                        ]),
+                ]),
         ]);
     }
 
