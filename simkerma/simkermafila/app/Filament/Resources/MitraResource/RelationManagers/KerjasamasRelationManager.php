@@ -13,6 +13,10 @@ use App\Exports\KerjasamaExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use App\Filament\Resources\MouResource;
+use App\Filament\Resources\PksSpkResource;
+use App\Filament\Resources\IaResource;
+use App\Filament\Resources\PelaporanCaseStudyResource;
 
 class KerjasamasRelationManager extends RelationManager
 {
@@ -63,6 +67,14 @@ class KerjasamasRelationManager extends RelationManager
             'BERAKHIR' => 'danger',
             default => 'gray',
         }),
+
+    Tables\Columns\TextColumn::make('link_dokumen')
+        ->label('Dokumen')
+        ->formatStateUsing(fn ($state) => $state && $state !== '-' ? 'Lihat' : '-')
+        ->url(fn ($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
+        ->openUrlInNewTab()
+        ->badge()
+        ->icon(fn ($state) => $state && $state !== '-' ? 'heroicon-o-eye' : null),
 ])
             ->filters([
     Tables\Filters\SelectFilter::make('jenis_dokumen_id')
@@ -127,6 +139,27 @@ class KerjasamasRelationManager extends RelationManager
             
             ->recordActions([
                 ViewAction::make(),
+                Action::make('detail')
+                    ->label('Halaman Detail')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->color('gray')
+                    ->url(function ($record) {
+                        $jenisId = $record->jenis_dokumen_id;
+                        if (in_array($jenisId, [1, 2])) {
+                            return MouResource::getUrl('view', ['record' => $record]);
+                        }
+                        if (in_array($jenisId, [3, 5, 6])) {
+                            return PksSpkResource::getUrl('view', ['record' => $record]);
+                        }
+                        if ($jenisId == 4) {
+                            return IaResource::getUrl('view', ['record' => $record]);
+                        }
+                        if ($jenisId == 8) {
+                            return PelaporanCaseStudyResource::getUrl('view', ['record' => $record]);
+                        }
+                        return null;
+                    })
+                    ->openUrlInNewTab(),
             ])
             ->toolbarActions([
                 //
@@ -164,8 +197,10 @@ class KerjasamasRelationManager extends RelationManager
 
             TextEntry::make('link_dokumen')
                 ->label('Dokumen')
-                ->url(fn ($state) => $state)
-                ->openUrlInNewTab(),
+                ->url(fn ($state) => $state && $state !== '-' ? route('view-dokumen', ['path' => $state]) : null)
+                ->openUrlInNewTab()
+                ->color('primary')
+                ->default('-'),
         ]);
 }
 }
