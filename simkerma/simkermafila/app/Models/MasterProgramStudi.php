@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ */
 class MasterProgramStudi extends Model
 {
     use HasFactory;

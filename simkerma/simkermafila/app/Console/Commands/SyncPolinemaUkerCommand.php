@@ -59,8 +59,18 @@ class SyncPolinemaUkerCommand extends Command
                 continue;
             }
 
+            // Lewati unit non-jurusan (UPT, PSDKU, Pusat, Bagian, dll) agar tidak mengotori Master Jurusan
+            if (
+                stripos($namaJurusan, 'UPT') !== false ||
+                stripos($namaJurusan, 'PSDKU') !== false ||
+                stripos($namaJurusan, 'Pusat') !== false ||
+                stripos($namaJurusan, 'Bagian') !== false
+            ) {
+                continue;
+            }
+
             // Cari jurusan lokal berdasarkan integrasi_jurusan atau kesamaan nama
-            $jurusan = MasterJurusan::where('integrasi_jurusan', $apiId)
+            $jurusan = MasterJurusan::query()->where('integrasi_jurusan', $apiId)
                 ->orWhere('nama_jurusan', 'LIKE', '%' . $namaJurusan . '%')
                 ->first();
 
@@ -91,9 +101,9 @@ class SyncPolinemaUkerCommand extends Command
         $syncedProdiCount = 0;
 
         // Pembersihan & Penggabungan Otomatis Baris Duplikat (ID > 48) ke Master Asli (ID <= 48)
-        $duplicates = MasterProgramStudi::where('id', '>', 48)->get();
+        $duplicates = MasterProgramStudi::query()->where('id', '>', 48)->get();
         if ($duplicates->isNotEmpty()) {
-            $originals = MasterProgramStudi::where('id', '<=', 48)->get();
+            $originals = MasterProgramStudi::query()->where('id', '<=', 48)->get();
             foreach ($duplicates as $dup) {
                 // Hapus langsung unit non-prodi (UPT, dll)
                 if (stripos($dup->nama_prodi, 'UPT') !== false || stripos($dup->nama_prodi, 'PROGRAM DIPLOMA LAIN') !== false || stripos($dup->nama_prodi, 'PROGRAM DILUAR DOMISILI') !== false) {
@@ -178,7 +188,7 @@ class SyncPolinemaUkerCommand extends Command
 
             // Cari prodi lokal:
             // 1. Berdasarkan integrasi_prodi yang sudah tersimpan
-            $prodi = MasterProgramStudi::where(function ($q) use ($apiSiakadId, $apiProdiId) {
+            $prodi = MasterProgramStudi::query()->where(function ($q) use ($apiSiakadId, $apiProdiId) {
                 if (!empty($apiSiakadId)) {
                     $q->where('integrasi_prodi', $apiSiakadId);
                 }
@@ -189,7 +199,7 @@ class SyncPolinemaUkerCommand extends Command
 
             // 2. Berdasarkan kesamaan nama persis
             if (!$prodi) {
-                $prodi = MasterProgramStudi::where('nama_prodi', 'LIKE', '%' . $namaProdi . '%')->first();
+                $prodi = MasterProgramStudi::query()->where('nama_prodi', 'LIKE', '%' . $namaProdi . '%')->first();
             }
 
             // 3. Normalisasi jenjang (Sarjana Terapan <-> D-IV, D3 <-> D-III, D2) & PSDKU
@@ -262,7 +272,7 @@ class SyncPolinemaUkerCommand extends Command
         }
 
         // Standardisasi nama D-III -> D3 dan D-IV / D4 -> Sarjana Terapan pada semua data prodi
-        $romanProdis = MasterProgramStudi::where(function ($q) {
+        $romanProdis = MasterProgramStudi::query()->where(function ($q) {
             $q->where('nama_prodi', 'LIKE', '%D-III%')
               ->orWhere('nama_prodi', 'LIKE', '%D III%')
               ->orWhere('nama_prodi', 'LIKE', '%D-IV%')
