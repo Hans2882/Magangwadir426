@@ -63,12 +63,14 @@ class KerjasamaCalendarController extends Controller
             ->orderBy('judul')
             ->get(['id', 'judul', 'mitra_id', 'jenis_dokumen_id', 'tanggal_akhir'])
             ->map(fn (Kerjasama $k): array => [
-                'id'            => $k->id,
-                'title'         => $k->judul,
-                'partner'       => $k->mitra?->nama_mitra,
-                'jenis_dokumen' => $k->jenisDokumen?->nama,
-                'date'          => $k->tanggal_akhir->toDateString(),
-                'is_past'       => $k->tanggal_akhir->isPast(),
+                'id'               => $k->id,
+                'title'            => $k->judul,
+                'partner'          => $k->mitra?->nama_mitra,
+                'jenis_dokumen'    => $k->jenisDokumen?->nama,
+                'jenis_dokumen_id' => $k->jenis_dokumen_id,
+                'date'             => $k->tanggal_akhir->toDateString(),
+                'is_past'          => $k->tanggal_akhir->isPast(),
+                'url'              => $this->getResourceUrl($k->jenis_dokumen_id, $k->id),
             ])
             ->all();
     }
@@ -93,13 +95,33 @@ class KerjasamaCalendarController extends Controller
             ->orderBy('judul')
             ->get(['id', 'judul', 'mitra_id', 'jenis_dokumen_id', 'created_at'])
             ->map(fn (Kerjasama $k): array => [
-                'id'            => $k->id,
-                'title'         => $k->judul,
-                'partner'       => $k->mitra?->nama_mitra,
-                'jenis_dokumen' => $k->jenisDokumen?->nama,
-                'date'          => $k->created_at->toDateString(),
-                'is_past'       => false,
+                'id'               => $k->id,
+                'title'            => $k->judul,
+                'partner'          => $k->mitra?->nama_mitra,
+                'jenis_dokumen'    => $k->jenisDokumen?->nama,
+                'jenis_dokumen_id' => $k->jenis_dokumen_id,
+                'date'             => $k->created_at->toDateString(),
+                'is_past'          => false,
+                'url'              => $this->getResourceUrl($k->jenis_dokumen_id, $k->id),
             ])
             ->all();
+    }
+
+    /**
+     * Tentukan URL "view" Filament berdasarkan jenis_dokumen_id.
+     * 1, 7 => MoU/LoI | 3, 5 => PKS/SPK | 4 => IA
+     */
+    private function getResourceUrl(?int $jenisDokumenId, int $id): ?string
+    {
+        if ($jenisDokumenId === null) {
+            return null;
+        }
+
+        return match ($jenisDokumenId) {
+            1, 7 => \App\Filament\Resources\MouResource::getUrl('view', ['record' => $id]),
+            3, 5 => \App\Filament\Resources\PksSpkResource::getUrl('view', ['record' => $id]),
+            4    => \App\Filament\Resources\IaResource::getUrl('view', ['record' => $id]),
+            default => null,
+        };
     }
 }
