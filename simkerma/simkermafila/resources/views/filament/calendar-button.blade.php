@@ -58,7 +58,6 @@
                 const key = this.dateKey(date);
                 const dayEvents = this.events.filter((event) => event.date === key);
 
-                // Hitung is_past di frontend (fallback kalau backend tidak kirim)
                 const hasOnlyPast = dayEvents.length > 0 && dayEvents.every((e) => {
                     if (typeof e.is_past === 'boolean') return e.is_past;
                     return e.date < todayKey;
@@ -240,13 +239,11 @@
                         >
                             <span x-text="day.day"></span>
 
-                            {{-- Dot MERAH: hanya bila ada event (semua/mixed future) --}}
                             <span
                                 x-show="day.hasEvents && !day.hasPastOnly"
                                 style="position: absolute; bottom: 0.1rem; left: 50%; width: 0.2rem; height: 0.2rem; border-radius: 9999px; background: #dc2626; transform: translateX(-50%); pointer-events: none;"
                             ></span>
 
-                            {{-- Dot ABU: hanya bila SEMUA event sudah berakhir --}}
                             <span
                                 x-show="day.hasEvents && day.hasPastOnly"
                                 style="position: absolute; bottom: 0.1rem; left: 50%; width: 0.2rem; height: 0.2rem; border-radius: 9999px; background: #9ca3af; transform: translateX(-50%); pointer-events: none;"
@@ -269,23 +266,32 @@
                     <p x-show="!loading && !error && selectedEvents.length === 0" x-text="emptyMessage" style="margin: 0; font-size: 0.75rem;" class="text-gray-500 dark:text-gray-400"></p>
                     <ul x-show="!loading && !error && selectedEvents.length > 0" style="display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none;">
                         <template x-for="event in selectedEvents" :key="event.id">
-                            <li style="font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid rgb(243 244 246); border-radius: 0.375rem;" class="dark:border-gray-800">
-                                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.25rem;">
-                                    <span x-show="event.jenis_dokumen" x-text="event.jenis_dokumen"
-                                        style="display: inline-block; font-size: 0.6rem; padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: rgb(243 244 246); color: rgb(55 65 81); font-weight: 500;"
-                                        class="dark:bg-gray-800 dark:text-gray-200"></span>
-                                    <span x-show="mode === 'kerjasama' && event.is_past"
-                                        style="display: inline-block; font-size: 0.6rem; padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: rgb(254 226 226); color: rgb(153 27 27); font-weight: 500;"
-                                        class="dark:bg-red-900/40 dark:text-red-200">
-                                        Berakhir
-                                    </span>
-                                </div>
-                                <p x-text="event.title || 'Tanpa judul'"
-                                    x-bind:class="event.is_past && mode === 'kerjasama' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'"
-                                    style="margin: 0; font-weight: 600; word-break: break-word;"></p>
-                                <p x-text="event.partner || 'Mitra tidak tersedia'"
-                                    style="margin: 0.125rem 0 0; word-break: break-word;"
-                                    class="text-gray-500 dark:text-gray-400"></p>
+                            <li style="margin: 0;">
+                                {{-- Bungkus dengan <a>: jika event.url ada -> clickable, jika tidak -> tetap tampil statis --}}
+                                <a
+                                    x-bind:href="event.url || null"
+                                    x-bind:style="`display: block; font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid rgb(243 244 246); border-radius: 0.375rem; text-decoration: none; color: inherit; ${event.url ? 'cursor: pointer;' : 'cursor: default;'}`"
+                                    class="dark:border-gray-800"
+                                    :class="event.url ? 'hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''"
+                                    :title="event.url ? 'Buka detail' : ''"
+                                >
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.25rem;">
+                                        <span x-show="event.jenis_dokumen" x-text="event.jenis_dokumen"
+                                            style="display: inline-block; font-size: 0.6rem; padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: rgb(243 244 246); color: rgb(55 65 81); font-weight: 500;"
+                                            class="dark:bg-gray-800 dark:text-gray-200"></span>
+                                        <span x-show="mode === 'kerjasama' && event.is_past"
+                                            style="display: inline-block; font-size: 0.6rem; padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: rgb(254 226 226); color: rgb(153 27 27); font-weight: 500;"
+                                            class="dark:bg-red-900/40 dark:text-red-200">
+                                            Berakhir
+                                        </span>
+                                    </div>
+                                    <p x-text="event.title || 'Tanpa judul'"
+                                        x-bind:class="event.is_past && mode === 'kerjasama' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'"
+                                        style="margin: 0; font-weight: 600; word-break: break-word;"></p>
+                                    <p x-text="event.partner || 'Mitra tidak tersedia'"
+                                        style="margin: 0.125rem 0 0; word-break: break-word;"
+                                        class="text-gray-500 dark:text-gray-400"></p>
+                                </a>
                             </li>
                         </template>
                     </ul>
