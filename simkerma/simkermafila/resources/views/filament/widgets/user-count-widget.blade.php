@@ -30,7 +30,7 @@
             </x-slot>
 
             <x-slot name="description">
-                Pilih tahun pada filter untuk menganalisis rujukan Dokumen Kerma (MoU/PKS/IA) periode tertentu
+                Pilih tahun pada filter untuk menganalisis rujukan Dokumen Kerma & Pelaporan Case Study periode tertentu
             </x-slot>
 
             <x-slot name="afterHeader">

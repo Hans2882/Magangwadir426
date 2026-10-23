@@ -33,8 +33,6 @@ class UserCountWidget extends BaseWidget
     {
         $years = Kerjasama::query()
             ->where('jenis_dokumen_id', 8)
-            ->whereNotNull('parent_id')
-            ->whereHas('parent')
             ->where('status_workflow', '!=', 'Ditolak')
             ->get()
             ->map(function ($cs) {
@@ -143,39 +141,34 @@ class UserCountWidget extends BaseWidget
             ->descriptionIcon('heroicon-m-document-check')
             ->color($uniqueCount > 0 ? 'success' : 'gray');
 
-        // 3. Stat Total Akumulasi Dokumen Kerma (jika sedang memilih tahun tertentu)
+        // 3. Stat Pelaporan Case Study (Dinamis mengikuti filter tahun / semua tahun)
+        $csQuery = Kerjasama::query()
+            ->where('jenis_dokumen_id', 8)
+            ->where('status_workflow', '!=', 'Ditolak');
+
         if ($selected !== 'all') {
-            $allCaseStudies = Kerjasama::query()
-                ->where('jenis_dokumen_id', 8)
-                ->whereNotNull('parent_id')
-                ->whereHas('parent')
-                ->where('status_workflow', '!=', 'Ditolak')
-                ->with(['parent.jenisDokumen'])
-                ->get();
-
-            $totalAllYears = $allCaseStudies
-                ->groupBy(function ($cs) {
-                    if (!empty($cs->tahun)) {
-                        return (string) $cs->tahun;
-                    }
-                    if (!empty($cs->tanggal_awal)) {
-                        return date('Y', strtotime($cs->tanggal_awal));
-                    }
-                    return date('Y', strtotime($cs->created_at));
-                })
-                ->map(function ($itemsInYear) {
-                    return $itemsInYear->map(function ($item) {
-                        $nomor = trim($item->parent?->nomor_dokumen ?? '');
-                        return !empty($nomor) ? strtolower($nomor) : 'PARENT_ID_' . $item->parent_id;
-                    })->unique()->count();
-                })
-                ->sum();
-
-            $stats[] = Stat::make('Total Dokumen Kerma', number_format($totalAllYears))
-                ->description('Akumulasi seluruh tahun')
-                ->descriptionIcon('heroicon-m-rectangle-stack')
-                ->color('warning');
+            $csQuery->where(function ($q) use ($selected) {
+                $q->where('tahun', $selected)
+                  ->orWhere(function ($sub) use ($selected) {
+                      $sub->whereNull('tahun')->whereYear('tanggal_awal', $selected);
+                  })
+                  ->orWhere(function ($sub) use ($selected) {
+                      $sub->whereNull('tahun')->whereNull('tanggal_awal')->whereYear('created_at', $selected);
+                  });
+            });
+            $csLabel = "Pelaporan Case Study ({$selected})";
+            $csDesc = "Kegiatan Case Study terlaksana tahun {$selected}";
+        } else {
+            $csLabel = 'Pelaporan Case Study (Semua Tahun)';
+            $csDesc = 'Total kegiatan Case Study di sistem';
         }
+
+        $totalCs = $csQuery->count();
+
+        $stats[] = Stat::make($csLabel, number_format($totalCs))
+            ->description($csDesc)
+            ->descriptionIcon('heroicon-m-clipboard-document-check')
+            ->color($totalCs > 0 ? 'warning' : 'gray');
 
         return $stats;
     }
