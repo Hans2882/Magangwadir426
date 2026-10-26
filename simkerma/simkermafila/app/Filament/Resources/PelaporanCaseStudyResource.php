@@ -179,6 +179,8 @@ class PelaporanCaseStudyResource extends Resource
                 })
                 ->visibility('private')
                 ->acceptedFileTypes(['application/pdf'])
+                ->maxSize(25600)
+                ->helperText('Ukuran maksimal berkas: 25 MB (format PDF).')
                 ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string {
                     $dir = 'StudyCase/' . date('Y/m/d');
                     

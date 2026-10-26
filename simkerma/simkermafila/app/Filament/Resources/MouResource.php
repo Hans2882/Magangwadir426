@@ -85,6 +85,8 @@ class MouResource extends Resource
                         })
                         ->visibility('private')
                         ->acceptedFileTypes(['application/pdf'])
+                        ->maxSize(25600)
+                        ->helperText('Ukuran maksimal berkas: 25 MB (format PDF).')
                         ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
                             $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
                             $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;

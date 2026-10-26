@@ -33,6 +33,26 @@ class UserResource extends Resource
         return $user?->userPrivilege?->privilege?->is_admin_panel ?? false;
     }
 
+    public static function canCreate(): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return static::canViewAny();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
