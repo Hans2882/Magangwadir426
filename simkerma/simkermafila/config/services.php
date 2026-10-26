@@ -40,7 +40,14 @@ return [
     ],
 
     'web_api' => [
-    'key' => env('WEB_API_KEY'),
-],
+        'key' => env('WEB_API_KEY'),
+    ],
+
+    'polinema' => [
+        'base_url' => env('POLINEMA_API_BASE_URL', 'http://api.polinema.ac.id/bidang_iv'),
+        'username' => env('POLINEMA_API_USERNAME', ''),
+        'password' => env('POLINEMA_API_PASSWORD', ''),
+        'enabled'  => env('POLINEMA_SSO_ENABLED', true),
+    ],
 
 ];

@@ -9,6 +9,9 @@ use App\Models\PermintaanKerjasama;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class PermintaanKerjasamaResource extends Resource
 {
@@ -18,25 +21,79 @@ class PermintaanKerjasamaResource extends Resource
     protected static \UnitEnum|string|null $navigationGroup = 'Simmagang';
     protected static ?string $navigationLabel = 'Permintaan Kerjasama';
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = Auth::user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        if ($user->isMahasiswa()) {
+            return $query->where('user_id', $user->id);
+        }
+
+        if ($user->isKoorMagang()) {
+            $prodiId = $user->getProdiId();
+            if ($prodiId) {
+                return $query->whereHas('pengusul.userProgramStudi', function ($q) use ($prodiId) {
+                    $q->where('program_studi_id', $prodiId);
+                });
+            }
+
+            return $query->where('user_id', $user->id);
+        }
+
+        return $query;
+    }
+
     public static function canViewAny(): bool
     {
+        $user = Auth::user();
+        if ($user?->isDosen()) {
+            return false;
+        }
         return true;
     }
 
-    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canView(Model $record): bool
     {
+        $user = Auth::user();
+
+        if (! $user || $user->isDosen()) {
+            return false;
+        }
+
+        if ($user->isMahasiswa()) {
+            return (int) $record->user_id === (int) $user->id;
+        }
+
+        if ($user->isKoorMagang()) {
+            $prodiId = $user->getProdiId();
+            if ($prodiId) {
+                $pengusulProdiId = $record->pengusul?->userProgramStudi?->program_studi_id;
+                return (int) $pengusulProdiId === (int) $prodiId;
+            }
+            return (int) $record->user_id === (int) $user->id;
+        }
+
         return true;
     }
 
     public static function canCreate(): bool
     {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isDosen()) {
+            return false;
+        }
         return true;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return true;
@@ -45,7 +102,7 @@ class PermintaanKerjasamaResource extends Resource
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return true;
@@ -54,7 +111,7 @@ class PermintaanKerjasamaResource extends Resource
     public static function canDeleteAny(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return true;

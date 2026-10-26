@@ -27,7 +27,7 @@ class UserPanelProvider extends PanelProvider
             ->id('user')
             ->path('user')
             ->favicon(asset('favicon.png'))
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->sidebarCollapsibleOnDesktop()
             ->databaseNotifications()
             ->brandName('SIMKERMA')

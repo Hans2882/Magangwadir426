@@ -21,6 +21,7 @@ class User extends Authenticatable implements FilamentUser, HasName
      * @var list<string>
      */
     protected $fillable = [
+        'username',
         'name',
         'email',
         'password',
@@ -82,6 +83,43 @@ public function getFilamentName(): string
     public function isMahasiswa(): bool
     {
         return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Mahasiswa') === 0;
+    }
+
+    public function isDosen(): bool
+    {
+        return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Dosen') === 0;
+    }
+
+    public function isWadir4(): bool
+    {
+        return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Wakil Direktur IV') === 0;
+    }
+
+    public function isKoorMagang(): bool
+    {
+        return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Koor Magang') === 0;
+    }
+
+    public function getProdiId(): ?int
+    {
+        return $this->userProgramStudi?->program_studi_id;
+    }
+
+    public function getJurusanId(): ?int
+    {
+        return $this->jurusan_id ?? $this->userProgramStudi?->programStudi?->jurusan_id;
+    }
+
+    public static function getWadir4(): object
+    {
+        $user = static::whereHas('userPrivilege.privilege', function ($query) {
+            $query->where('nama', 'Wakil Direktur IV');
+        })->first();
+
+        return (object) [
+            'nama' => $user?->name ?? 'Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.',
+            'nip'  => $user?->username ?? '198010102005011001',
+        ];
     }
 
     public function canAccessPanel(Panel $panel): bool

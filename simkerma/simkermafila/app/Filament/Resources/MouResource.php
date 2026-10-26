@@ -40,7 +40,7 @@ class MouResource extends Resource
     public static function canViewAny(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return parent::canViewAny();
@@ -49,7 +49,7 @@ class MouResource extends Resource
     public static function canCreate(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             return false;
         }
         return parent::canCreate();
@@ -506,58 +506,92 @@ class MouResource extends Resource
                 ->columns(2),
 
             Section::make('Hubungan Dokumen')
-    ->schema([
-        RepeatableEntry::make('children')
-            ->label('PKS / SPK')
-            ->state(fn ($record) => $record->children
-                ->whereIn('jenis_dokumen_id', [3, 5])
-                ->values())
-            ->contained()
-            ->grid(3)
-            ->schema([
+                ->schema([
+                    RepeatableEntry::make('children_pks')
+                        ->label('PKS / SPK')
+                        ->state(fn ($record) => $record->children
+                            ->whereIn('jenis_dokumen_id', [3, 5])
+                            ->values())
+                        ->placeholder('-')
+                        ->contained()
+                        ->grid(3)
+                        ->schema([
+                            TextEntry::make('jenisDokumen.nama')
+                                ->label('Jenis'),
 
-                TextEntry::make('jenisDokumen.nama')
-                    ->label('Jenis'),
+                            TextEntry::make('judul')
+                                ->label('Judul Dokumen')
+                                ->url(function ($record) {
+                                    return \App\Filament\Resources\PksSpkResource::getUrl(
+                                        'view',
+                                        ['record' => $record]
+                                    );
+                                })
+                                ->color('primary'),
 
-                TextEntry::make('judul')
-                    ->url(function ($record) {
-                        return \App\Filament\Resources\PksSpkResource::getUrl(
-                            'view',
-                            ['record' => $record]
-                        );
-                    })
-                    ->color('primary'),
+                            TextEntry::make('status')
+                                ->badge(),
+                        ]),
 
-                TextEntry::make('status')
-                    ->badge(),
+                    RepeatableEntry::make('children_ia')
+                        ->label('Implementation Arrangement (IA)')
+                        ->state(fn ($record) => $record->children
+                            ->where('jenis_dokumen_id', 4)
+                            ->values())
+                        ->placeholder('-')
+                        ->contained()
+                        ->grid(3)
+                        ->schema([
+                            TextEntry::make('jenisDokumen.nama')
+                                ->label('Jenis'),
 
-            ]),
+                            TextEntry::make('judul')
+                                ->label('Judul IA')
+                                ->url(function ($record) {
+                                    return \App\Filament\Resources\IaResource::getUrl(
+                                        'view',
+                                        ['record' => $record]
+                                    );
+                                })
+                                ->color('primary'),
 
-        RepeatableEntry::make('children')
-            ->label('IA')
-            ->state(fn ($record) => $record->children
-                ->where('jenis_dokumen_id', 4)
-                ->values())
-            ->contained()
-            ->grid(3)
-            ->schema([
+                            TextEntry::make('status')
+                                ->badge(),
+                        ]),
 
-                TextEntry::make('jenisDokumen.nama')
-                    ->label('Jenis'),
+                    RepeatableEntry::make('children_case_study')
+                        ->label('Pelaporan Case Study')
+                        ->state(fn ($record) => $record->children
+                            ->where('jenis_dokumen_id', 8)
+                            ->values())
+                        ->placeholder('-')
+                        ->contained()
+                        ->grid(3)
+                        ->schema([
+                            TextEntry::make('judul')
+                                ->label('Judul Case Study')
+                                ->url(function ($record) {
+                                    return \App\Filament\Resources\PelaporanCaseStudyResource::getUrl(
+                                        'view',
+                                        ['record' => $record]
+                                    );
+                                })
+                                ->color('primary'),
 
-                TextEntry::make('judul')
-                    ->url(function ($record) {
-                        return \App\Filament\Resources\IaResource::getUrl(
-                            'view',
-                            ['record' => $record]
-                        );
-                    })
-                    ->color('primary'),
+                            TextEntry::make('nomor_dokumen')
+                                ->label('No. Surat Tugas')
+                                ->default('-'),
 
-                TextEntry::make('status')
-                    ->badge(),
-            ]),
-    ]),
+                            TextEntry::make('status_workflow')
+                                ->label('Status')
+                                ->badge()
+                                ->colors([
+                                    'warning' => 'Proses',
+                                    'success' => 'Selesai',
+                                    'danger'  => 'Ditolak',
+                                ]),
+                        ]),
+                ]),
         ]);
     }
 

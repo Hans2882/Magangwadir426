@@ -29,7 +29,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->favicon(asset('favicon.png'))
             ->brandLogoHeight('3rem')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->sidebarCollapsibleOnDesktop()
             ->databaseNotifications()
             ->brandName('SIMKERMA')

@@ -29,6 +29,7 @@ class CreateUsulanKerjasama extends CreateRecord
             'record' => $record,
             'kegiatans' => $kegiatans,
             'kegiatanLainnya' => $kegiatanLainnya,
+            'wadir4' => (array) \App\Models\User::getWadir4(),
         ]);
 
         // Clean filename and upload to Google Drive
