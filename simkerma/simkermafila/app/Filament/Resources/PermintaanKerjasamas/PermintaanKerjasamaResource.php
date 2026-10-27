@@ -35,10 +35,10 @@ class PermintaanKerjasamaResource extends Resource
         }
 
         if ($user->isKoorMagang()) {
-            $prodiId = $user->getProdiId();
-            if ($prodiId) {
-                return $query->whereHas('pengusul.userProgramStudi', function ($q) use ($prodiId) {
-                    $q->where('program_studi_id', $prodiId);
+            $prodiIds = $user->getProdiIds();
+            if (!empty($prodiIds)) {
+                return $query->whereHas('pengusul.userProgramStudis', function ($q) use ($prodiIds) {
+                    $q->whereIn('program_studi_id', $prodiIds);
                 });
             }
 
@@ -70,10 +70,10 @@ class PermintaanKerjasamaResource extends Resource
         }
 
         if ($user->isKoorMagang()) {
-            $prodiId = $user->getProdiId();
-            if ($prodiId) {
-                $pengusulProdiId = $record->pengusul?->userProgramStudi?->program_studi_id;
-                return (int) $pengusulProdiId === (int) $prodiId;
+            $prodiIds = $user->getProdiIds();
+            if (!empty($prodiIds)) {
+                $pengusulProdiIds = $record->pengusul?->getProdiIds() ?? [];
+                return !empty(array_intersect($pengusulProdiIds, $prodiIds));
             }
             return (int) $record->user_id === (int) $user->id;
         }

@@ -124,22 +124,53 @@ class UserResource extends Resource
                             })
                             ->visible(fn ($get) => filled($get('privilege_id')))
                     ),
-                Forms\Components\Select::make('program_studi_id')
-                    ->label('Program Studi')
-                    ->options(\App\Models\MasterProgramStudi::pluck('nama_prodi', 'id'))
-                    ->searchable()
-                    ->preload()
-                    ->dehydrated(false)
-                    ->afterStateHydrated(function (Forms\Components\Select $component, ?\App\Models\User $record) {
-                        if ($record && $record->userProgramStudi) {
-                            $component->state($record->userProgramStudi->program_studi_id);
-                        }
-                    }),
                 Forms\Components\Select::make('jurusan_id')
                     ->label('Jurusan')
                     ->relationship('jurusan', 'nama_jurusan')
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->live()
+                    ->afterStateUpdated(function ($state, $set, $get) {
+                        $currentProdis = $get('program_studi_ids') ?? [];
+                        if (!empty($currentProdis) && $state) {
+                            $validProdis = \App\Models\MasterProgramStudi::where('jurusan_id', $state)
+                                ->whereIn('id', $currentProdis)
+                                ->pluck('id')
+                                ->toArray();
+                            $set('program_studi_ids', $validProdis);
+                        }
+                    }),
+                Forms\Components\Select::make('program_studi_ids')
+                    ->label('Program Studi')
+                    ->options(function ($get) {
+                        $jurusanId = $get('jurusan_id');
+                        $query = \App\Models\MasterProgramStudi::query();
+                        if ($jurusanId) {
+                            $query->where('jurusan_id', $jurusanId);
+                        }
+                        return $query->pluck('nama_prodi', 'id');
+                    })
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->dehydrated(false)
+                    ->helperText(fn ($get) => $get('jurusan_id')
+                        ? 'Hanya menampilkan Program Studi yang berada dalam Jurusan terpilih.'
+                        : 'Pilih Jurusan terlebih dahulu untuk menyaring Program Studi yang se-jurusan.')
+                    ->afterStateUpdated(function ($state, $set, $get) {
+                        if (!empty($state) && !$get('jurusan_id')) {
+                            $firstProdi = \App\Models\MasterProgramStudi::find($state[0] ?? null);
+                            if ($firstProdi?->jurusan_id) {
+                                $set('jurusan_id', $firstProdi->jurusan_id);
+                            }
+                        }
+                    })
+                    ->afterStateHydrated(function (Forms\Components\Select $component, ?\App\Models\User $record) {
+                        if ($record) {
+                            $component->state($record->getProdiIds());
+                        }
+                    }),
             ]);
     }
 
@@ -163,10 +194,12 @@ class UserResource extends Resource
                     ->badge()
                     ->color('primary')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('userProgramStudi.programStudi.nama_prodi')
+                Tables\Columns\TextColumn::make('programStudis.nama_prodi')
                     ->label('Program Studi')
                     ->badge()
                     ->color('success')
+                    ->separator(', ')
+                    ->default('-')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('jurusan.nama_jurusan')
                     ->label('Jurusan')

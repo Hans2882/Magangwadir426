@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
 use Filament\Panel;
@@ -61,6 +63,16 @@ public function userProgramStudi(): HasOne
     return $this->hasOne(UserProgramStudi::class);
 }
 
+public function userProgramStudis(): HasMany
+{
+    return $this->hasMany(UserProgramStudi::class);
+}
+
+public function programStudis(): BelongsToMany
+{
+    return $this->belongsToMany(MasterProgramStudi::class, 'user_program_studi', 'user_id', 'program_studi_id');
+}
+
 public function jurusan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
 {
     return $this->belongsTo(MasterJurusan::class, 'jurusan_id');
@@ -68,7 +80,8 @@ public function jurusan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
 
 public function getFilamentName(): string
 {
-    $prodi = $this->userProgramStudi?->programStudi?->nama_prodi;
+    $prodiNames = $this->programStudis->pluck('nama_prodi')->filter()->values()->toArray();
+    $prodi = !empty($prodiNames) ? implode(', ', $prodiNames) : $this->userProgramStudi?->programStudi?->nama_prodi;
     $jurusan = $this->jurusan?->nama_jurusan;
     
     $context = array_filter([$prodi, $jurusan]);
@@ -103,6 +116,15 @@ public function getFilamentName(): string
     public function getProdiId(): ?int
     {
         return $this->userProgramStudi?->program_studi_id;
+    }
+
+    public function getProdiIds(): array
+    {
+        $ids = $this->programStudis()->pluck('master_program_studi.id')->toArray();
+        if (empty($ids) && $single = $this->getProdiId()) {
+            $ids = [$single];
+        }
+        return array_values(array_unique(array_filter($ids)));
     }
 
     public function getJurusanId(): ?int

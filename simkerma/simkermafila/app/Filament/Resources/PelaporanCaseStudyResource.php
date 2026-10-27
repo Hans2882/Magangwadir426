@@ -48,9 +48,9 @@ class PelaporanCaseStudyResource extends Resource
         }
 
         if ($user->isKoorMagang()) {
-            $prodiId = $user->getProdiId();
-            if ($prodiId) {
-                return $record->prodis()->where('master_program_studi.id', $prodiId)->exists();
+            $prodiIds = $user->getProdiIds();
+            if (!empty($prodiIds)) {
+                return $record->prodis()->whereIn('master_program_studi.id', $prodiIds)->exists();
             }
             return (int) $record->user_id === (int) $user->id;
         }
@@ -132,10 +132,10 @@ class PelaporanCaseStudyResource extends Resource
         }
 
         if ($user->isKoorMagang()) {
-            $prodiId = $user->getProdiId();
-            if ($prodiId) {
-                return $query->whereHas('prodis', function ($q) use ($prodiId) {
-                    $q->where('master_program_studi.id', $prodiId);
+            $prodiIds = $user->getProdiIds();
+            if (!empty($prodiIds)) {
+                return $query->whereHas('prodis', function ($q) use ($prodiIds) {
+                    $q->whereIn('master_program_studi.id', $prodiIds);
                 });
             }
 

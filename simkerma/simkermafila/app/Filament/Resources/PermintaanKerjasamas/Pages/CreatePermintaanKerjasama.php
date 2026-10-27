@@ -24,18 +24,18 @@ class CreatePermintaanKerjasama extends CreateRecord
         $record = $this->record;
         $pengusul = $record->pengusul ?? \Illuminate\Support\Facades\Auth::user();
         $pengusulName = $pengusul?->name ?? 'Mahasiswa';
-        $prodiId = $pengusul?->getProdiId();
+        $prodiIds = $pengusul?->getProdiIds() ?? [];
 
         $recipients = collect();
 
-        // 1. Koordinator Magang: HANYA yang prodinya sama persis dengan program studi mahasiswa pengusul
-        if ($prodiId) {
+        // 1. Koordinator Magang: HANYA yang prodinya mencakup program studi mahasiswa pengusul
+        if (!empty($prodiIds)) {
             $koorProdi = User::query()
                 ->whereHas('userPrivilege.privilege', function ($q) {
                     $q->where('nama', 'like', '%Koor%');
                 })
-                ->whereHas('userProgramStudi', function ($q) use ($prodiId) {
-                    $q->where('program_studi_id', $prodiId);
+                ->whereHas('userProgramStudis', function ($q) use ($prodiIds) {
+                    $q->whereIn('program_studi_id', $prodiIds);
                 })
                 ->get();
 
@@ -52,8 +52,11 @@ class CreatePermintaanKerjasama extends CreateRecord
         $recipients = $recipients->merge($admins)->unique('id');
 
         if ($recipients->isNotEmpty()) {
-            $prodiName = $pengusul?->userProgramStudi?->programStudi?->nama_resmi 
-                ?? $pengusul?->userProgramStudi?->programStudi?->nama_prodi;
+            $prodiNames = $pengusul?->programStudis?->pluck('nama_prodi')->toArray();
+            $prodiName = !empty($prodiNames) 
+                ? implode(', ', $prodiNames) 
+                : ($pengusul?->userProgramStudi?->programStudi?->nama_resmi ?? $pengusul?->userProgramStudi?->programStudi?->nama_prodi);
+
             $body = $prodiName
                 ? "Mahasiswa {$pengusulName} ({$prodiName}) mengajukan usulan mitra magang: {$record->nama_mitra}."
                 : "Mahasiswa {$pengusulName} mengajukan usulan mitra magang: {$record->nama_mitra}.";
