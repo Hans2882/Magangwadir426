@@ -63,9 +63,19 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 ## MoU PDF autofill
 
-On the MoU form, choose **MoU** and upload a PDF. The title, document numbers, and dates are then filled into the form automatically; review or edit them before clicking **Buat**. Searchable text is read locally with Poppler's `pdftotext`. If it contains no recognizable MoU fields, the first 10 pages are rendered with Poppler's `pdftoppm` and read locally with Tesseract OCR. Documents are not sent to an AI provider. Partner, scope, location, and collaboration-field selections remain manual.
+On the MoU form, choose **MoU** and upload a PDF. The title, document numbers, and dates are then filled into the form automatically; review or edit them before clicking **Buat**. Searchable text is read locally with Poppler's `pdftotext`. If it contains no recognizable MoU fields, up to the first 3 pages are rendered with Poppler's `pdftoppm` and read locally with Tesseract OCR. Documents are not sent to an AI provider. Partner, scope, location, and collaboration-field selections remain manual.
 
-Install Poppler (`pdftotext` and `pdftoppm`) and Tesseract with Indonesian (`ind`) and English (`eng`) language data on the server. Executable paths and OCR languages can be configured with `PDFTOTEXT_BINARY`, `PDF_RENDERER_BINARY`, `TESSERACT_BINARY`, and `TESSERACT_LANGUAGES`. OCR resolution defaults to 200 DPI and can be changed with `TESSERACT_DPI`. PDFs over 20 MB are not supported by autofill.
+Install Poppler (`pdftotext`, `pdftoppm`, and `pdfinfo`) and Tesseract with Indonesian (`ind`) and English (`eng`) language data on the server. Having `pdftotext` alone is not enough for scanned PDFs: `pdftoppm` is required to render pages before OCR. On Windows/Laragon, install Windows builds of Poppler and Tesseract, then set the executable paths in `.env` to their actual locations, for example:
+
+```dotenv
+PDFTOTEXT_BINARY="C:/path/to/poppler/Library/bin/pdftotext.exe"
+PDF_RENDERER_BINARY="C:/path/to/poppler/Library/bin/pdftoppm.exe"
+PDFINFO_BINARY="C:/path/to/poppler/Library/bin/pdfinfo.exe"
+TESSERACT_BINARY="C:/Program Files/Tesseract-OCR/tesseract.exe"
+TESSERACT_LANGUAGES=ind+eng
+```
+
+Replace the example paths with the installed locations. Ensure the web server/PHP process can access those executables and the Tesseract `ind` and `eng` language data; restart the server or clear Laravel's cached configuration after changing `.env`. OCR resolution defaults to 200 DPI and can be changed with `PDF_RENDERER_DPI`. PDFs over 20 MB are not supported by autofill.
 
 ## License
 
