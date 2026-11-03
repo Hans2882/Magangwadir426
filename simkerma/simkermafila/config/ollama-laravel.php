@@ -3,6 +3,7 @@
 // Config for Cloudstudio/Ollama
 
 return [
+    'enabled' => env('OLLAMA_ENABLED', true),
     'model' => env('OLLAMA_MODEL', 'qwen2.5:7b'),
     'url' => env('OLLAMA_URL', 'http://127.0.0.1:11434'),
     'default_prompt' => env('OLLAMA_DEFAULT_PROMPT', 'Hello, how can I assist you today?'),

@@ -39,6 +39,7 @@ class MouPdfAutofillServiceTest extends TestCase
     public function test_it_uses_ollama_to_extract_only_values_supported_by_the_document(): void
     {
         config([
+            'ollama-laravel.enabled' => true,
             'ollama-laravel.url' => 'http://127.0.0.1:11434',
             'ollama-laravel.model' => 'qwen2.5:7b',
             'ollama-laravel.connection.timeout' => 180,
@@ -80,6 +81,7 @@ class MouPdfAutofillServiceTest extends TestCase
     public function test_it_uses_context_to_classify_document_numbers_with_unfamiliar_labels(): void
     {
         config([
+            'ollama-laravel.enabled' => true,
             'ollama-laravel.url' => 'http://127.0.0.1:11434',
             'ollama-laravel.model' => 'qwen2.5:7b',
         ]);
@@ -105,13 +107,14 @@ class MouPdfAutofillServiceTest extends TestCase
 
         Http::assertSent(fn ($request) => str_contains(
             $request['prompt'],
-            'do not assign numbers only by their order'
+            'Never assign document numbers based only on their order.'
         ));
     }
 
     public function test_it_rejects_ollama_values_not_supported_by_the_document(): void
     {
         config([
+            'ollama-laravel.enabled' => true,
             'ollama-laravel.url' => 'http://127.0.0.1:11434',
             'ollama-laravel.model' => 'qwen2.5:7b',
         ]);
@@ -132,5 +135,39 @@ class MouPdfAutofillServiceTest extends TestCase
         );
 
         $this->assertSame([], $data);
+    }
+
+    public function test_it_does_not_send_text_to_ollama_when_disabled(): void
+    {
+        config(['ollama-laravel.enabled' => false]);
+        Http::fake();
+
+        $data = (new MouPdfAutofillService)->extractWithOllama('Teks dokumen rahasia.');
+        $warmupResult = (new MouPdfAutofillService)->warmUpOllama();
+
+        $this->assertNull($data);
+        $this->assertFalse($warmupResult);
+        Http::assertNothingSent();
+    }
+
+    public function test_local_and_ai_extraction_use_separate_cache_entries(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'mou-cache-test-');
+        file_put_contents($path, 'same PDF contents');
+
+        try {
+            $method = new \ReflectionMethod(MouPdfAutofillService::class, 'cacheKey');
+            $method->setAccessible(true);
+            $service = new MouPdfAutofillService;
+
+            $localKey = $method->invoke($service, $path, false);
+            $aiKey = $method->invoke($service, $path, true);
+
+            $this->assertNotSame($localKey, $aiKey);
+            $this->assertStringEndsWith(':local', $localKey);
+            $this->assertStringEndsWith(':ai', $aiKey);
+        } finally {
+            @unlink($path);
+        }
     }
 }

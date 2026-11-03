@@ -81,7 +81,21 @@ class MouResource extends Resource
                         ->afterStateUpdated(function ($state, callable $set, callable $get): void {
                             // Kalau user upload PDF dulu baru pilih MoU → picu autofill
                             if ((int) $state === 1 && filled($get('link_dokumen'))) {
-                                static::fillFromPdf($get('link_dokumen'), $set);
+                                static::fillFromPdf($get('link_dokumen'), $set, $get);
+                            }
+                        }),
+
+                    Forms\Components\Toggle::make('gunakan_ai')
+                        ->label('Gunakan AI')
+                        ->helperText('Jika diaktifkan, teks hasil ekstraksi dapat dikirim ke endpoint Ollama yang dikonfigurasi untuk membantu membaca dokumen.')
+                        ->default(false)
+                        ->dehydrated(false)
+                        ->visible(fn (callable $get): bool => (int) $get('jenis_dokumen_id') === 1
+                            && (bool) config('ollama-laravel.enabled', true))
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get): void {
+                            if ((int) $get('jenis_dokumen_id') === 1 && filled($get('link_dokumen'))) {
+                                static::fillFromPdf($get('link_dokumen'), $set, $get);
                             }
                         }),
 
@@ -91,7 +105,9 @@ class MouResource extends Resource
                         ->validationMessages(['required' => 'Berkas MoU/LoI wajib diunggah.'])
                         ->helperText(fn ($get) => (int) $get('jenis_dokumen_id') === 7
                             ? 'Autofill PDF hanya tersedia untuk MoU.'
-                            : 'Pilih MoU lalu unggah PDF — form akan terisi otomatis dan bisa Anda koreksi sebelum klik Buat.')
+                            : (config('ollama-laravel.enabled', true)
+                                ? 'PDF disimpan di Google Drive dan dibaca di server. File PDF tidak dikirim ke Ollama; centang "Gunakan AI" untuk mengizinkan pengiriman teks hasil ekstraksi. Autofill hanya mengisi field kosong.'
+                                : 'PDF disimpan di Google Drive dan dibaca di server. File maupun teksnya tidak dikirim ke Ollama. Autofill hanya mengisi field kosong.'))
                         ->live()
                         ->afterStateUpdated(function ($state, callable $set, callable $get): void {
                             $jenisId = (int) $get('jenis_dokumen_id');
@@ -112,7 +128,7 @@ class MouResource extends Resource
                                 return;
                             }
 
-                            static::fillFromPdf($state, $set);
+                            static::fillFromPdf($state, $set, $get);
                         })
                         ->disk('google')
                         ->directory(function (callable $get) {
@@ -278,7 +294,7 @@ class MouResource extends Resource
      * Inti autofill: baca PDF, lalu $set() field-field target di form.
      * Dipanggil dari afterStateUpdated() FileUpload maupun Select jenis_dokumen_id.
      */
-    protected static function fillFromPdf(mixed $state, callable $set): void
+    protected static function fillFromPdf(mixed $state, callable $set, callable $get): void
     {
         $files = is_array($state)
             ? array_values($state)
@@ -299,42 +315,42 @@ class MouResource extends Resource
                 if ($realPath === false || ! is_file($realPath)) {
                     throw new \RuntimeException('File sementara tidak ditemukan di server. Coba unggah ulang PDF-nya.');
                 }
-                $data = app(MouPdfAutofillService::class)->extractFromPdfPath($realPath);
+                $data = app(MouPdfAutofillService::class)->extractFromPdfPath(
+                    $realPath,
+                    (bool) $get('gunakan_ai')
+                );
             } else {
                 $stream = \Illuminate\Support\Facades\Storage::disk('google')->readStream($file);
                 if (! is_resource($stream)) {
                     throw new \RuntimeException('File PDF tidak dapat dibuka dari penyimpanan.');
                 }
-                $data = app(MouPdfAutofillService::class)->extractFromStream($stream);
+                $data = app(MouPdfAutofillService::class)->extractFromStream(
+                    $stream,
+                    (bool) $get('gunakan_ai')
+                );
             }
 
-            $labels = [
-                'judul'                  => 'Judul',
-                'nomor_dokumen_polinema' => 'No. Polinema',
-                'nomor_dokumen_mitra'    => 'No. Mitra',
-                'tanggal_awal'           => 'Tgl. Berlaku',
-                'tanggal_akhir'          => 'Tgl. Berakhir',
-            ];
+            $result = static::applyAutofillData($data, $set, $get);
 
-            $filled = [];
-            foreach ($labels as $field => $label) {
-                if (filled($data[$field] ?? null)) {
-                    $set($field, $data[$field]);        // <-- mengisi form
-                    $filled[$label] = $data[$field];
-                }
-            }
-
-            if ($filled === []) {
+            if ($result['filled'] === [] && $result['preserved'] === []) {
                 throw new \RuntimeException('PDF terbaca, tetapi judul, nomor, atau tanggal tidak ditemukan. Silakan isi manual.');
             }
 
-            $preview = collect($filled)->map(fn ($v, $k) => "• {$k}: {$v}")->implode("\n");
+            if ($result['filled'] === []) {
+                \Filament\Notifications\Notification::make()
+                    ->title('Isian formulir dipertahankan')
+                    ->body('Semua field yang terdeteksi sudah memiliki nilai, sehingga tidak ada isian yang diubah.')
+                    ->info()
+                    ->send();
+
+                return;
+            }
 
             \Filament\Notifications\Notification::make()
-                ->title('Form terisi otomatis dari PDF (' . count($filled) . ' field)')
-                ->body($preview . "\n\nPeriksa/koreksi dulu sebelum klik **Buat**.")
+                ->title('Autofill mengisi ' . count($result['filled']) . ' field dari PDF')
+                ->body('Field: ' . implode(', ', $result['filled']) . '. Field yang sudah berisi nilai tetap dipertahankan. Periksa hasilnya sebelum menyimpan.')
                 ->success()
-                ->persistent()      // tetap tampil sampai user tutup
+                ->persistent()
                 ->send();
 
         } catch (\Throwable $e) {
@@ -350,6 +366,36 @@ class MouResource extends Resource
                 ->persistent()
                 ->send();
         }
+    }
+
+    protected static function applyAutofillData(array $data, callable $set, callable $get): array
+    {
+        $labels = [
+            'judul' => 'Judul',
+            'nomor_dokumen_polinema' => 'No. Polinema',
+            'nomor_dokumen_mitra' => 'No. Mitra',
+            'tanggal_awal' => 'Tgl. Berlaku',
+            'tanggal_akhir' => 'Tgl. Berakhir',
+        ];
+
+        $result = ['filled' => [], 'preserved' => []];
+
+        foreach ($labels as $field => $label) {
+            if (!filled($data[$field] ?? null)) {
+                continue;
+            }
+
+            if (filled($get($field))) {
+                $result['preserved'][] = $label;
+
+                continue;
+            }
+
+            $set($field, $data[$field]);
+            $result['filled'][] = $label;
+        }
+
+        return $result;
     }
 
     public static function table(Table $table): Table

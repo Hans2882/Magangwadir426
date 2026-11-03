@@ -30,7 +30,7 @@ class MouPdfAutofillService
      */
     private const PDFTOTEXT_MAX_PAGES = 5;
 
-    private const CACHE_VERSION = 'v2';
+    private const CACHE_VERSION = 'v3';
 
     /**
      * Field minimum yang harus berhasil diekstrak.
@@ -56,7 +56,7 @@ class MouPdfAutofillService
     /**
      * @param resource $stream
      */
-    public function extractFromStream($stream): array
+    public function extractFromStream($stream, bool $useOllama = false): array
     {
         if (!is_resource($stream)) {
             throw new RuntimeException(
@@ -99,7 +99,7 @@ class MouPdfAutofillService
                 );
             }
 
-            return $this->extractFromPdfPath($path);
+            return $this->extractFromPdfPath($path, $useOllama);
 
         } finally {
             if (is_resource($stream)) {
@@ -115,9 +115,10 @@ class MouPdfAutofillService
     /**
      * Wrapper dengan cache by content-hash.
      */
-    public function extractFromPdfPath(string $path): array
+    public function extractFromPdfPath(string $path, bool $useOllama = false): array
     {
-        $cacheKey = $this->cacheKey($path);
+        $useOllama = $useOllama && (bool) config('ollama-laravel.enabled', true);
+        $cacheKey = $this->cacheKey($path, $useOllama);
 
         if ($cacheKey !== null && Cache::has($cacheKey)) {
             Log::info('MoU Autofill: cache hit.', ['key' => $cacheKey]);
@@ -125,7 +126,7 @@ class MouPdfAutofillService
             return Cache::get($cacheKey);
         }
 
-        $result = $this->doExtractFromPdfPath($path);
+        $result = $this->doExtractFromPdfPath($path, $useOllama);
 
         if ($cacheKey !== null) {
             $ttl = (int) config('services.mou.cache_ttl_hours', 24);
@@ -148,6 +149,10 @@ class MouPdfAutofillService
      */
     public function warmUpOllama(): bool
     {
+        if (!config('ollama-laravel.enabled', true)) {
+            return false;
+        }
+
         $url = rtrim((string) config('ollama-laravel.url', ''), '/');
         $model = (string) config('ollama-laravel.model', '');
 
@@ -188,7 +193,7 @@ class MouPdfAutofillService
      * ================================================================
      */
 
-    private function doExtractFromPdfPath(string $path): array
+    private function doExtractFromPdfPath(string $path, bool $useOllama): array
     {
         $totalStart = hrtime(true);
 
@@ -319,7 +324,7 @@ class MouPdfAutofillService
             || $this->needsNumberReview($data, $explicitNumbers)
         );
 
-        if ($needsAi && $sourceText !== '') {
+        if ($useOllama && $needsAi && $sourceText !== '') {
             $stageStart = hrtime(true);
 
             try {
@@ -343,7 +348,10 @@ class MouPdfAutofillService
                 Log::warning('MoU: Ollama gagal, memakai hasil ekstraksi lokal.');
             }
         } else {
-            Log::info('MoU: Ollama dilewati karena tidak diperlukan.');
+            Log::info('MoU: Ollama dilewati.', [
+                'requested' => $useOllama,
+                'needed' => $needsAi,
+            ]);
         }
 
         $this->logTotal(
@@ -360,7 +368,7 @@ class MouPdfAutofillService
      * ================================================================
      */
 
-    private function cacheKey(string $path): ?string
+    private function cacheKey(string $path, bool $useOllama): ?string
     {
         if (!config('services.mou.cache_enabled', true)) {
             return null;
@@ -372,7 +380,12 @@ class MouPdfAutofillService
             return null;
         }
 
-        return sprintf('mou:autofill:%s:%s', self::CACHE_VERSION, $hash);
+        return sprintf(
+            'mou:autofill:%s:%s:%s',
+            self::CACHE_VERSION,
+            $hash,
+            $useOllama ? 'ai' : 'local'
+        );
     }
 
     /**
@@ -507,6 +520,12 @@ class MouPdfAutofillService
 
     public function extractWithOllama(string $text): ?array
     {
+        if (!config('ollama-laravel.enabled', true)) {
+            Log::info('MoU: Ollama dinonaktifkan; ekstraksi tetap dilakukan secara lokal.');
+
+            return null;
+        }
+
         $url = rtrim((string) config('ollama-laravel.url', ''), '/');
         $model = (string) config('ollama-laravel.model', '');
 
