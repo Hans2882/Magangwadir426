@@ -19,7 +19,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use App\Filament\Resources\MouResource;
 use App\Filament\Resources\PksSpkResource;
-use App\Filament\Resources\PelaporanCaseStudyResource;
+use App\Filament\Resources\PelaporanKegiatanResource;
 
 class IaResource extends Resource
 {
@@ -586,18 +586,18 @@ class IaResource extends Resource
                         ->columns(2),
 
                     RepeatableEntry::make('children_case_study')
-                        ->label('Pelaporan Case Study Terkait')
+                        ->label('Pelaporan Kegiatan Terkait')
                         ->state(fn ($record) => $record->children
-                            ->where('jenis_dokumen_id', 8)
+                            ->whereIn('jenis_dokumen_id', [8, 9])
                             ->values())
                         ->placeholder('-')
                         ->contained()
                         ->grid(3)
                         ->schema([
                             TextEntry::make('judul')
-                                ->label('Judul Case Study')
+                                ->label('Judul Kegiatan')
                                 ->url(function ($record) {
-                                    return PelaporanCaseStudyResource::getUrl(
+                                    return PelaporanKegiatanResource::getUrl(
                                         'view',
                                         ['record' => $record]
                                     );

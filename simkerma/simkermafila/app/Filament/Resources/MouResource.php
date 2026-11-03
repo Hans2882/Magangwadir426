@@ -562,18 +562,18 @@ class MouResource extends Resource
                         ]),
 
                     RepeatableEntry::make('children_case_study')
-                        ->label('Pelaporan Case Study')
+                        ->label('Pelaporan Kegiatan Terkait')
                         ->state(fn ($record) => $record->children
-                            ->where('jenis_dokumen_id', 8)
+                            ->whereIn('jenis_dokumen_id', [8, 9])
                             ->values())
                         ->placeholder('-')
                         ->contained()
                         ->grid(3)
                         ->schema([
                             TextEntry::make('judul')
-                                ->label('Judul Case Study')
+                                ->label('Judul Kegiatan')
                                 ->url(function ($record) {
-                                    return \App\Filament\Resources\PelaporanCaseStudyResource::getUrl(
+                                    return \App\Filament\Resources\PelaporanKegiatanResource::getUrl(
                                         'view',
                                         ['record' => $record]
                                     );

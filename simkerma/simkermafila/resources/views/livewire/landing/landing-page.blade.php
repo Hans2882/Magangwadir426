@@ -1,15 +1,19 @@
 <div>
     <div class="header-section">
         <h2>Publikasi SIMKERMA</h2>
-        <p>Kumpulan laporan Case Study dan daftar Mitra institusi kami.</p>
+        <p>Kumpulan laporan Case Study, publikasi Press Release, dan daftar Mitra institusi kami.</p>
     </div>
 
     <div class="tabbed-panel">
         <div class="tab-list" role="tablist">
             <button wire:click.prevent="$set('activeTab', 'caseStudies')" type="button" class="tab-button {{ $activeTab === 'caseStudies' ? 'active' : '' }}">
-    Case Study
-    <span class="tab-count">{{ $caseStudyCount }}</span>
-</button>
+                Case Study
+                <span class="tab-count">{{ $caseStudyCount }}</span>
+            </button>
+            <button wire:click.prevent="$set('activeTab', 'pressReleases')" type="button" class="tab-button {{ $activeTab === 'pressReleases' ? 'active' : '' }}">
+                Press Release
+                <span class="tab-count">{{ $pressReleaseCount }}</span>
+            </button>
             <button wire:click.prevent="$set('activeTab', 'mitra')" type="button" class="tab-button {{ $activeTab === 'mitra' ? 'active' : '' }}">Mitra</button>
             <button wire:click.prevent="$set('activeTab', 'survey')" type="button" class="tab-button {{ $activeTab === 'survey' ? 'active' : '' }}">Kuisioner Kepuasan</button>
         </div>
@@ -95,6 +99,91 @@
                 <div class="empty-state">
                     <i data-lucide="folder-search" class="empty-icon"></i>
                     <p>Belum ada pelaporan Case Study yang diselesaikan.</p>
+                </div>
+            @endforelse
+        </div>
+    @elseif($activeTab === 'pressReleases')
+        <div class="cs-filter-bar">
+            <div class="cs-filter-fields">
+                <div class="cs-filter-group">
+                    <label class="cs-filter-label" for="prYearSelect">
+                        <i data-lucide="calendar" class="cs-icon"></i>
+                        <span>Tahun:</span>
+                    </label>
+                    <select id="prYearSelect" wire:model.live="pressReleaseYear" class="cs-filter-select">
+                        <option value="">Semua Tahun</option>
+                        @foreach($pressReleaseYears as $yr)
+                            <option value="{{ $yr }}">{{ $yr }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="cs-filter-group">
+                    <label class="cs-filter-label" for="prDateFrom">
+                        <i data-lucide="calendar-days" class="cs-icon"></i>
+                        <span>Dari Tanggal:</span>
+                    </label>
+                    <input type="date" id="prDateFrom" wire:model.live="pressReleaseDateFrom" class="cs-filter-date">
+                </div>
+
+                <div class="cs-filter-group">
+                    <label class="cs-filter-label" for="prDateTo">
+                        <i data-lucide="calendar-days" class="cs-icon"></i>
+                        <span>Sampai Tanggal:</span>
+                    </label>
+                    <input type="date" id="prDateTo" wire:model.live="pressReleaseDateTo" class="cs-filter-date">
+                </div>
+            </div>
+
+            @if(!empty($pressReleaseYear) || !empty($pressReleaseDateFrom) || !empty($pressReleaseDateTo))
+                <button type="button" wire:click="resetPressReleaseFilters" class="cs-btn-reset" title="Reset Filter">
+                    <i data-lucide="rotate-ccw" class="cs-icon"></i>
+                    <span>Reset Filter</span>
+                </button>
+            @endif
+        </div>
+
+        <div class="grid-container">
+            @forelse($pressReleases as $press)
+                <div class="glass-card">
+                    <div class="card-header">
+                        <span class="badge {{ ($press->jenis ?? 'Dalam Negeri') === 'Dalam Negeri' ? 'badge-dn' : 'badge-ln' }}">
+                            <i data-lucide="{{ ($press->jenis ?? 'Dalam Negeri') === 'Dalam Negeri' ? 'building-2' : 'globe-2' }}" class="icon-sm"></i>
+                            {{ $press->jenis ?? 'Dalam Negeri' }}
+                        </span>
+                        <span class="date">{{ $press->tanggal_awal ? $press->tanggal_awal->format('d F Y') : '-' }}</span>
+                    </div>
+                    
+                    <h3 class="title">{{ $press->judul }}</h3>
+                    
+                    <div class="mitra-info">
+                        <i data-lucide="newspaper" class="icon-md text-muted"></i>
+                        <div>
+                            <p class="mitra-name">{{ $press->mitra?->nama_mitra ? $press->public_mitra_name : 'Publikasi / Media Eksternal' }}</p>
+                            <p class="mitra-country">
+                                {{ $press->mitra ? ($press->jenis === 'Luar Negeri' ? ($press->mitra->negara->nama_negara ?? '-') : 'Indonesia') : 'Berita / Publikasi' }}
+                            </p>
+                        </div>
+                    </div>
+
+                    @if($press->link_dokumen)
+                        <div class="card-footer">
+                            @php
+                                $linkUrl = is_array($press->link_dokumen) ? array_values($press->link_dokumen)[0] : $press->link_dokumen;
+                                $isExternal = str_starts_with($linkUrl, 'http://') || str_starts_with($linkUrl, 'https://');
+                                $targetUrl = $isExternal ? $linkUrl : route('view-dokumen', ['path' => $linkUrl]);
+                            @endphp
+                            <a href="{{ $targetUrl }}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                                <i data-lucide="external-link" class="icon-sm"></i>
+                                Buka Tautan Berita
+                            </a>
+                        </div>
+                    @endif
+                </div>
+            @empty
+                <div class="empty-state">
+                    <i data-lucide="newspaper" class="empty-icon"></i>
+                    <p>Belum ada publikasi Press Release yang diselesaikan.</p>
                 </div>
             @endforelse
         </div>

@@ -16,7 +16,7 @@ use Filament\Actions\ViewAction;
 use App\Filament\Resources\MouResource;
 use App\Filament\Resources\PksSpkResource;
 use App\Filament\Resources\IaResource;
-use App\Filament\Resources\PelaporanCaseStudyResource;
+use App\Filament\Resources\PelaporanKegiatanResource;
 
 class KerjasamasRelationManager extends RelationManager
 {
@@ -154,8 +154,8 @@ class KerjasamasRelationManager extends RelationManager
                         if ($jenisId == 4) {
                             return IaResource::getUrl('view', ['record' => $record]);
                         }
-                        if ($jenisId == 8) {
-                            return PelaporanCaseStudyResource::getUrl('view', ['record' => $record]);
+                        if (in_array($jenisId, [8, 9])) {
+                            return PelaporanKegiatanResource::getUrl('view', ['record' => $record]);
                         }
                         return null;
                     })

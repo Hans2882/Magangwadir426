@@ -32,7 +32,7 @@ class UserCountWidget extends BaseWidget
     public function getAvailableYears(): array
     {
         $years = Kerjasama::query()
-            ->where('jenis_dokumen_id', 8)
+            ->whereIn('jenis_dokumen_id', [8, 9])
             ->where('status_workflow', '!=', 'Ditolak')
             ->get()
             ->map(function ($cs) {
@@ -141,9 +141,9 @@ class UserCountWidget extends BaseWidget
             ->descriptionIcon('heroicon-m-document-check')
             ->color($uniqueCount > 0 ? 'success' : 'gray');
 
-        // 3. Stat Pelaporan Case Study (Dinamis mengikuti filter tahun / semua tahun)
+        // 3. Stat Pelaporan Kegiatan (Dinamis mengikuti filter tahun / semua tahun)
         $csQuery = Kerjasama::query()
-            ->where('jenis_dokumen_id', 8)
+            ->whereIn('jenis_dokumen_id', [8, 9])
             ->where('status_workflow', '!=', 'Ditolak');
 
         if ($selected !== 'all') {
@@ -156,11 +156,11 @@ class UserCountWidget extends BaseWidget
                       $sub->whereNull('tahun')->whereNull('tanggal_awal')->whereYear('created_at', $selected);
                   });
             });
-            $csLabel = "Pelaporan Case Study ({$selected})";
-            $csDesc = "Kegiatan Case Study terlaksana tahun {$selected}";
+            $csLabel = "Pelaporan Kegiatan ({$selected})";
+            $csDesc = "Kegiatan (Case Study & Press Release) tahun {$selected}";
         } else {
-            $csLabel = 'Pelaporan Case Study (Semua Tahun)';
-            $csDesc = 'Total kegiatan Case Study di sistem';
+            $csLabel = 'Pelaporan Kegiatan (Semua Tahun)';
+            $csDesc = 'Total pelaporan kegiatan di sistem';
         }
 
         $totalCs = $csQuery->count();

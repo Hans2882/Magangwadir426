@@ -1,22 +1,29 @@
 <?php
 
-namespace App\Filament\Resources\PelaporanCaseStudyResource\Pages;
+namespace App\Filament\Resources\PelaporanKegiatanResource\Pages;
 
-use App\Filament\Resources\PelaporanCaseStudyResource;
-use Filament\Actions;
+use App\Filament\Resources\PelaporanKegiatanResource;
 use Filament\Resources\Pages\CreateRecord;
 
-class CreatePelaporanCaseStudy extends CreateRecord
+class CreatePelaporanKegiatan extends CreateRecord
 {
-    protected static string $resource = PelaporanCaseStudyResource::class;
+    protected static string $resource = PelaporanKegiatanResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $user = \Illuminate\Support\Facades\Auth::user();
         $data['user_id'] = $user?->id;
+        
         if ($user?->isMahasiswa()) {
             $data['status_workflow'] = 'Proses';
         }
+
+        // If Press Release, map link_press_release to link_dokumen
+        if ((int) ($data['jenis_dokumen_id'] ?? 8) === 9) {
+            $data['link_dokumen'] = $data['link_press_release'] ?? null;
+        }
+        unset($data['link_press_release']);
+
         return $data;
     }
 
@@ -38,3 +45,4 @@ class CreatePelaporanCaseStudy extends CreateRecord
         return $this->getResource()::getUrl('index');
     }
 }
+
