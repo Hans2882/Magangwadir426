@@ -81,9 +81,9 @@ class UserCountWidget extends BaseWidget
                 ->color('info'),
         ];
 
-        // 2. Query Case Study ber-MOU/PKS/IA
+        // 2. Query Pelaporan Kegiatan (Case Study & Press Release) ber-MOU/PKS/IA
         $query = Kerjasama::query()
-            ->where('jenis_dokumen_id', 8)
+            ->whereIn('jenis_dokumen_id', [8, 9])
             ->whereNotNull('parent_id')
             ->whereHas('parent')
             ->where('status_workflow', '!=', 'Ditolak')
@@ -130,10 +130,10 @@ class UserCountWidget extends BaseWidget
         // Label & Deskripsi
         if ($selected === 'all') {
             $labelTitle = 'Dokumen Kerma (Semua Tahun)';
-            $desc = 'Total rujukan unik MoU/PKS/IA dari seluruh Case Study';
+            $desc = 'Total rujukan unik MoU/PKS/IA dari Pelaporan Kegiatan';
         } else {
             $labelTitle = "Dokumen Kerma ({$selected})";
-            $desc = "Rujukan unik MoU/PKS/IA dari Case Study tahun {$selected}";
+            $desc = "Rujukan unik MoU/PKS/IA dari Pelaporan Kegiatan tahun {$selected}";
         }
 
         $stats[] = Stat::make($labelTitle, number_format($uniqueCount))
