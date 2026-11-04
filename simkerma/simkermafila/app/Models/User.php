@@ -93,6 +93,11 @@ public function getFilamentName(): string
     return $this->name;
 }
 
+    public function isAdmin(): bool
+    {
+        return (bool) ($this->userPrivilege?->privilege?->is_admin_panel ?? false);
+    }
+
     public function isMahasiswa(): bool
     {
         return strcasecmp($this->userPrivilege?->privilege?->nama ?? '', 'Mahasiswa') === 0;

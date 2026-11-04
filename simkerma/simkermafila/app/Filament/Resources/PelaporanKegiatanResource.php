@@ -183,7 +183,7 @@ class PelaporanKegiatanResource extends Resource
             // Link Press Release: visible and required only if jenis_dokumen_id == 9
             Forms\Components\TextInput::make('link_press_release')
                 ->label('Link Press Release')
-                ->placeholder('https://polinema.ac.id/berita/... atau https://mediaindonesia.com/...')
+                ->placeholder('https://polinema.ac.id/berita/')
                 ->url()
                 ->required(fn ($get) => (int) $get('jenis_dokumen_id') === 9)
                 ->validationMessages([
@@ -473,6 +473,46 @@ class PelaporanKegiatanResource extends Resource
                     ->searchable()
                     ->limit(35)
                     ->tooltip(fn ($record) => $record->judul),
+                Tables\Columns\TextColumn::make('parent.jenisDokumen.nama')
+                    ->label('Rujukan Kerjasama')
+                    ->visible(fn () => \Illuminate\Support\Facades\Auth::user()?->isAdmin() || \Illuminate\Support\Facades\Auth::user()?->isKoorMagang())
+                    ->badge()
+                    ->color(fn ($state, $record) => match ($record->parent?->jenis_dokumen_id) {
+                        1 => 'primary',       // MoU
+                        2 => 'info',          // MoA
+                        3, 5, 6 => 'warning', // PKS, SPK, LoC
+                        4 => 'success',       // IA
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        if (!$record->parent) {
+                            return 'Tidak Terhubung';
+                        }
+                        return $record->parent->jenisDokumen?->nama ?? 'Kerjasama';
+                    })
+                    ->tooltip(function ($record) {
+                        if (!$record->parent) {
+                            return 'Tidak terhubung ke dokumen MoU/PKS/IA';
+                        }
+                        $tipe = $record->parent->jenisDokumen?->nama ?? 'Dokumen';
+                        $nomor = $record->parent->nomor_dokumen ?: '-';
+                        $judul = $record->parent->judul ?: '-';
+                        return "{$tipe} | No: {$nomor}\nJudul: {$judul}";
+                    })
+                    ->url(function ($record) {
+                        if (!$record->parent) return null;
+                        $user = \Illuminate\Support\Facades\Auth::user();
+                        if (!$user || (!$user->isAdmin() && !$user->isKoorMagang())) return null;
+
+                        return match ($record->parent->jenis_dokumen_id) {
+                            1 => \App\Filament\Resources\MouResource::getUrl('view', ['record' => $record->parent_id]),
+                            2, 3, 5, 6 => \App\Filament\Resources\PksSpkResource::getUrl('view', ['record' => $record->parent_id]),
+                            4 => \App\Filament\Resources\IaResource::getUrl('view', ['record' => $record->parent_id]),
+                            default => null,
+                        };
+                    })
+                    ->openUrlInNewTab()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('mitra.nama_mitra')
                     ->label('Nama Mitra')
                     ->searchable()
@@ -567,6 +607,30 @@ class PelaporanKegiatanResource extends Resource
                         8 => 'Case Study',
                         9 => 'Press Release',
                     ]),
+                Tables\Filters\SelectFilter::make('keterhubungan_kerjasama')
+                    ->label('Keterhubungan Dokumen')
+                    ->visible(fn () => \Illuminate\Support\Facades\Auth::user()?->isAdmin() || \Illuminate\Support\Facades\Auth::user()?->isKoorMagang())
+                    ->options([
+                        'terhubung' => 'Semua yang Terhubung',
+                        'mou' => 'Terhubung MoU',
+                        'pks' => 'Terhubung PKS / SPK',
+                        'ia' => 'Terhubung IA',
+                        'tidak_terhubung' => 'Tidak Terhubung (Mandiri)',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        $val = $data['value'] ?? null;
+                        if ($val === 'terhubung') {
+                            $query->whereNotNull('parent_id');
+                        } elseif ($val === 'tidak_terhubung') {
+                            $query->whereNull('parent_id');
+                        } elseif ($val === 'mou') {
+                            $query->whereHas('parent', fn ($q) => $q->where('jenis_dokumen_id', 1));
+                        } elseif ($val === 'pks') {
+                            $query->whereHas('parent', fn ($q) => $q->whereIn('jenis_dokumen_id', [3, 5, 6]));
+                        } elseif ($val === 'ia') {
+                            $query->whereHas('parent', fn ($q) => $q->where('jenis_dokumen_id', 4));
+                        }
+                    }),
                 Tables\Filters\SelectFilter::make('status_workflow')
                     ->label('Status')
                     ->options([
