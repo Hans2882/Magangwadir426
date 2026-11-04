@@ -20,25 +20,18 @@ class MouPdfAutofillService
      * Informasi MoU (judul, nomor, tanggal) hampir selalu ada
      * di header. Regex menangani tanggal di luar batas ini.
      */
-    private const MAX_OLLAMA_TEXT_LENGTH = 12000;
+    private const MAX_OLLAMA_TEXT_LENGTH = 24000;
 
-    private const MAX_OCR_PAGES = 3;
+    private const MAX_PDF_PAGES = 10;
 
-    /**
-     * pdftotext hanya membaca halaman awal.
-     * Header MoU selalu di 1-3 halaman pertama.
-     */
-    private const PDFTOTEXT_MAX_PAGES = 5;
+    private const CACHE_VERSION = 'v4';
 
-    private const CACHE_VERSION = 'v3';
-
-    /**
-     * Field minimum yang harus berhasil diekstrak.
-     */
-    private const CRITICAL_FIELDS = [
+    private const EXTRACTION_FIELDS = [
         'judul',
         'nomor_dokumen_polinema',
+        'nomor_dokumen_mitra',
         'tanggal_awal',
+        'tanggal_akhir',
     ];
 
     /**
@@ -217,10 +210,11 @@ class MouPdfAutofillService
 
         $data = $this->emptyFields();
         $sourceText = '';
+        $evidencePages = [];
 
         /*
          * ============================================================
-         * STAGE 1: PDFTOTEXT (halaman awal saja)
+         * STAGE 1: PDFTOTEXT (maksimal sepuluh halaman)
          * ============================================================
          */
 
@@ -230,9 +224,8 @@ class MouPdfAutofillService
             $process = $this->runProcess([
                 config('services.pdf_text_extractor.binary', 'pdftotext'),
                 '-layout',
-                '-nopgbrk',
                 '-f', '1',
-                '-l', (string) self::PDFTOTEXT_MAX_PAGES,
+                '-l', (string) self::MAX_PDF_PAGES,
                 $path,
                 '-',
             ], $this->pdftotextTimeout($size),
@@ -241,6 +234,7 @@ class MouPdfAutofillService
             );
 
             $sourceText = trim($process->getOutput());
+            $evidencePages = $this->splitPages($sourceText);
             $data = $this->extractFields($sourceText);
 
             $this->logStage('pdftotext', $stageStart, [
@@ -268,7 +262,7 @@ class MouPdfAutofillService
         if ($this->isDone($data, $sourceText)) {
             $this->logTotal($totalStart, 'pdftotext');
 
-            return $data;
+            return $this->withEvidence($data, $evidencePages);
         }
 
         /*
@@ -285,6 +279,7 @@ class MouPdfAutofillService
                     $path,
                     $data,
                     $sourceText,
+                    $evidencePages,
                     fn (): bool => $this->isDone($data, $sourceText)
                 );
 
@@ -305,7 +300,7 @@ class MouPdfAutofillService
             if ($this->isDone($data, $sourceText)) {
                 $this->logTotal($totalStart, 'tesseract_ocr');
 
-                return $data;
+                return $this->withEvidence($data, $evidencePages);
             }
         } else {
             Log::info('MoU: OCR dilewati karena hasil pdftotext cukup.');
@@ -359,7 +354,7 @@ class MouPdfAutofillService
             $this->isExtractionComplete($data) ? 'completed' : 'partial'
         );
 
-        return $data;
+        return $this->withEvidence($data, $evidencePages);
     }
 
     /**
@@ -405,9 +400,130 @@ class MouPdfAutofillService
         ];
     }
 
+    private function splitPages(string $text): array
+    {
+        $pages = [];
+
+        foreach (explode("\f", $text) as $index => $pageText) {
+            $pageText = trim($pageText);
+
+            if ($pageText !== '') {
+                $pages[$index + 1] = $pageText;
+            }
+        }
+
+        return $pages;
+    }
+
+    private function withEvidence(array $data, array $pages): array
+    {
+        $evidence = [];
+
+        foreach (self::EXTRACTION_FIELDS as $field) {
+            $value = $data[$field] ?? null;
+
+            if (!is_string($value) || trim($value) === '') {
+                continue;
+            }
+
+            foreach ($pages as $page => $pageText) {
+                $quote = $this->findEvidenceQuote($field, $value, $pageText);
+
+                if ($quote !== null) {
+                    $evidence[$field] = [
+                        'page' => $page,
+                        'quote' => mb_substr($quote, 0, 200),
+                    ];
+
+                    break;
+                }
+            }
+        }
+
+        $data['_evidence'] = $evidence;
+
+        return $data;
+    }
+
+    private function findEvidenceQuote(
+        string $field,
+        string $value,
+        string $pageText
+    ): ?string {
+        $lines = preg_split('/\R/u', $pageText) ?: [];
+        $normalizedValue = $this->normalizeText($value);
+
+        foreach ($lines as $index => $line) {
+            $normalizedLine = $this->normalizeText($line);
+            $matches = match ($field) {
+                'tanggal_awal', 'tanggal_akhir' => in_array(
+                    $value,
+                    array_column($this->extractDates($line), 'date'),
+                    true
+                ),
+                default => str_contains($normalizedLine, $normalizedValue),
+            };
+
+            if ($matches) {
+                $quoteLines = [$line];
+                $previousLine = $this->previousNonEmptyLine($lines, $index);
+
+                if (
+                    $previousLine !== null
+                    && (
+                        ($field === 'judul' && preg_match('/\bTENTANG\b/iu', $previousLine))
+                        || (
+                            in_array($field, ['tanggal_awal', 'tanggal_akhir'], true)
+                            && !preg_match('/\b(?:berlaku|mulai|sejak|sampai|hingga|berakhir)\b/iu', $line)
+                        )
+                        || (
+                            in_array($field, ['nomor_dokumen_polinema', 'nomor_dokumen_mitra'], true)
+                            && !preg_match('/\b(?:nomor|no\.?|administrasi|polinema|mitra)\b/iu', $line)
+                        )
+                    )
+                ) {
+                    array_unshift($quoteLines, $previousLine);
+                }
+
+                return trim(preg_replace('/\s+/u', ' ', implode(' ', $quoteLines)) ?? '');
+            }
+
+            if (
+                $field === 'judul'
+                && preg_match('/\bTENTANG\b/iu', $line)
+            ) {
+                $titleLines = array_slice($lines, $index, 4);
+                $quote = trim(preg_replace(
+                    '/\s+/u',
+                    ' ',
+                    implode(' ', $titleLines)
+                ) ?? '');
+
+                if (str_contains($this->normalizeText($quote), $normalizedValue)) {
+                    return $quote;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function previousNonEmptyLine(array $lines, int $index): ?string
+    {
+        for ($previous = $index - 1; $previous >= max(0, $index - 2); $previous--) {
+            $line = trim($lines[$previous]);
+
+            if ($line !== '') {
+                return $line;
+            }
+        }
+
+        return null;
+    }
+
     private function isExtractionComplete(array $data): bool
     {
-        foreach (self::CRITICAL_FIELDS as $field) {
+        foreach (self::EXTRACTION_FIELDS as $field) {
             if (
                 !isset($data[$field])
                 || trim((string) $data[$field]) === ''
@@ -448,7 +564,7 @@ class MouPdfAutofillService
     }
 
     /**
-     * Kondisi berhenti: field kritis lengkap AND nomor tidak butuh review.
+     * Berhenti hanya setelah semua field ditemukan dan nomor tidak perlu review.
      */
     private function isDone(array $data, string $sourceText): bool
     {
@@ -535,11 +651,13 @@ class MouPdfAutofillService
             return null;
         }
 
-        $documentText = mb_substr(
-            $text,
-            0,
-            self::MAX_OLLAMA_TEXT_LENGTH
-        );
+        $textLength = mb_strlen($text);
+        $halfTextLength = intdiv(self::MAX_OLLAMA_TEXT_LENGTH, 2);
+        $documentText = $textLength <= self::MAX_OLLAMA_TEXT_LENGTH
+            ? $text
+            : mb_substr($text, 0, $halfTextLength)
+                . "\n\n[Bagian tengah dokumen dilewati]\n\n"
+                . mb_substr($text, -$halfTextLength);
 
         $prompt = $this->ollamaPrompt();
 
@@ -555,8 +673,8 @@ class MouPdfAutofillService
             'format' => 'json',
             'options' => [
                 'temperature' => 0,
-                'num_predict' => 150,
-                'num_ctx' => 4096,
+                'num_predict' => 250,
+                'num_ctx' => 8192,
             ],
         ];
 
@@ -647,10 +765,11 @@ STRICT RULES:
 6. Identify the partner document number using its label and context.
 7. Never assign document numbers based only on their order.
 8. Dates must use YYYY-MM-DD format.
-9. tanggal_akhir must only contain an explicitly stated end date.
-10. Do not confuse signature dates with agreement start or end dates.
-11. Do not treat document creation dates as agreement start dates unless the document explicitly indicates that meaning.
-12. If affiliation is uncertain, return null.
+9. tanggal_awal must be explicitly linked to when the agreement becomes effective, such as "berlaku mulai", "berlaku sejak", or "terhitung sejak".
+10. tanggal_akhir must only contain an explicitly stated end date.
+11. Do not confuse signature dates with agreement start or end dates.
+12. Do not treat document creation dates as agreement start dates unless the document explicitly indicates that meaning.
+13. If affiliation or date meaning is uncertain, return null.
 
 DOCUMENT:
 PROMPT;
@@ -700,6 +819,7 @@ PROMPT;
         }
 
         $dates = $this->extractDates($text);
+        $explicitStartDate = $this->extractStartDate($text, $dates);
         $explicitEndDate = $this->extractEndDate($text, $dates);
         $dateValues = array_column($dates, 'date');
 
@@ -716,14 +836,13 @@ PROMPT;
                 continue;
             }
 
-            $validEndDate = (
-                $field !== 'tanggal_akhir'
-                || $explicitEndDate === $date
-            );
+            $validDate = $field === 'tanggal_awal'
+                ? $explicitStartDate === $date
+                : $explicitEndDate === $date;
 
             if (
                 in_array($date, $dateValues, true)
-                && $validEndDate
+                && $validDate
             ) {
                 $validated[$field] = $date;
             }
@@ -808,6 +927,7 @@ PROMPT;
         string $path,
         array &$data,
         string &$sourceText,
+        array &$evidencePages,
         callable $isDone
     ): void {
         $dpi = max(
@@ -815,7 +935,7 @@ PROMPT;
             min(150, (int) config('services.pdf_ocr.dpi', 130))
         );
 
-        $this->runOcrPass($path, $dpi, $data, $sourceText, $isDone);
+        $this->runOcrPass($path, $dpi, $data, $sourceText, $evidencePages, $isDone);
 
         /*
          * Retry di DPI lebih tinggi HANYA jika tidak ada teks sama sekali.
@@ -824,7 +944,7 @@ PROMPT;
         if (trim($sourceText) === '' && $dpi < 200) {
             Log::info('MoU: OCR kosong, retry di DPI 200.');
 
-            $this->runOcrPass($path, 200, $data, $sourceText, $isDone);
+            $this->runOcrPass($path, 200, $data, $sourceText, $evidencePages, $isDone);
         }
     }
 
@@ -833,6 +953,7 @@ PROMPT;
         int $dpi,
         array &$data,
         string &$sourceText,
+        array &$evidencePages,
         callable $isDone
     ): void {
         $dir = $this->createTempDirectory();
@@ -853,7 +974,7 @@ PROMPT;
         );
 
         try {
-            for ($page = 1; $page <= self::MAX_OCR_PAGES; $page++) {
+            for ($page = 1; $page <= self::MAX_PDF_PAGES; $page++) {
                 $prefix = $dir . DIRECTORY_SEPARATOR . 'page';
                 $image = $prefix . '.png';
 
@@ -896,7 +1017,10 @@ PROMPT;
                     $pageText = trim($result->getOutput());
 
                     if ($pageText !== '') {
-                        $sourceText = trim($sourceText . "\n" . $pageText);
+                        $sourceText = rtrim($sourceText) . "\n\f" . $pageText;
+                        $evidencePages[$page] = trim(
+                            ($evidencePages[$page] ?? '') . "\n" . $pageText
+                        );
 
                         /*
                          * Parse teks akumulatif (bukan per-halaman) supaya
@@ -1119,8 +1243,7 @@ PROMPT;
         $lines = preg_split('/\R/u', $text) ?: [];
 
         $head = implode("\n", array_slice($lines, 0, 80));
-
-        $explicitNumbers = $this->extractExplicitDocumentNumbers($head);
+        $explicitNumbers = $this->extractExplicitDocumentNumbers($text);
 
         $polinema = $explicitNumbers['nomor_dokumen_polinema'];
         $mitra = $explicitNumbers['nomor_dokumen_mitra'];
@@ -1176,7 +1299,7 @@ PROMPT;
             'judul' => $this->extractTitle($lines),
             'nomor_dokumen_polinema' => $polinema,
             'nomor_dokumen_mitra' => $mitra,
-            'tanggal_awal' => $dates[0]['date'] ?? null,
+            'tanggal_awal' => $this->extractStartDate($text, $dates),
             'tanggal_akhir' => $this->extractEndDate($text, $dates),
         ];
     }
@@ -1189,12 +1312,9 @@ PROMPT;
 
     private function extractExplicitDocumentNumbers(string $text): array
     {
-        $lines = preg_split('/\R/u', $text) ?: [];
-        $head = implode("\n", array_slice($lines, 0, 80));
-
         return [
             'nomor_dokumen_polinema' => $this->extractDocumentNumber(
-                $head,
+                $text,
                 '(?:'
                     . 'nomor\s+(?:dokumen\s+)?polinema'
                     . '|administrasi\s+pihak\s+perguruan\s+tinggi'
@@ -1202,7 +1322,7 @@ PROMPT;
                     . ')'
             ),
             'nomor_dokumen_mitra' => $this->extractDocumentNumber(
-                $head,
+                $text,
                 '(?:'
                     . 'nomor\s+(?:dokumen\s+)?mitra'
                     . '|administrasi\s+pihak\s+mitra'
@@ -1329,16 +1449,13 @@ PROMPT;
         preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE);
 
         $dates = [];
-        $seen = [];
 
         foreach ($matches[0] as [$value, $offset]) {
             $date = $this->normalizeDate($value);
 
-            if ($date === null || in_array($date, $seen, true)) {
+            if ($date === null) {
                 continue;
             }
-
-            $seen[] = $date;
 
             $dates[] = [
                 'date' => $date,
@@ -1347,6 +1464,33 @@ PROMPT;
         }
 
         return $dates;
+    }
+
+    private function extractStartDate(string $text, array $dates): ?string
+    {
+        foreach ($dates as $date) {
+            $context = substr(
+                $text,
+                max(0, $date['offset'] - 120),
+                min(120, $date['offset'])
+            );
+
+            if (preg_match(
+                '/(?:'
+                    .                     'berlaku\s+(?:efektif\s+)?(?:mulai|sejak)'
+                    . '|mulai\s+berlaku(?:\s+(?:pada|sejak|tanggal))?'
+                    . '|terhitung\s+sejak'
+                    . '|efektif\s+(?:mulai|sejak)'
+                    . '|mulai\s+tanggal'
+                    . '|per\s+tanggal'
+                    . ')\b[^0-9]{0,80}$/iu',
+                $context
+            )) {
+                return $date['date'];
+            }
+        }
+
+        return null;
     }
 
     private function normalizeDate(string $value): ?string

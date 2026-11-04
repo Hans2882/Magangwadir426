@@ -106,8 +106,8 @@ class MouResource extends Resource
                         ->helperText(fn ($get) => (int) $get('jenis_dokumen_id') === 7
                             ? 'Autofill PDF hanya tersedia untuk MoU.'
                             : (config('ollama-laravel.enabled', true)
-                                ? 'PDF disimpan di Google Drive dan dibaca di server. File PDF tidak dikirim ke Ollama; centang "Gunakan AI" untuk mengizinkan pengiriman teks hasil ekstraksi. Autofill hanya mengisi field kosong.'
-                                : 'PDF disimpan di Google Drive dan dibaca di server. File maupun teksnya tidak dikirim ke Ollama. Autofill hanya mengisi field kosong.'))
+                                ? 'PDF disimpan di Google Drive dan diproses di server hingga 10 halaman. File PDF tidak dikirim ke Ollama; centang "Gunakan AI" untuk mengizinkan pengiriman teks hasil ekstraksi. Autofill hanya mengisi field kosong dan menampilkan bukti kutipan bila tersedia.'
+                                : 'PDF disimpan di Google Drive dan diproses di server hingga 10 halaman. File maupun teksnya tidak dikirim ke Ollama. Autofill hanya mengisi field kosong dan menampilkan bukti kutipan bila tersedia.'))
                         ->live()
                         ->afterStateUpdated(function ($state, callable $set, callable $get): void {
                             $jenisId = (int) $get('jenis_dokumen_id');
@@ -348,7 +348,7 @@ class MouResource extends Resource
 
             \Filament\Notifications\Notification::make()
                 ->title('Autofill mengisi ' . count($result['filled']) . ' field dari PDF')
-                ->body('Field: ' . implode(', ', $result['filled']) . '. Field yang sudah berisi nilai tetap dipertahankan. Periksa hasilnya sebelum menyimpan.')
+                ->body(static::autofillNotificationBody($result))
                 ->success()
                 ->persistent()
                 ->send();
@@ -378,7 +378,7 @@ class MouResource extends Resource
             'tanggal_akhir' => 'Tgl. Berakhir',
         ];
 
-        $result = ['filled' => [], 'preserved' => []];
+        $result = ['filled' => [], 'preserved' => [], 'evidence' => []];
 
         foreach ($labels as $field => $label) {
             if (!filled($data[$field] ?? null)) {
@@ -393,9 +393,44 @@ class MouResource extends Resource
 
             $set($field, $data[$field]);
             $result['filled'][] = $label;
+
+            $evidence = $data['_evidence'][$field] ?? null;
+
+            if (is_array($evidence) && filled($evidence['quote'] ?? null)) {
+                $result['evidence'][] = [
+                    'field' => $label,
+                    'page' => $evidence['page'] ?? null,
+                    'quote' => $evidence['quote'],
+                ];
+            }
         }
 
         return $result;
+    }
+
+    protected static function autofillNotificationBody(array $result): string
+    {
+        $body = 'Field: ' . implode(', ', $result['filled'])
+            . ". Field yang sudah berisi nilai tetap dipertahankan.";
+
+        if ($result['evidence'] === []) {
+            return $body . ' Bukti kutipan tidak tersedia; periksa nilai langsung pada PDF sebelum menyimpan.';
+        }
+
+        $proofs = array_map(
+            static function (array $evidence): string {
+                $page = filled($evidence['page'] ?? null)
+                    ? ' (halaman ' . $evidence['page'] . ')'
+                    : '';
+
+                return $evidence['field'] . $page . ': "'
+                    . $evidence['quote'] . '"';
+            },
+            $result['evidence']
+        );
+
+        return $body . "\nBukti:\n" . implode("\n", $proofs)
+            . "\nPeriksa hasilnya sebelum menyimpan.";
     }
 
     public static function table(Table $table): Table

@@ -27,13 +27,86 @@ class MouPdfAutofillServiceTest extends TestCase
         $this->assertSame('2030-12-31', $data['tanggal_akhir']);
     }
 
-    public function test_it_does_not_guess_an_end_date_without_explicit_end_language(): void
+    public function test_it_does_not_treat_a_signature_date_as_the_start_date(): void
     {
         $service = new MouPdfAutofillService;
         $data = $service->extractFields("TENTANG KERJA SAMA\nDitandatangani pada 2 Februari 2026.");
 
-        $this->assertSame('2026-02-02', $data['tanggal_awal']);
+        $this->assertNull($data['tanggal_awal']);
         $this->assertNull($data['tanggal_akhir']);
+    }
+
+    public function test_it_extracts_the_explicit_start_date_after_an_earlier_signature_date(): void
+    {
+        $data = (new MouPdfAutofillService)->extractFields(
+            "Ditandatangani pada 2 Februari 2026.\n"
+            .'Perjanjian berlaku mulai tanggal 1 Maret 2026 sampai dengan 28 Februari 2027.'
+        );
+
+        $this->assertSame('2026-03-01', $data['tanggal_awal']);
+        $this->assertSame('2027-02-28', $data['tanggal_akhir']);
+    }
+
+    public function test_it_keeps_repeated_dates_when_the_later_occurrence_has_start_date_context(): void
+    {
+        $data = (new MouPdfAutofillService)->extractFields(
+            "Ditandatangani pada 1 Maret 2026.\n"
+            .'Perjanjian berlaku mulai 1 Maret 2026.'
+        );
+
+        $this->assertSame('2026-03-01', $data['tanggal_awal']);
+    }
+
+    public function test_extraction_is_incomplete_until_all_fields_are_found(): void
+    {
+        $service = new MouPdfAutofillService;
+        $method = new \ReflectionMethod($service, 'isExtractionComplete');
+        $method->setAccessible(true);
+
+        $this->assertFalse($method->invoke($service, [
+            'judul' => 'KERJA SAMA',
+            'nomor_dokumen_polinema' => '01/PL2/2026',
+            'nomor_dokumen_mitra' => null,
+            'tanggal_awal' => '2026-01-01',
+            'tanggal_akhir' => '2027-01-01',
+        ]));
+
+        $this->assertTrue($method->invoke($service, [
+            'judul' => 'KERJA SAMA',
+            'nomor_dokumen_polinema' => '01/PL2/2026',
+            'nomor_dokumen_mitra' => '02/MITRA/2026',
+            'tanggal_awal' => '2026-01-01',
+            'tanggal_akhir' => '2027-01-01',
+        ]));
+    }
+
+    public function test_it_returns_page_and_quote_evidence_for_extracted_fields(): void
+    {
+        $service = new MouPdfAutofillService;
+        $method = new \ReflectionMethod($service, 'withEvidence');
+        $method->setAccessible(true);
+
+        $data = $method->invoke($service, [
+            'judul' => 'KERJA SAMA PENDIDIKAN',
+            'nomor_dokumen_polinema' => null,
+            'nomor_dokumen_mitra' => null,
+            'tanggal_awal' => '2026-03-01',
+            'tanggal_akhir' => null,
+        ], [
+            1 => 'Ditandatangani pada 2 Februari 2026.',
+            2 => "TENTANG\nKERJA SAMA PENDIDIKAN\nPerjanjian berlaku mulai\n1 Maret 2026.",
+        ]);
+
+        $this->assertSame(2, $data['_evidence']['judul']['page']);
+        $this->assertStringContainsString(
+            'KERJA SAMA PENDIDIKAN',
+            $data['_evidence']['judul']['quote']
+        );
+        $this->assertSame(2, $data['_evidence']['tanggal_awal']['page']);
+        $this->assertStringContainsString(
+            'berlaku mulai 1 Maret 2026',
+            $data['_evidence']['tanggal_awal']['quote']
+        );
     }
 
     public function test_it_uses_ollama_to_extract_only_values_supported_by_the_document(): void
@@ -109,6 +182,34 @@ class MouPdfAutofillServiceTest extends TestCase
             $request['prompt'],
             'Never assign document numbers based only on their order.'
         ));
+    }
+
+    public function test_ollama_input_keeps_the_beginning_and_end_of_long_documents(): void
+    {
+        config([
+            'ollama-laravel.enabled' => true,
+            'ollama-laravel.url' => 'http://127.0.0.1:11434',
+            'ollama-laravel.model' => 'qwen2.5:7b',
+        ]);
+
+        Http::fake([
+            'http://127.0.0.1:11434/api/generate' => Http::response([
+                'response' => json_encode([
+                    'judul' => null,
+                    'nomor_dokumen_polinema' => null,
+                    'nomor_dokumen_mitra' => null,
+                    'tanggal_awal' => null,
+                    'tanggal_akhir' => null,
+                ], JSON_THROW_ON_ERROR),
+            ]),
+        ]);
+
+        $text = 'AWAL-DOKUMEN ' . str_repeat('teks ', 6000) . 'AKHIR-DOKUMEN';
+        (new MouPdfAutofillService)->extractWithOllama($text);
+
+        Http::assertSent(fn ($request) => str_contains($request['prompt'], 'AWAL-DOKUMEN')
+            && str_contains($request['prompt'], 'AKHIR-DOKUMEN')
+            && str_contains($request['prompt'], '[Bagian tengah dokumen dilewati]'));
     }
 
     public function test_it_rejects_ollama_values_not_supported_by_the_document(): void
