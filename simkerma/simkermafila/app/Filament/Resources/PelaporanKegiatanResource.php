@@ -174,7 +174,7 @@ class PelaporanKegiatanResource extends Resource
                     8 => 'Case Study (Laporan Berkas PDF & Wajib Mitra)',
                     9 => 'Press Release (Tautan Berita & Mitra Opsional)',
                 ])
-                ->default(8)
+                ->default(fn () => \Illuminate\Support\Facades\Auth::user()?->isDosen() ? 9 : 8)
                 ->inline()
                 ->live()
                 ->required()
@@ -278,7 +278,7 @@ class PelaporanKegiatanResource extends Resource
                 ->label('Sembunyikan Nama Mitra untuk Publik (Anonymize)')
                 ->visible(fn ($get) => !empty($get('mitra_id'))),
 
-            Forms\Components\Hidden::make('status_workflow')->default(fn () => \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'Proses' : 'Selesai'),
+            Forms\Components\Hidden::make('status_workflow')->default(fn () => (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa() || \Illuminate\Support\Facades\Auth::user()?->isDosen()) ? 'Proses' : 'Selesai'),
             Forms\Components\Hidden::make('user_id')->default(fn () => \Illuminate\Support\Facades\Auth::id()),
             Forms\Components\Hidden::make('jenis_pengajuan')->default('Baru'),
 
@@ -736,7 +736,7 @@ class PelaporanKegiatanResource extends Resource
                         $record->update(['status_workflow' => 'Selesai']);
                         \Filament\Notifications\Notification::make()->title('Pelaporan Kegiatan Disetujui')->success()->send();
                     })
-                    ->visible(fn ($record) => $record->status_workflow === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
+                    ->visible(fn ($record) => $record->status_workflow === 'Proses' && (\Illuminate\Support\Facades\Auth::user()?->isAdmin() || \Illuminate\Support\Facades\Auth::user()?->isKoorMagang())),
 
                 \Filament\Actions\Action::make('tolak')
                     ->label('Tolak')
@@ -756,7 +756,7 @@ class PelaporanKegiatanResource extends Resource
                         ]);
                         \Filament\Notifications\Notification::make()->title('Pelaporan Kegiatan Ditolak')->success()->send();
                     })
-                    ->visible(fn ($record) => $record->status_workflow === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
+                    ->visible(fn ($record) => $record->status_workflow === 'Proses' && (\Illuminate\Support\Facades\Auth::user()?->isAdmin() || \Illuminate\Support\Facades\Auth::user()?->isKoorMagang())),
 
                 \Filament\Actions\ViewAction::make(),
                 \Filament\Actions\EditAction::make(),

@@ -14,7 +14,7 @@ class CreatePelaporanKegiatan extends CreateRecord
         $user = \Illuminate\Support\Facades\Auth::user();
         $data['user_id'] = $user?->id;
         
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
             $data['status_workflow'] = 'Proses';
         }
 
