@@ -18,9 +18,13 @@ class CreatePelaporanKegiatan extends CreateRecord
             $data['status_workflow'] = 'Proses';
         }
 
-        // If Press Release, map link_press_release to link_dokumen
+        // If Press Release, map and normalize link_press_release to link_dokumen
         if ((int) ($data['jenis_dokumen_id'] ?? 8) === 9) {
-            $data['link_dokumen'] = $data['link_press_release'] ?? null;
+            $url = trim((string) ($data['link_press_release'] ?? ''));
+            if (!empty($url) && !str_starts_with($url, 'http://') && !str_starts_with($url, 'https://')) {
+                $url = 'https://' . $url;
+            }
+            $data['link_dokumen'] = !empty($url) ? $url : null;
         }
         unset($data['link_press_release']);
 

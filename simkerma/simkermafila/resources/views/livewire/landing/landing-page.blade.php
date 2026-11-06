@@ -166,13 +166,19 @@
                         </div>
                     </div>
 
-                    @if($press->link_dokumen)
+                    @php
+                        $rawPressLink = is_array($press->link_dokumen) ? array_values($press->link_dokumen)[0] : $press->link_dokumen;
+                        $targetUrl = null;
+                        if (!empty($rawPressLink) && $rawPressLink !== '-') {
+                            $targetUrl = trim((string) $rawPressLink);
+                            if (!str_starts_with($targetUrl, 'http://') && !str_starts_with($targetUrl, 'https://')) {
+                                $targetUrl = 'https://' . $targetUrl;
+                            }
+                        }
+                    @endphp
+
+                    @if(!empty($targetUrl))
                         <div class="card-footer">
-                            @php
-                                $linkUrl = is_array($press->link_dokumen) ? array_values($press->link_dokumen)[0] : $press->link_dokumen;
-                                $isExternal = str_starts_with($linkUrl, 'http://') || str_starts_with($linkUrl, 'https://');
-                                $targetUrl = $isExternal ? $linkUrl : route('view-dokumen', ['path' => $linkUrl]);
-                            @endphp
                             <a href="{{ $targetUrl }}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
                                 <i data-lucide="external-link" class="icon-sm"></i>
                                 Buka Tautan Berita

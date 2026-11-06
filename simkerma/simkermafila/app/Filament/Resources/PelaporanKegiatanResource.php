@@ -185,6 +185,7 @@ class PelaporanKegiatanResource extends Resource
                 ->label('Link Press Release')
                 ->placeholder('https://polinema.ac.id/berita/')
                 ->url()
+                ->hintAction(\App\Services\GeminiPressReleaseService::getAutoFillAction())
                 ->required(fn ($get) => (int) $get('jenis_dokumen_id') === 9)
                 ->validationMessages([
                     'required' => 'Link Press Release wajib diisi.',
@@ -196,8 +197,8 @@ class PelaporanKegiatanResource extends Resource
                         $component->state($record->link_dokumen);
                     }
                 })
-                ->dehydrated(false)
-                ->helperText('Masukkan tautan URL publikasi berita / artikel online.')
+                ->dehydrated(fn ($get) => (int) $get('jenis_dokumen_id') === 9)
+                ->helperText('Masukkan tautan URL publikasi berita, lalu gunakan tombol Auto-Fill via AI untuk mengisi form otomatis.')
                 ->columnSpanFull(),
 
             // Berkas Case Study: visible and required only if jenis_dokumen_id == 8
@@ -205,6 +206,7 @@ class PelaporanKegiatanResource extends Resource
                 ->label('Berkas Case Study')
                 ->required(fn ($get) => (int) $get('jenis_dokumen_id') === 8 || ! $get('jenis_dokumen_id'))
                 ->validationMessages(['required' => 'Berkas wajib diunggah untuk Case Study.'])
+                ->dehydrated(fn ($get) => (int) ($get('jenis_dokumen_id') ?? 8) === 8)
                 ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                 ->disk('google')
                 ->directory(function () {
@@ -414,37 +416,54 @@ class PelaporanKegiatanResource extends Resource
                         ->default('-'),
                     \Filament\Infolists\Components\TextEntry::make('link_dokumen')
                         ->label('Berkas Dokumen / Tautan')
-                        ->formatStateUsing(function ($state, $record) {
-                            if ((int) $record->jenis_dokumen_id === 9) {
-                                return $state ? 'Buka Tautan Berita' : '-';
+                        ->formatStateUsing(function ($state, $record, ?Model $relatedRecord = null) {
+                            $rec = $record ?? $relatedRecord;
+                            if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9) {
+                                return (!empty($state) && $state !== '-') ? 'Buka Tautan Berita' : '-';
                             }
                             if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
                                 return 'Dokumen Terkunci (Hanya Staf/Admin)';
                             }
-                            return $state ? 'Lihat Dokumen' : '-';
+                            return (!empty($state) && $state !== '-') ? 'Lihat Dokumen' : '-';
                         })
-                        ->url(function ($record) {
-                            if ((int) $record->jenis_dokumen_id === 9) {
-                                $url = is_array($record->link_dokumen) ? array_values($record->link_dokumen)[0] : $record->link_dokumen;
-                                return $url ?: null;
+                        ->url(function ($state, $record, ?Model $relatedRecord = null) {
+                            if (!$state || $state === '-') {
+                                return null;
+                            }
+                            $rec = $record ?? $relatedRecord;
+                            $url = is_array($state) ? array_values($state)[0] : $state;
+                            $url = trim((string) $url);
+
+                            if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9 || str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+                                if (!empty($url) && !str_starts_with($url, 'http://') && !str_starts_with($url, 'https://')) {
+                                    $url = 'https://' . $url;
+                                }
+                                return !empty($url) ? $url : null;
                             }
                             if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
                                 return null;
                             }
-                            if (!$record->link_dokumen) return null;
                             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
                             $disk = \Illuminate\Support\Facades\Storage::disk('google');
-                            return $disk->url(is_array($record->link_dokumen) ? array_values($record->link_dokumen)[0] : $record->link_dokumen);
+                            return $disk->url(is_array($state) ? array_values($state)[0] : $state);
                         }, true)
-                        ->color(function ($record) {
-                            if ((int) $record->jenis_dokumen_id === 9) {
+                        ->color(function ($state, $record, ?Model $relatedRecord = null) {
+                            if (empty($state) || $state === '-') {
+                                return 'gray';
+                            }
+                            $rec = $record ?? $relatedRecord;
+                            if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9) {
                                 return 'success';
                             }
                             return \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'gray' : 'primary';
                         })
-                        ->badge()
-                        ->icon(function ($record) {
-                            if ((int) $record->jenis_dokumen_id === 9) {
+                        ->badge(fn ($state) => !empty($state) && $state !== '-')
+                        ->icon(function ($state, $record, ?Model $relatedRecord = null) {
+                            if (empty($state) || $state === '-') {
+                                return null;
+                            }
+                            $rec = $record ?? $relatedRecord;
+                            if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9) {
                                 return 'heroicon-o-arrow-top-right-on-square';
                             }
                             return \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'heroicon-o-lock-closed' : 'heroicon-o-document-arrow-down';
@@ -545,41 +564,60 @@ class PelaporanKegiatanResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('link_dokumen')
                     ->label('Dokumen / Tautan')
-                    ->formatStateUsing(function ($state, $record) {
-                        if ((int) $record->jenis_dokumen_id === 9) {
-                            return 'Buka Tautan';
+                    ->formatStateUsing(function ($state, $record, ?Model $relatedRecord = null) {
+                        $rec = $record ?? $relatedRecord;
+                        if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9) {
+                            return (!empty($state) && $state !== '-') ? 'Buka Tautan' : '-';
                         }
                         if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
                             return 'Terkunci';
                         }
-                        return $state && $state !== '-' ? 'Lihat Berkas' : '-';
+                        return (!empty($state) && $state !== '-') ? 'Lihat Berkas' : '-';
                     })
-                    ->url(function ($state, $record) {
-                        if ((int) $record->jenis_dokumen_id === 9) {
-                            $url = is_array($state) ? array_values($state)[0] : $state;
-                            return $url ?: null;
+                    ->url(function ($state, $record, ?Model $relatedRecord = null) {
+                        if (!$state || $state === '-') {
+                            return null;
+                        }
+                        $rec = $record ?? $relatedRecord;
+                        $url = is_array($state) ? array_values($state)[0] : $state;
+                        $url = trim((string) $url);
+
+                        if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9 || str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+                            if (!empty($url) && !str_starts_with($url, 'http://') && !str_starts_with($url, 'https://')) {
+                                $url = 'https://' . $url;
+                            }
+                            return !empty($url) ? $url : null;
                         }
                         if (\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
                             return null;
                         }
-                        return $state && $state !== '-' ? route('view-dokumen', ['path' => is_array($state) ? array_values($state)[0] : $state]) : null;
+                        return route('view-dokumen', ['path' => is_array($state) ? array_values($state)[0] : $state]);
                     })
                     ->openUrlInNewTab()
-                    ->badge()
-                    ->icon(function ($record) {
-                        if ((int) $record->jenis_dokumen_id === 9) {
+                    ->badge(fn ($state) => !empty($state) && $state !== '-')
+                    ->icon(function ($state, $record, ?Model $relatedRecord = null) {
+                        if (empty($state) || $state === '-') {
+                            return null;
+                        }
+                        $rec = $record ?? $relatedRecord;
+                        if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9) {
                             return 'heroicon-o-arrow-top-right-on-square';
                         }
                         return \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'heroicon-o-lock-closed' : 'heroicon-o-eye';
                     })
-                    ->color(function ($record) {
-                        if ((int) $record->jenis_dokumen_id === 9) {
+                    ->color(function ($state, $record, ?Model $relatedRecord = null) {
+                        if (empty($state) || $state === '-') {
+                            return 'gray';
+                        }
+                        $rec = $record ?? $relatedRecord;
+                        if ((int) ($rec?->jenis_dokumen_id ?? 0) === 9) {
                             return 'success';
                         }
                         return \Illuminate\Support\Facades\Auth::user()?->isMahasiswa() ? 'gray' : 'primary';
                     })
-                    ->extraAttributes(function ($state, $record) {
-                        if ((int) $record->jenis_dokumen_id !== 9 && \Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
+                    ->extraAttributes(function ($state, $record, ?Model $relatedRecord = null) {
+                        $rec = $record ?? $relatedRecord;
+                        if ((int) ($rec?->jenis_dokumen_id ?? 0) !== 9 && \Illuminate\Support\Facades\Auth::user()?->isMahasiswa()) {
                             return [];
                         }
                         return $state && $state !== '-' ? [
