@@ -23,11 +23,22 @@ class LandingPage extends Component
     public ?string $caseStudyDateFrom = '';
     public ?string $caseStudyDateTo = '';
 
+    public ?string $pressReleaseYear = '';
+    public ?string $pressReleaseDateFrom = '';
+    public ?string $pressReleaseDateTo = '';
+
     public function resetCaseStudyFilters(): void
     {
         $this->caseStudyYear = '';
         $this->caseStudyDateFrom = '';
         $this->caseStudyDateTo = '';
+    }
+
+    public function resetPressReleaseFilters(): void
+    {
+        $this->pressReleaseYear = '';
+        $this->pressReleaseDateFrom = '';
+        $this->pressReleaseDateTo = '';
     }
 
     public function updatedSearch()
@@ -308,6 +319,39 @@ class LandingPage extends Component
         ->pluck('year')
         ->toArray();
 
+    // Press Release: jenis_dokumen_id = 9, status = Selesai
+    $pressReleaseQuery = Kerjasama::query()
+        ->where('jenis_dokumen_id', 9)
+        ->where('status_workflow', 'Selesai')
+        ->when($this->pressReleaseYear, function ($q) {
+            $q->where(function ($sub) {
+                $sub->where('tahun', $this->pressReleaseYear)
+                    ->orWhereYear('tanggal_awal', $this->pressReleaseYear);
+            });
+        })
+        ->when($this->pressReleaseDateFrom, function ($q) {
+            $q->whereDate('tanggal_awal', '>=', $this->pressReleaseDateFrom);
+        })
+        ->when($this->pressReleaseDateTo, function ($q) {
+            $q->whereDate('tanggal_awal', '<=', $this->pressReleaseDateTo);
+        });
+
+    $pressReleaseCount = (clone $pressReleaseQuery)->count();
+
+    $pressReleases = $pressReleaseQuery
+        ->with(['mitra', 'mitra.negara'])
+        ->latest('tanggal_awal')
+        ->get();
+
+    $pressReleaseYears = Kerjasama::query()
+        ->where('jenis_dokumen_id', 9)
+        ->where('status_workflow', 'Selesai')
+        ->whereNotNull('tanggal_awal')
+        ->selectRaw('DISTINCT YEAR(tanggal_awal) as year')
+        ->orderByDesc('year')
+        ->pluck('year')
+        ->toArray();
+
     $programStudiOptions = MasterProgramStudi::orderBy('nama_prodi', 'asc')
         ->pluck('nama_prodi', 'id')
         ->toArray();
@@ -329,6 +373,9 @@ class LandingPage extends Component
         'caseStudies' => $caseStudies,
         'caseStudyCount' => $caseStudyCount,
         'caseStudyYears' => $caseStudyYears,
+        'pressReleases' => $pressReleases,
+        'pressReleaseCount' => $pressReleaseCount,
+        'pressReleaseYears' => $pressReleaseYears,
         'programStudiOptions' => $programStudiOptions,
         'mitras' => $mitras,
     ]);

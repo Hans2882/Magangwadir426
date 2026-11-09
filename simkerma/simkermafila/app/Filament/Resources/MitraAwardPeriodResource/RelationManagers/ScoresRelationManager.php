@@ -31,6 +31,22 @@ class ScoresRelationManager extends RelationManager
 
     protected static ?string $title = 'Peserta dan Penilaian';
 
+    private const SCALE_BASED_CRITERIA = [
+        'kurikulum',
+        'magang',
+        'dosen_industri',
+        'rekrutmen',
+        'penelitian_cash',
+        'penelitian_kind',
+        'hilirisasi',
+        'khalayak_pkm',
+        'publikasi_bersama',
+        'co_hosting',
+        'pelatihan_sertifikasi',
+        'kajian_tenaga_ahli',
+        'hibah_alat',
+    ];
+
     public function isReadOnly(): bool
     {
         return false;
@@ -208,27 +224,27 @@ class ScoresRelationManager extends RelationManager
                     ->description('Isi aktivitas kemitraan bidang akademik.')
                     ->schema([
                         Section::make('Kemitraan Akademik')
-                            ->description('Masukkan jumlah aktivitas aktual.')
+                        ->description('Pilih rentang yang sesuai dengan aktivitas aktual dan skala periode.')
                             ->schema([
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'kurikulum',
                                     'Kurikulum',
                                     'Jumlah workshop/kegiatan kurikulum.'
                                 ),
 
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'magang',
                                     'Magang',
                                     'Jumlah mahasiswa yang mengikuti kegiatan magang.'
                                 ),
 
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'dosen_industri',
                                     'Dosen Industri',
                                     'Jumlah dosen yang terlibat.'
                                 ),
 
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'rekrutmen',
                                     'Rekrutmen',
                                     'Jumlah alumni yang direkrut.'
@@ -261,22 +277,22 @@ class ScoresRelationManager extends RelationManager
                     ->schema([
                         Section::make('Penelitian')
                             ->description(
-                                'Untuk nilai uang, masukkan nominal aktual dalam Rupiah.'
+                                'Pilih rentang yang sesuai dengan nominal atau aktivitas aktual.'
                             )
                             ->schema([
-                                $this->moneyField(
+                                $this->scoreLevelField(
                                     'penelitian_cash',
                                     'Penelitian In-cash',
                                     'Kontribusi penelitian dalam bentuk uang.'
                                 ),
 
-                                $this->moneyField(
+                                $this->scoreLevelField(
                                     'penelitian_kind',
                                     'Penelitian In-kind',
                                     'Nilai setara Rupiah barang/jasa.'
                                 ),
 
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'hilirisasi',
                                     'Hilirisasi',
                                     'Jumlah produk/jasa yang dihilirisasi.'
@@ -291,19 +307,19 @@ class ScoresRelationManager extends RelationManager
 
                         Section::make('Pengabdian kepada Masyarakat')
                             ->schema([
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'khalayak_pkm',
                                     'Khalayak Sasaran PkM',
                                     'Jumlah masyarakat sasaran.'
                                 ),
 
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'publikasi_bersama',
                                     'Publikasi Bersama',
                                     'Jumlah artikel publikasi bersama.'
                                 ),
 
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'co_hosting',
                                     'Co-hosting',
                                     'Jumlah pertemuan ilmiah bersama.'
@@ -338,22 +354,22 @@ class ScoresRelationManager extends RelationManager
                     ->schema([
                         Section::make('Income Generation')
                             ->description(
-                                'Masukkan jumlah atau nominal aktual sesuai satuan indikator.'
+                                'Pilih rentang yang sesuai dengan aktivitas aktual dan skala periode.'
                             )
                             ->schema([
-                                $this->countField(
+                                $this->scoreLevelField(
                                     'pelatihan_sertifikasi',
                                     'Pelatihan / Sertifikasi',
                                     'Jumlah peserta/proyek.'
                                 ),
 
-                                $this->moneyField(
+                                $this->scoreLevelField(
                                     'kajian_tenaga_ahli',
                                     'Kajian / Tenaga Ahli',
                                     'Nilai proyek dalam Rupiah.'
                                 ),
 
-                                $this->moneyField(
+                                $this->scoreLevelField(
                                     'hibah_alat',
                                     'Hibah Alat / Sarana / Beasiswa',
                                     'Nilai setara Rupiah hibah.'
@@ -511,7 +527,7 @@ class ScoresRelationManager extends RelationManager
                     ->columnSpanFull(),
             ])
                 ->persistStepInQueryString()
-                ->skippable(false)
+                ->skippable()
                 ->columnSpanFull(),
         ]);
     }
@@ -538,6 +554,7 @@ class ScoresRelationManager extends RelationManager
             ->paginated([10, 25, 50])
             ->extraAttributes([
                 'class' => 'text-sm [&_.fi-ta-row>td]:py-2',
+                'id' => 'mitra-award-scores',
             ])
 
             ->columns([
@@ -980,6 +997,9 @@ class ScoresRelationManager extends RelationManager
                     ->label('Edit Penilaian')
                     ->modalHeading('Edit Mitra Award Score')
                     ->modalWidth('7xl')
+                    ->mutateRecordDataUsing(
+                        fn (array $data): array => $this->prepareScoreFormData($data)
+                    )
                     ->mutateFormDataUsing(
                         fn (array $data): array => $this->prepareScoreData($data)
                     ),
@@ -997,39 +1017,22 @@ class ScoresRelationManager extends RelationManager
     |--------------------------------------------------------------------------
     */
 
-    private function countField(
+    private function scoreLevelField(
         string $name,
         string $label,
         ?string $helper = null
-    ): Forms\Components\TextInput {
-        return Forms\Components\TextInput::make($name)
+    ): Forms\Components\Select {
+        return Forms\Components\Select::make($name . '_level')
             ->label($label)
-            ->numeric()
-            ->minValue(0)
-            ->default(0)
+            ->options($this->scoreLevelOptions($name))
+            ->placeholder('Pilih tingkat skor')
             ->required()
             ->live()
-            ->step(1)
-            ->suffix($this->unit($name))
-            ->helperText($helper)
-            ->columnSpan(1);
-    }
-
-    private function moneyField(
-        string $name,
-        string $label,
-        ?string $helper = null
-    ): Forms\Components\TextInput {
-        return Forms\Components\TextInput::make($name)
-            ->label($label)
-            ->numeric()
-            ->minValue(0)
-            ->default(0)
-            ->required()
-            ->live()
-            ->step(1)
-            ->prefix('Rp')
-            ->helperText($helper)
+            ->native(false)
+            ->helperText(implode(' ', array_filter([
+                $helper,
+                'Pilih tingkat yang sesuai dengan skala periode ini.',
+            ])))
             ->columnSpan(1);
     }
 
@@ -1446,33 +1449,25 @@ class ScoresRelationManager extends RelationManager
     {
         $mitraId = $get('mitra_id');
 
+        $values = $this->scoreValuesFromLevels([
+            'kurikulum_level' => $get('kurikulum_level'),
+            'magang_level' => $get('magang_level'),
+            'dosen_industri_level' => $get('dosen_industri_level'),
+            'rekrutmen_level' => $get('rekrutmen_level'),
+            'penelitian_cash_level' => $get('penelitian_cash_level'),
+            'penelitian_kind_level' => $get('penelitian_kind_level'),
+            'hilirisasi_level' => $get('hilirisasi_level'),
+            'khalayak_pkm_level' => $get('khalayak_pkm_level'),
+            'publikasi_bersama_level' => $get('publikasi_bersama_level'),
+            'co_hosting_level' => $get('co_hosting_level'),
+            'pelatihan_sertifikasi_level' => $get('pelatihan_sertifikasi_level'),
+            'kajian_tenaga_ahli_level' => $get('kajian_tenaga_ahli_level'),
+            'hibah_alat_level' => $get('hibah_alat_level'),
+        ]);
+
         $score = new MitraAwardScore([
             'mitra_award_period_id' => $this->ownerRecord->getKey(),
-
-            'kurikulum' => (int) ($get('kurikulum') ?? 0),
-            'magang' => (int) ($get('magang') ?? 0),
-            'dosen_industri' => (int) ($get('dosen_industri') ?? 0),
-            'rekrutmen' => (int) ($get('rekrutmen') ?? 0),
-
-            'penelitian_cash' => (float) ($get('penelitian_cash') ?? 0),
-            'penelitian_kind' => (float) ($get('penelitian_kind') ?? 0),
-
-            'hilirisasi' => (int) ($get('hilirisasi') ?? 0),
-            'khalayak_pkm' => (int) ($get('khalayak_pkm') ?? 0),
-            'publikasi_bersama' => (int) ($get('publikasi_bersama') ?? 0),
-            'co_hosting' => (int) ($get('co_hosting') ?? 0),
-
-            'pelatihan_sertifikasi' => (int) (
-                $get('pelatihan_sertifikasi') ?? 0
-            ),
-
-            'kajian_tenaga_ahli' => (float) (
-                $get('kajian_tenaga_ahli') ?? 0
-            ),
-
-            'hibah_alat' => (float) (
-                $get('hibah_alat') ?? 0
-            ),
+            ...$values,
 
             'reputasi' => (int) ($get('reputasi') ?? 0),
 
@@ -1530,6 +1525,7 @@ class ScoresRelationManager extends RelationManager
 
     private function prepareScoreData(array $data): array
     {
+        $data = $this->scoreValuesFromLevels($data);
         $mitraId = $data['mitra_id'] ?? null;
 
         $mitra = $mitraId
@@ -1591,5 +1587,142 @@ class ScoresRelationManager extends RelationManager
         );
 
         return $data;
+    }
+
+    private function prepareScoreFormData(array $data): array
+    {
+        $calculator = app(MitraAwardCalculator::class);
+        $scale = $this->getConfig()['skala'] ?? [];
+
+        foreach (self::SCALE_BASED_CRITERIA as $criterion) {
+            $criterionScale = $scale[$criterion] ?? [];
+            $thresholds = $criterionScale['thresholds'] ?? [];
+            $type = $criterionScale['type'] ?? 'count';
+
+            $data[$criterion . '_level'] = in_array($type, ['likert', 'document'], true)
+                ? (int) ($data[$criterion] ?? 0)
+                : $calculator->thresholdScore(
+                    (float) ($data[$criterion] ?? 0),
+                    $thresholds
+                );
+        }
+
+        return $data;
+    }
+
+    private function scoreValuesFromLevels(array $data): array
+    {
+        foreach (self::SCALE_BASED_CRITERIA as $criterion) {
+            $levelKey = $criterion . '_level';
+
+            if (! array_key_exists($levelKey, $data)) {
+                continue;
+            }
+
+            $level = max(0, min(4, (int) $data[$levelKey]));
+            $data[$criterion] = $this->scoreValueForLevel($criterion, $level);
+            unset($data[$levelKey]);
+        }
+
+        return $data;
+    }
+
+    private function scoreLevelOptions(string $criterion): array
+    {
+        $scale = $this->getScale($criterion) ?? [];
+        $type = $scale['type'] ?? 'count';
+
+        if (in_array($type, ['likert', 'document'], true)) {
+            $labels = $scale['labels'] ?? [];
+
+            return collect(range(0, 4))
+                ->mapWithKeys(fn (int $level): array => [
+                    $level => $labels[$level] ?? $this->defaultScoreLabel($level),
+                ])
+                ->all();
+        }
+
+        $thresholds = array_values($scale['thresholds'] ?? []);
+
+        if ($thresholds === []) {
+            $thresholds = $type === 'money' ? [0, 0, 0, 0] : [0, 1, 2, 3];
+        }
+
+        sort($thresholds, SORT_NUMERIC);
+        $thresholds = array_pad($thresholds, 4, end($thresholds));
+
+        $options = [];
+
+        for ($level = 0; $level <= 4; $level++) {
+            if ($type === 'money') {
+                if ($level === 0) {
+                    $range = ((float) $thresholds[0] === 0.0)
+                        ? 'Rp0'
+                        : '≤ ' . $this->formatRupiah($thresholds[0]);
+                } elseif ($level === 4) {
+                    $range = '≥ Rp' . $this->formatRupiah(
+                        floor((float) $thresholds[3]) + 1
+                    );
+                } else {
+                    $minimum = floor((float) $thresholds[$level - 1]) + 1;
+                    $maximum = floor((float) $thresholds[$level]);
+                    $range = 'Rp' . $this->formatRupiah($minimum)
+                        . ' – Rp' . $this->formatRupiah($maximum);
+                }
+            } elseif ($level === 0) {
+                $range = ($type === 'count' && (float) $thresholds[0] === 0.0)
+                    ? '0'
+                    : '≤ ' . $this->formatThreshold($thresholds[0], $type);
+            } elseif ($level === 4) {
+                $range = '> ' . $this->formatThreshold($thresholds[3], $type);
+            } elseif ($type === 'count') {
+                $firstValue = (int) floor((float) $thresholds[$level - 1]) + 1;
+                $lastValue = (int) floor((float) $thresholds[$level]);
+                $range = $firstValue === $lastValue
+                    ? (string) $lastValue
+                    : $firstValue . '–' . $lastValue;
+            } else {
+                $range = '> ' . $this->formatThreshold($thresholds[$level - 1], $type)
+                    . ' – ≤ ' . $this->formatThreshold($thresholds[$level], $type);
+            }
+
+            $options[$level] = $range;
+        }
+
+        return $options;
+    }
+
+    private function scoreValueForLevel(string $criterion, int $level): int|float
+    {
+        $scale = $this->getScale($criterion) ?? [];
+        $type = $scale['type'] ?? 'count';
+
+        if (in_array($type, ['likert', 'document'], true)) {
+            return $level;
+        }
+
+        $thresholds = array_values($scale['thresholds'] ?? []);
+
+        if ($thresholds === []) {
+            $thresholds = $type === 'money' ? [0, 0, 0, 0] : [0, 1, 2, 3];
+        }
+
+        sort($thresholds, SORT_NUMERIC);
+        $thresholds = array_pad($thresholds, 4, end($thresholds));
+
+        if ($level < 4) {
+            return $type === 'money'
+                ? round((float) $thresholds[$level], 2)
+                : (int) $thresholds[$level];
+        }
+
+        return $type === 'money'
+            ? floor((float) $thresholds[3]) + 1
+            : (int) floor((float) $thresholds[3]) + 1;
+    }
+
+    private function formatRupiah(float|int $value): string
+    {
+        return number_format((float) $value, 0, ',', '.');
     }
 }

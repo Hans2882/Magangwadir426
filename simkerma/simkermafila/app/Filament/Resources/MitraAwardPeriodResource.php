@@ -96,20 +96,18 @@ class MitraAwardPeriodResource extends Resource
 
                     TextInput::make('tahun')
                         ->label('Tahun')
-                        ->numeric(decimalPlaces: 2)
+                        ->integer()
                         ->required()
                         ->minValue(2000)
                         ->maxValue(2100),
 
                     DatePicker::make('tanggal_mulai')
                         ->label('Tanggal Mulai')
-                        ->required()
-                        ->native(false),
+                        ->required(),
 
                     DatePicker::make('tanggal_selesai')
                         ->label('Tanggal Selesai')
                         ->required()
-                        ->native(false)
                         ->afterOrEqual('tanggal_mulai'),
 
                     Forms\Components\Toggle::make('is_active')
@@ -190,146 +188,7 @@ class MitraAwardPeriodResource extends Resource
                 |--------------------------------------------------------------------------
                 */
 
-                Action::make('konfigurasi_penilaian')
-                    ->label('Skala & Bobot')
-                    ->icon('heroicon-o-adjustments-horizontal')
-                    ->color('warning')
-                    ->modalHeading(
-                        fn (MitraAwardPeriod $record): string =>
-                            'Skala & Bobot — ' . $record->nama
-                    )
-                    ->modalDescription(
-                        'Atur bobot dan skala penilaian khusus untuk periode ini.'
-                    )
-                    ->modalWidth('4xl')
-                    ->fillForm(
-                        fn (MitraAwardPeriod $record): array =>
-                            static::configurationFormData($record)
-                    )
-                    ->steps(fn (): array => static::configurationWizard())
-                    ->skippableSteps()
-                    ->modalSubmitActionLabel('Selesai')
-                    ->modalCancelActionLabel('Batal')
-                    ->action(
-                        function (
-                            MitraAwardPeriod $record,
-                            array $data
-                        ): void {
-                            $config  = static::normalizeConfiguration($data);
-                            $weights = $config['bobot'] ?? [];
-
-                            $calculator = app(MitraAwardCalculator::class);
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | VALIDASI BOBOT DARI FORM (PERSEN)
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $total = collect($data['bobot'] ?? [])
-                                ->sum(
-                                    fn ($row) =>
-                                        (float) ($row['nilai'] ?? 0)
-                                );
-
-                            if (abs($total - 100) >= 0.001) {
-                                Notification::make()
-                                    ->title('Bobot tidak valid')
-                                    ->body(
-                                        'Total bobot harus tepat 100%. Saat ini totalnya ' .
-                                        number_format($total, 2, ',', '.') .
-                                        '%.'
-                                    )
-                                    ->danger()
-                                    ->send();
-
-                                return;
-                            }
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | VALIDASI BOBOT NORMALISASI (0.05, 0.10, dst.)
-                            |--------------------------------------------------------------------------
-                            */
-
-                            if (! $calculator->validateWeights($weights)) {
-                                $total = $calculator
-                                    ->getWeightPercentage($weights);
-
-                                Notification::make()
-                                    ->title('Bobot tidak valid')
-                                    ->body(
-                                        'Total bobot harus tepat 100%. Saat ini totalnya ' .
-                                        number_format($total, 2, ',', '.') .
-                                        '%.'
-                                    )
-                                    ->danger()
-                                    ->send();
-
-                                return;
-                            }
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | SIMPAN CONFIGURATION
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $record->update([
-                                'konfigurasi_penilaian' => $config,
-                            ]);
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | HITUNG ULANG SCORE
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $scores = $record
-                                ->scores()
-                                ->with('mitra')
-                                ->get();
-
-                            foreach ($scores as $score) {
-                                $documentScore = $calculator
-                                    ->getDocumentScore($score->mitra);
-
-                                $score->setRelation('period', $record);
-
-                                $score->dokumen_score = $documentScore;
-                                $score->total_score =
-                                    $calculator->calculate($score);
-
-                                $score->updateQuietly([
-                                    'dokumen_score' => $score->dokumen_score,
-                                    'total_score'   => $score->total_score,
-                                ]);
-                            }
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | HITUNG ULANG RANKING
-                            |--------------------------------------------------------------------------
-                            */
-
-                            app(MitraAwardRanking::class)
-                                ->recalculate($record->getKey());
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | NOTIFICATION
-                            |--------------------------------------------------------------------------
-                            */
-
-                            Notification::make()
-                                ->title('Konfigurasi berhasil disimpan')
-                                ->body(
-                                    'Bobot, skala, nilai, dan ranking mitra telah diperbarui.'
-                                )
-                                ->success()
-                                ->send();
-                        }
-                    ),
+                static::configurationAction(),
 
                 EditAction::make(),
 
@@ -361,7 +220,7 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    protected static function configurationWizard(): array
+    public static function configurationWizard(): array
     {
         $steps = [];
 
@@ -407,7 +266,7 @@ class MitraAwardPeriodResource extends Resource
 
                                 TextInput::make('nilai')
                                     ->label('Bobot (%)')
-                                    ->numeric(decimalPlaces: 2)
+                                    ->numeric()
                                     ->minValue(0)
                                     ->maxValue(100)
                                     ->step(0.1)
@@ -478,7 +337,8 @@ class MitraAwardPeriodResource extends Resource
 
                             TextInput::make("skala.{$key}.thresholds.0")
                                 ->label('Batas 1')
-                                ->numeric(decimalPlaces: 2)
+                                ->numeric()
+                                ->step(0.01)
                                 ->required()
                                 ->visible(
                                     fn (Get $get): bool =>
@@ -497,7 +357,8 @@ class MitraAwardPeriodResource extends Resource
 
                             TextInput::make("skala.{$key}.thresholds.1")
                                 ->label('Batas 2')
-                                ->numeric(decimalPlaces: 2)
+                                ->numeric()
+                                ->step(0.01)
                                 ->required()
                                 ->visible(
                                     fn (Get $get): bool =>
@@ -535,7 +396,8 @@ class MitraAwardPeriodResource extends Resource
 
                             TextInput::make("skala.{$key}.thresholds.3")
                                 ->label('Batas 4')
-                                ->numeric(decimalPlaces: 2)
+                                ->numeric()
+                                ->step(0.01)
                                 ->required()
                                 ->visible(
                                     fn (Get $get): bool =>
@@ -824,6 +686,103 @@ class MitraAwardPeriodResource extends Resource
         return parent::getEloquentQuery();
     }
 
+    public static function configurationAction(): Action
+    {
+        return Action::make('konfigurasi_penilaian')
+            ->label('Skala & Bobot')
+            ->icon('heroicon-o-adjustments-horizontal')
+            ->color('warning')
+            ->modalHeading(
+                fn (MitraAwardPeriod $record): string =>
+                    'Skala & Bobot — ' . $record->nama
+            )
+            ->modalDescription(
+                'Atur bobot dan skala penilaian khusus untuk periode ini.'
+            )
+            ->modalWidth('4xl')
+            ->fillForm(
+                fn (MitraAwardPeriod $record): array =>
+                    static::configurationFormData($record)
+            )
+            ->steps(fn (): array => static::configurationWizard())
+            ->skippableSteps()
+            ->modalSubmitActionLabel('Selesai')
+            ->modalCancelActionLabel('Batal')
+            ->action(
+                fn (MitraAwardPeriod $record, array $data): null =>
+                    static::saveConfiguration($record, $data)
+            );
+    }
+
+    public static function saveConfiguration(
+        MitraAwardPeriod $record,
+        array $data
+    ): null {
+        $config = static::normalizeConfiguration($data);
+        $weights = $config['bobot'] ?? [];
+        $calculator = app(MitraAwardCalculator::class);
+
+        $total = collect($data['bobot'] ?? [])
+            ->sum(fn ($row) => (float) ($row['nilai'] ?? 0));
+
+        if (abs($total - 100) >= 0.001) {
+            Notification::make()
+                ->title('Bobot tidak valid')
+                ->body(
+                    'Total bobot harus tepat 100%. Saat ini totalnya ' .
+                    number_format($total, 2, ',', '.') .
+                    '%.'
+                )
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        if (! $calculator->validateWeights($weights)) {
+            $total = $calculator->getWeightPercentage($weights);
+
+            Notification::make()
+                ->title('Bobot tidak valid')
+                ->body(
+                    'Total bobot harus tepat 100%. Saat ini totalnya ' .
+                    number_format($total, 2, ',', '.') .
+                    '%.'
+                )
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        $record->update([
+            'konfigurasi_penilaian' => $config,
+        ]);
+
+        $scores = $record->scores()->with('mitra')->get();
+
+        foreach ($scores as $score) {
+            $documentScore = $calculator->getDocumentScore($score->mitra);
+            $score->setRelation('period', $record);
+            $score->dokumen_score = $documentScore;
+            $score->total_score = $calculator->calculate($score);
+            $score->updateQuietly([
+                'dokumen_score' => $score->dokumen_score,
+                'total_score' => $score->total_score,
+            ]);
+        }
+
+        app(MitraAwardRanking::class)->recalculate($record->getKey());
+
+        Notification::make()
+            ->title('Konfigurasi berhasil disimpan')
+            ->body('Bobot, skala, nilai, dan ranking mitra telah diperbarui.')
+            ->success()
+            ->send();
+
+        return null;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | RELATIONS
@@ -911,7 +870,7 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    protected static function configurationFormData(
+    public static function configurationFormData(
         MitraAwardPeriod $record
     ): array {
         $default = MitraAwardCalculator::defaultConfig();
@@ -995,7 +954,7 @@ class MitraAwardPeriodResource extends Resource
     |--------------------------------------------------------------------------
     */
 
-    protected static function normalizeConfiguration(
+    public static function normalizeConfiguration(
         array $data
     ): array {
         $default = MitraAwardCalculator::defaultConfig();
@@ -1079,9 +1038,14 @@ class MitraAwardPeriodResource extends Resource
                 continue;
             }
 
-            $key = $row['kriteria'] ?? $key;
+            $submittedKey = $row['kriteria'] ?? null;
+            $key = $submittedKey && in_array($submittedKey, $validKeys, true)
+                ? $submittedKey
+                : ($labelToKey[$submittedKey ?? ''] ?? (
+                    in_array($key, $validKeys, true) ? $key : null
+                ));
 
-            if (! $key) {
+            if (! $key || ! in_array($key, $validKeys, true)) {
                 continue;
             }
 

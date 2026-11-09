@@ -46,6 +46,33 @@ class UsulanKerjasamaResource extends Resource
         return parent::canCreate();
     }
 
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
+            return false;
+        }
+        return parent::canView($record);
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
+            return false;
+        }
+        return parent::canEdit($record);
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa() || $user?->isDosen()) {
+            return false;
+        }
+        return parent::canDelete($record);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UsulanKerjasamaForm::configure($schema);

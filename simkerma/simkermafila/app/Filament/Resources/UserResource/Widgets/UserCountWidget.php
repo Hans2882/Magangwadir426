@@ -32,7 +32,7 @@ class UserCountWidget extends BaseWidget
     public function getAvailableYears(): array
     {
         $years = Kerjasama::query()
-            ->where('jenis_dokumen_id', 8)
+            ->whereIn('jenis_dokumen_id', [8, 9])
             ->where('status_workflow', '!=', 'Ditolak')
             ->get()
             ->map(function ($cs) {
@@ -81,9 +81,9 @@ class UserCountWidget extends BaseWidget
                 ->color('info'),
         ];
 
-        // 2. Query Case Study ber-MOU/PKS/IA
+        // 2. Query Pelaporan Kegiatan (Case Study & Press Release) ber-MOU/PKS/IA
         $query = Kerjasama::query()
-            ->where('jenis_dokumen_id', 8)
+            ->whereIn('jenis_dokumen_id', [8, 9])
             ->whereNotNull('parent_id')
             ->whereHas('parent')
             ->where('status_workflow', '!=', 'Ditolak')
@@ -130,10 +130,10 @@ class UserCountWidget extends BaseWidget
         // Label & Deskripsi
         if ($selected === 'all') {
             $labelTitle = 'Dokumen Kerma (Semua Tahun)';
-            $desc = 'Total rujukan unik MoU/PKS/IA dari seluruh Case Study';
+            $desc = 'Total rujukan unik MoU/PKS/IA dari Pelaporan Kegiatan';
         } else {
             $labelTitle = "Dokumen Kerma ({$selected})";
-            $desc = "Rujukan unik MoU/PKS/IA dari Case Study tahun {$selected}";
+            $desc = "Rujukan unik MoU/PKS/IA dari Pelaporan Kegiatan tahun {$selected}";
         }
 
         $stats[] = Stat::make($labelTitle, number_format($uniqueCount))
@@ -141,9 +141,9 @@ class UserCountWidget extends BaseWidget
             ->descriptionIcon('heroicon-m-document-check')
             ->color($uniqueCount > 0 ? 'success' : 'gray');
 
-        // 3. Stat Pelaporan Case Study (Dinamis mengikuti filter tahun / semua tahun)
+        // 3. Stat Pelaporan Kegiatan (Dinamis mengikuti filter tahun / semua tahun)
         $csQuery = Kerjasama::query()
-            ->where('jenis_dokumen_id', 8)
+            ->whereIn('jenis_dokumen_id', [8, 9])
             ->where('status_workflow', '!=', 'Ditolak');
 
         if ($selected !== 'all') {
@@ -156,11 +156,11 @@ class UserCountWidget extends BaseWidget
                       $sub->whereNull('tahun')->whereNull('tanggal_awal')->whereYear('created_at', $selected);
                   });
             });
-            $csLabel = "Pelaporan Case Study ({$selected})";
-            $csDesc = "Kegiatan Case Study terlaksana tahun {$selected}";
+            $csLabel = "Pelaporan Kegiatan ({$selected})";
+            $csDesc = "Kegiatan (Case Study & Press Release) tahun {$selected}";
         } else {
-            $csLabel = 'Pelaporan Case Study (Semua Tahun)';
-            $csDesc = 'Total kegiatan Case Study di sistem';
+            $csLabel = 'Pelaporan Kegiatan (Semua Tahun)';
+            $csDesc = 'Total pelaporan kegiatan di sistem';
         }
 
         $totalCs = $csQuery->count();

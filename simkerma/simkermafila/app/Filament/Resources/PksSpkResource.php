@@ -19,7 +19,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use App\Filament\Resources\MouResource;
 use App\Filament\Resources\IaResource;
-use App\Filament\Resources\PelaporanCaseStudyResource;
+use App\Filament\Resources\PelaporanKegiatanResource;
 use Filament\Schemas\Components\Utilities\Set;
 
 class PksSpkResource extends Resource
@@ -86,6 +86,8 @@ class PksSpkResource extends Resource
                         })
                         ->visibility('private')
                         ->acceptedFileTypes(['application/pdf'])
+                        ->maxSize(25600)
+                        ->helperText('Ukuran maksimal berkas: 25 MB (format PDF).')
                         ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
                             $docMap = [2 => 'MoA', 3 => 'PKS', 5 => 'SPK', 6 => 'LoC'];
                             $base = $docMap[$get('jenis_dokumen_id')] ?? 'Dokumen';
@@ -668,18 +670,18 @@ class PksSpkResource extends Resource
                         ]),
 
                     RepeatableEntry::make('children_case_study')
-                        ->label('Pelaporan Case Study')
+                        ->label('Pelaporan Kegiatan Terkait')
                         ->state(fn ($record) => $record->children
-                            ->where('jenis_dokumen_id', 8)
+                            ->whereIn('jenis_dokumen_id', [8, 9])
                             ->values())
                         ->placeholder('-')
                         ->contained()
                         ->grid(3)
                         ->schema([
                             TextEntry::make('judul')
-                                ->label('Judul Case Study')
+                                ->label('Judul Kegiatan')
                                 ->url(function ($record) {
-                                    return PelaporanCaseStudyResource::getUrl(
+                                    return PelaporanKegiatanResource::getUrl(
                                         'view',
                                         ['record' => $record]
                                     );

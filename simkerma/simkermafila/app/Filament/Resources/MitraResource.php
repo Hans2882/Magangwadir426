@@ -149,7 +149,20 @@ class MitraResource extends Resource
             ->actions([
                 \Filament\Actions\ViewAction::make(),
                 \Filament\Actions\EditAction::make(),
-                \Filament\Actions\DeleteAction::make(),
+                \Filament\Actions\DeleteAction::make()
+                    ->before(function (\Filament\Actions\DeleteAction $action, Mitra $record) {
+                        $details = $record->getRelatedDataSummary();
+                        if (!empty($details)) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Tidak Dapat Menghapus Mitra')
+                                ->body("Mitra '{$record->nama_mitra}' tidak dapat dihapus karena masih terikat dengan " . implode(', ', $details) . ". Silakan hapus atau alihkan data terkait terlebih dahulu.")
+                                ->danger()
+                                ->persistent()
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->paginated([10, 25, 50, 100])
             ->filters([

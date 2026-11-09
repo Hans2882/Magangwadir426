@@ -22,11 +22,23 @@ class CreateUser extends CreateRecord
             ]);
         }
         
-        if (!empty($data['program_studi_id'])) {
-            \App\Models\UserProgramStudi::create([
-                'user_id' => $this->record->id,
-                'program_studi_id' => $data['program_studi_id'],
-            ]);
+        $prodiIds = [];
+        if (!empty($data['program_studi_ids'])) {
+            $prodiIds = is_array($data['program_studi_ids']) ? $data['program_studi_ids'] : [$data['program_studi_ids']];
+        } elseif (!empty($data['program_studi_id'])) {
+            $prodiIds = [$data['program_studi_id']];
+        }
+
+        if (!empty($prodiIds)) {
+            $filteredIds = array_filter($prodiIds);
+            $this->record->programStudis()->sync($filteredIds);
+
+            if (!$this->record->jurusan_id && !empty($filteredIds)) {
+                $firstProdi = \App\Models\MasterProgramStudi::find(reset($filteredIds));
+                if ($firstProdi?->jurusan_id) {
+                    $this->record->update(['jurusan_id' => $firstProdi->jurusan_id]);
+                }
+            }
         }
     }
 

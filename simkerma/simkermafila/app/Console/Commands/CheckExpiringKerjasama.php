@@ -29,15 +29,25 @@ class CheckExpiringKerjasama extends Command
     public function handle()
     {
         $fourMonths = now()->addMonths(4)->format('Y-m-d');
+        $threeMonths = now()->addMonths(3)->format('Y-m-d');
 
         $expiring = Kerjasama::with('mitra')
             ->whereNotNull('tanggal_akhir')
-            ->whereDate('tanggal_akhir', $fourMonths)
+            ->whereIn('tanggal_akhir', [$fourMonths, $threeMonths])
             ->get();
-        $users = User::all();
+
+        // Targetkan staf/pimpinan/admin (bukan mahasiswa umum)
+        $users = User::whereHas('userPrivilege.privilege', function ($q) {
+            $q->where('is_admin_panel', true)
+              ->orWhereIn('nama', ['Wadir 4', 'Wakil Direktur IV', 'Koor Magang', 'Koordinator Magang', 'Dosen']);
+        })->get();
+
+        if ($users->isEmpty()) {
+            $users = User::all();
+        }
 
         if ($expiring->isEmpty()) {
-            $this->info('No Kerjasama expiring in exactly 4 months today.');
+            $this->info('No Kerjasama expiring in 3 or 4 months today.');
             return;
         }
 

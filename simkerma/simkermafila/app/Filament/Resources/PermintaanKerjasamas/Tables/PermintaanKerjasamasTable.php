@@ -107,6 +107,22 @@ class PermintaanKerjasamasTable
                         ]);
                         
                         $record->update(['status_permintaan' => 'Disetujui']);
+
+                        // Notifikasi Database ke Mahasiswa Pengusul
+                        if ($record->pengusul) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Permintaan Magang Disetujui')
+                                ->body("Usulan kemitraan magang dengan {$record->nama_mitra} telah disetujui menjadi mitra resmi.")
+                                ->icon('heroicon-o-check-circle')
+                                ->success()
+                                ->actions([
+                                    Action::make('view')
+                                        ->label('Lihat Status')
+                                        ->url(\App\Filament\Resources\PermintaanKerjasamas\PermintaanKerjasamaResource::getUrl('index')),
+                                ])
+                                ->sendToDatabase($record->pengusul);
+                        }
+
                         \Filament\Notifications\Notification::make()->title('Mitra Resmi Ditambahkan')->success()->send();
                     })
                     ->visible(fn ($record) => $record->status_permintaan === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
@@ -126,6 +142,22 @@ class PermintaanKerjasamasTable
                             'status_permintaan' => 'Ditolak',
                             'keterangan_tolak' => $data['keterangan_tolak']
                         ]);
+
+                        // Notifikasi Database ke Mahasiswa Pengusul
+                        if ($record->pengusul) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Permintaan Magang Ditolak')
+                                ->body("Usulan kemitraan magang dengan {$record->nama_mitra} ditolak. Alasan: {$data['keterangan_tolak']}")
+                                ->icon('heroicon-o-x-circle')
+                                ->danger()
+                                ->actions([
+                                    Action::make('view')
+                                        ->label('Lihat Keterangan')
+                                        ->url(\App\Filament\Resources\PermintaanKerjasamas\PermintaanKerjasamaResource::getUrl('index')),
+                                ])
+                                ->sendToDatabase($record->pengusul);
+                        }
+
                         \Filament\Notifications\Notification::make()->title('Permintaan Ditolak')->success()->send();
                     })
                     ->visible(fn ($record) => $record->status_permintaan === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),

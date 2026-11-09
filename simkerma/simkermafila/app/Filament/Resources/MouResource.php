@@ -138,6 +138,8 @@ class MouResource extends Resource
                         })
                         ->visibility('private')
                         ->acceptedFileTypes(['application/pdf'])
+                        ->maxSize(25600)
+                        ->helperText('Ukuran maksimal berkas: 25 MB (format PDF).')
                         ->getUploadedFileNameForStorageUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file, callable $get): string {
                             $docType = $get('jenis_dokumen_id') == 7 ? 'LoI' : 'MoU';
                             $base = $get('jenis') === 'Luar Negeri' ? $docType . ' LN' : $docType;
@@ -715,15 +717,22 @@ class MouResource extends Resource
                             TextEntry::make('status')->badge(),
                         ]),
                     RepeatableEntry::make('children_case_study')
-                        ->label('Pelaporan Case Study')
-                        ->state(fn ($record) => $record->children->where('jenis_dokumen_id', 8)->values())
+                        ->label('Pelaporan Kegiatan Terkait')
+                        ->state(fn ($record) => $record->children
+                            ->whereIn('jenis_dokumen_id', [8, 9])
+                            ->values())
                         ->placeholder('-')
                         ->contained()
                         ->grid(3)
                         ->schema([
                             TextEntry::make('judul')
-                                ->label('Judul Case Study')
-                                ->url(fn ($record) => \App\Filament\Resources\PelaporanCaseStudyResource::getUrl('view', ['record' => $record]))
+                                ->label('Judul Kegiatan')
+                                ->url(function ($record) {
+                                    return \App\Filament\Resources\PelaporanKegiatanResource::getUrl(
+                                        'view',
+                                        ['record' => $record]
+                                    );
+                                })
                                 ->color('primary'),
                             TextEntry::make('nomor_dokumen')->label('No. Surat Tugas')->default('-'),
                             TextEntry::make('status_workflow')
