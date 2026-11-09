@@ -4,6 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PelaporanKegiatanResource\Pages;
 use App\Models\Kerjasama;
+use App\Models\MasterJurusan;
+use App\Models\MasterProgramStudi;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -676,6 +678,39 @@ class PelaporanKegiatanResource extends Resource
                         'Selesai' => 'Selesai',
                         'Ditolak' => 'Ditolak',
                     ]),
+                Tables\Filters\Filter::make('jurusan_prodi')
+                    ->form([
+                        Forms\Components\Select::make('jurusans')
+                            ->label('Jurusan')
+                            ->options(MasterJurusan::pluck('nama_jurusan', 'id'))
+                            ->multiple()
+                            ->searchable()
+                            ->preload(),
+
+                        Forms\Components\Select::make('prodis')
+                            ->label('Program Studi')
+                            ->options(MasterProgramStudi::pluck('nama_prodi', 'id'))
+                            ->multiple()
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['jurusans'] ?? null,
+                                fn (Builder $query, $jurusans) => $query->where(function ($sub) use ($jurusans) {
+                                    $sub->whereHas('jurusans', fn ($q) => $q->whereIn('master_jurusans.id', (array) $jurusans))
+                                        ->orWhereHas('prodis', fn ($q) => $q->whereIn('master_program_studi.jurusan_id', (array) $jurusans));
+                                })
+                            )
+                            ->when(
+                                $data['prodis'] ?? null,
+                                fn (Builder $query, $prodis) => $query->whereHas(
+                                    'prodis',
+                                    fn ($q) => $q->whereIn('master_program_studi.id', (array) $prodis)
+                                )
+                            );
+                    }),
                 Tables\Filters\SelectFilter::make('tahun')
                     ->label('Tahun Pelaksanaan')
                     ->options(function () {
