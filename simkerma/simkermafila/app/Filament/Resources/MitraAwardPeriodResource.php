@@ -1195,77 +1195,74 @@ class MitraAwardPeriodResource extends Resource
 
         /*
         |--------------------------------------------------------------------------
-        | COUNT / MONEY
+        | COUNT / MONEY / NUMERIC
         |--------------------------------------------------------------------------
         */
+
+        $thresholds = array_values(array_filter(
+            $thresholds,
+            fn ($threshold): bool => $threshold !== null && $threshold !== ''
+        ));
 
         if (empty($thresholds)) {
             return new HtmlString('-');
         }
 
+        $thresholds = array_map('floatval', $thresholds);
+        sort($thresholds, SORT_NUMERIC);
+        $thresholds = array_pad($thresholds, 4, end($thresholds));
+
         $items = [];
 
-        /*
-        |--------------------------------------------------------------------------
-        | Threshold pertama menghasilkan score 0.
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            isset($thresholds[0]) &&
-            $thresholds[0] !== null &&
-            $thresholds[0] !== ''
-        ) {
-            $items[] =
-                '<div>' .
-                '<span class="font-semibold">0:</span> ≤ ' .
-                e((string) $thresholds[0]) .
-                '</div>';
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Threshold berikutnya menghasilkan score 1, 2, 3.
-        |--------------------------------------------------------------------------
-        */
-
-        foreach (array_slice($thresholds, 1) as $index => $threshold) {
-            if ($threshold === null || $threshold === '') {
-                continue;
+        for ($score = 0; $score <= 4; $score++) {
+            if ($type === 'money') {
+                if ($score === 0) {
+                    $range = $thresholds[0] === 0.0
+                        ? 'Rp0'
+                        : '≤ Rp' . static::formatScaleNumber($thresholds[0]);
+                } elseif ($score === 4) {
+                    $range = '≥ Rp' . static::formatScaleNumber(
+                        floor($thresholds[3]) + 1
+                    );
+                } else {
+                    $minimum = floor($thresholds[$score - 1]) + 1;
+                    $maximum = floor($thresholds[$score]);
+                    $range = 'Rp' . static::formatScaleNumber($minimum)
+                        . ' – Rp' . static::formatScaleNumber($maximum);
+                }
+            } elseif ($type === 'count') {
+                if ($score === 0) {
+                    $range = $thresholds[0] === 0.0
+                        ? '0'
+                        : '≤ ' . static::formatScaleNumber($thresholds[0]);
+                } elseif ($score === 4) {
+                    $range = '> ' . static::formatScaleNumber($thresholds[3]);
+                } else {
+                    $minimum = (int) floor($thresholds[$score - 1]) + 1;
+                    $maximum = (int) floor($thresholds[$score]);
+                    $range = $minimum === $maximum
+                        ? (string) $maximum
+                        : $minimum . '–' . $maximum;
+                }
+            } elseif ($score === 0) {
+                $range = '≤ ' . static::formatScaleNumber($thresholds[0]);
+            } elseif ($score === 4) {
+                $range = '> ' . static::formatScaleNumber($thresholds[3]);
+            } else {
+                $range = '> ' . static::formatScaleNumber($thresholds[$score - 1])
+                    . ' – ≤ ' . static::formatScaleNumber($thresholds[$score]);
             }
 
-            $score = $index + 1;
-
-            $items[] =
-                '<div>' .
-                '<span class="font-semibold">' . $score . ':</span> ≤ ' .
-                e((string) $threshold) .
-                '</div>';
+            $items[] = '<div><span class="font-semibold">' . $score
+                . ':</span> ' . e($range) . '</div>';
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Nilai di atas threshold terakhir mendapatkan score 4.
-        |--------------------------------------------------------------------------
-        */
+        return new HtmlString(implode('', $items));
+    }
 
-        $lastThreshold = end($thresholds);
-
-        if (
-            $lastThreshold !== false &&
-            $lastThreshold !== null &&
-            $lastThreshold !== ''
-        ) {
-            $items[] =
-                '<div>' .
-                '<span class="font-semibold">4:</span> > ' .
-                e((string) $lastThreshold) .
-                '</div>';
-        }
-
-        return new HtmlString(
-            empty($items) ? '-' : implode('', $items)
-        );
+    protected static function formatScaleNumber(float|int $value): string
+    {
+        return number_format((float) $value, 0, ',', '.');
     }
 
     /*

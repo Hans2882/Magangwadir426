@@ -99,4 +99,50 @@ class MitraAwardPeriodConfigurationTest extends TestCase
             $configuration['skala']
         );
     }
+
+    public function test_scale_editor_preview_matches_score_ranges_for_money_scales(): void
+    {
+        $method = new ReflectionMethod(
+            MitraAwardPeriodResource::class,
+            'scaleDescription'
+        );
+
+        $preview = (string) $method->invoke(null, [
+            'type' => 'money',
+            'thresholds' => [0, 2_000_000, 5_000_000, 10_000_000],
+        ]);
+
+        foreach ([
+            'Rp0',
+            'Rp1 – Rp2.000.000',
+            'Rp2.000.001 – Rp5.000.000',
+            'Rp5.000.001 – Rp10.000.000',
+            '≥ Rp10.000.001',
+        ] as $range) {
+            $this->assertStringContainsString($range, $preview);
+        }
+    }
+
+    public function test_scale_editor_preview_matches_score_ranges_for_count_scales(): void
+    {
+        $method = new ReflectionMethod(
+            MitraAwardPeriodResource::class,
+            'scaleDescription'
+        );
+
+        $preview = (string) $method->invoke(null, [
+            'type' => 'count',
+            'thresholds' => [0, 2, 4, 6],
+        ]);
+
+        foreach ([
+            '0',
+            '1–2',
+            '3–4',
+            '5–6',
+            '&gt; 6',
+        ] as $range) {
+            $this->assertStringContainsString($range, $preview);
+        }
+    }
 }
