@@ -69,22 +69,30 @@ SELECT
     -- Agregasi Jurusan & Kode Integrasi Polinema
     (
         SELECT GROUP_CONCAT(DISTINCT mj.nama_jurusan ORDER BY mj.nama_jurusan SEPARATOR ', ')
-        FROM (
-            SELECT kj.jurusan_id FROM kerjasama_jurusan kj WHERE kj.kerjasama_id = k.id
-            UNION
-            SELECT mps.jurusan_id FROM kerjasama_prodi kp JOIN master_program_studi mps ON kp.prodi_id = mps.id WHERE kp.kerjasama_id = k.id
-        ) j_ids
-        JOIN master_jurusans mj ON j_ids.jurusan_id = mj.id
+        FROM master_jurusans mj
+        WHERE EXISTS (
+            SELECT 1 FROM kerjasama_jurusan kj 
+            WHERE kj.kerjasama_id = k.id AND kj.jurusan_id = mj.id
+        )
+        OR EXISTS (
+            SELECT 1 FROM kerjasama_prodi kp 
+            JOIN master_program_studi mps ON kp.prodi_id = mps.id 
+            WHERE kp.kerjasama_id = k.id AND mps.jurusan_id = mj.id
+        )
     ) AS daftar_jurusan,
 
     (
         SELECT GROUP_CONCAT(DISTINCT mj.integrasi_jurusan ORDER BY mj.integrasi_jurusan SEPARATOR ',')
-        FROM (
-            SELECT kj.jurusan_id FROM kerjasama_jurusan kj WHERE kj.kerjasama_id = k.id
-            UNION
-            SELECT mps.jurusan_id FROM kerjasama_prodi kp JOIN master_program_studi mps ON kp.prodi_id = mps.id WHERE kp.kerjasama_id = k.id
-        ) j_ids
-        JOIN master_jurusans mj ON j_ids.jurusan_id = mj.id
+        FROM master_jurusans mj
+        WHERE EXISTS (
+            SELECT 1 FROM kerjasama_jurusan kj 
+            WHERE kj.kerjasama_id = k.id AND kj.jurusan_id = mj.id
+        )
+        OR EXISTS (
+            SELECT 1 FROM kerjasama_prodi kp 
+            JOIN master_program_studi mps ON kp.prodi_id = mps.id 
+            WHERE kp.kerjasama_id = k.id AND mps.jurusan_id = mj.id
+        )
     ) AS daftar_kode_integrasi_jurusan,
 
     -- Agregasi Prodi & Kode Integrasi Polinema
