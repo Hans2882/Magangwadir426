@@ -996,6 +996,9 @@ class ScoresRelationManager extends RelationManager
                 EditAction::make()
                     ->label('Edit Penilaian')
                     ->modalHeading('Edit Mitra Award Score')
+                    ->modalDescription(
+                        'Isi penilaian secara bertahap. Skor akhir akan dihitung otomatis.'
+                    )
                     ->modalWidth('7xl')
                     ->mutateRecordDataUsing(
                         fn (array $data): array => $this->prepareScoreFormData($data)
