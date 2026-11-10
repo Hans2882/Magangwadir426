@@ -39,6 +39,12 @@ return [
         'api_key' => env('GEMINI_API_KEY'),
     ],
 
+    'tesseract' => [
+        'enabled' => env('TESSERACT_ENABLED', true),
+        'path'    => env('TESSERACT_PATH', 'tesseract'),
+        'lang'    => env('TESSERACT_LANG', 'ind+eng'),
+    ],
+
     'web_api' => [
         'key' => env('WEB_API_KEY'),
     ],

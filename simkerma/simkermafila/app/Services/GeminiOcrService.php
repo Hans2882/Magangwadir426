@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Log;
 class GeminiOcrService
 {
     /**
-     * Extracts information from a PDF file using Gemini 3.5 Flash.
+     * Extracts information from a PDF file using Gemini 3.6 Flash (Multimodal).
      *
      * @param string $pdfContent The raw binary content of the PDF file.
      * @param string $filename The filename of the PDF (optional, used as a hint).
-     * @return array|null Returns an associative array of extracted data or null on failure.
+     * @return array Returns an associative array of extracted data or error.
      */
     public function extractFromPdfContent(string $pdfContent, string $filename = ''): array
     {
@@ -27,9 +27,85 @@ class GeminiOcrService
             return ['success' => false, 'error' => 'Konten PDF kosong atau gagal terbaca.'];
         }
 
-        // Base64 encode the PDF
+        $prompt = $this->buildExtractionPrompt($filename);
         $pdfData = base64_encode($pdfContent);
 
+        $payload = [
+            'contents' => [
+                [
+                    'parts' => [
+                        [
+                            'text' => $prompt
+                        ],
+                        [
+                            'inline_data' => [
+                                'mime_type' => 'application/pdf',
+                                'data' => $pdfData
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.1,
+                'response_mime_type' => 'application/json',
+            ]
+        ];
+
+        return $this->executeGeminiRequest($payload, $apiKey);
+    }
+
+    /**
+     * Extracts structured information from raw OCR text using Gemini 3.6 Flash (Text Prompt).
+     *
+     * @param string $rawText The raw text extracted locally by Tesseract / pdftotext.
+     * @param string $filename Optional filename for hint.
+     * @param string $sourceHint Optional note about the local extractor.
+     * @return array
+     */
+    public function extractFromRawText(string $rawText, string $filename = '', string $sourceHint = ''): array
+    {
+        $apiKey = config('services.gemini.api_key');
+        if (empty($apiKey)) {
+            Log::error('Gemini API Key is missing.');
+            return ['success' => false, 'error' => 'API Key Gemini belum diatur di server (.env).'];
+        }
+
+        if (empty($rawText)) {
+            return ['success' => false, 'error' => 'Teks mentah hasil OCR kosong.'];
+        }
+
+        $basePrompt = $this->buildExtractionPrompt($filename);
+        $fullPrompt = $basePrompt . "\n\nBerikut adalah teks mentah hasil ekstraksi OCR dokumen secara lokal ({$sourceHint}):\n"
+                    . "--- AWAL TEKS DOKUMEN ---\n"
+                    . $rawText . "\n"
+                    . "--- AKHIR TEKS DOKUMEN ---\n\n"
+                    . "Petakan dan lengkapi seluruh field JSON di atas berdasarkan teks dokumen ini!";
+
+        $payload = [
+            'contents' => [
+                [
+                    'parts' => [
+                        [
+                            'text' => $fullPrompt
+                        ]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.1,
+                'response_mime_type' => 'application/json',
+            ]
+        ];
+
+        return $this->executeGeminiRequest($payload, $apiKey);
+    }
+
+    /**
+     * Builds the standard JSON schema and extraction prompt for Indonesian cooperation documents.
+     */
+    protected function buildExtractionPrompt(string $filename = ''): string
+    {
         $kategoriList = \App\Models\MasterMitraIku::pluck('kategori', 'id')->toArray();
         $bidangList = \App\Models\MasterKegiatan::pluck('bidang_kerjasama', 'id')->toArray();
         $jenisDokumenList = \App\Models\JenisDokumen::pluck('nama', 'id')->toArray();
@@ -68,33 +144,22 @@ class GeminiOcrService
             $prompt .= "\nIMPORTANT HINT: The filename is '{$filename}'. Pay close attention to acronyms in the filename (like SMA vs SMK). Use the filename to correct or double-check the partner's name if the document scan is blurry or ambiguous.";
         }
 
-        $payload = [
-            'contents' => [
-                [
-                    'parts' => [
-                        [
-                            'text' => $prompt
-                        ],
-                        [
-                            'inline_data' => [
-                                'mime_type' => 'application/pdf',
-                                'data' => $pdfData
-                            ]
-                        ]
-                    ]
-                ]
-            ],
-            'generationConfig' => [
-                'temperature' => 0.1,
-                'response_mime_type' => 'application/json',
-            ]
-        ];
+        return $prompt;
+    }
 
+    /**
+     * Executes the Gemini API call and returns the parsed JSON array.
+     */
+    protected function executeGeminiRequest(array $payload, string $apiKey): array
+    {
         try {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
             ])
-            ->timeout(300)
+            ->retry(3, 1500, function ($exception, $request) {
+                return true;
+            }, throw: false)
+            ->timeout(120)
             ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={$apiKey}", $payload);
 
             if ($response->successful()) {
@@ -136,7 +201,7 @@ class GeminiOcrService
     }
 
     /**
-     * Returns a Filament Form Action for Auto-Fill via AI.
+     * Returns a Filament Form Action for Auto-Fill via AI with Hybrid Pipeline.
      */
     public static function getAutoFillAction(): \Filament\Actions\Action
     {
@@ -145,7 +210,7 @@ class GeminiOcrService
             ->icon('heroicon-m-sparkles')
             ->requiresConfirmation()
             ->modalHeading('Ekstrak Data Otomatis')
-            ->modalDescription('Sistem akan membaca dokumen dan mengisi form secara otomatis. Proses ini mungkin memakan waktu 5-15 detik.')
+            ->modalDescription('Sistem akan membaca dokumen secara lokal (Tesseract OCR) dan memetakan data secara otomatis melalui AI.')
             ->modalSubmitActionLabel('Mulai Proses')
             ->action(function ($get, $set) {
                 $state = $get('link_dokumen');
@@ -170,7 +235,7 @@ class GeminiOcrService
                     return;
                 }
                 
-                \Filament\Notifications\Notification::make()->title('Proses')->info()->send();
+                \Filament\Notifications\Notification::make()->title('Memproses dokumen...')->info()->send();
                 
                 $service = new self();
                 $filenameForHint = '';
@@ -180,9 +245,35 @@ class GeminiOcrService
                     $filenameForHint = basename($file);
                 }
                 
-                $result = $service->extractFromPdfContent($content, $filenameForHint);
+                // 1. TAHAP 1: Coba Ekstraksi Teks Lokal Terlebih Dahulu (Tesseract / pdftotext)
+                $tesseractService = new \App\Services\TesseractOcrService();
+                $localResult = $tesseractService->process($content, $filenameForHint);
+
+                $result = null;
+                $methodUsed = '';
+
+                if ($localResult['success'] && !$localResult['is_struggling'] && !empty($localResult['text'])) {
+                    Log::info("Hybrid OCR: Teks berhasil diekstrak lokal via [{$localResult['source']}]. Meneruskan teks ke Gemini text-prompt.");
+                    $result = $service->extractFromRawText($localResult['text'], $filenameForHint, $localResult['source']);
+                    
+                    if ($result['success']) {
+                        $methodUsed = 'hybrid';
+                    } else {
+                        Log::warning("Hybrid OCR: Gemini gagal memetakan teks lokal, beralih ke Gemini Multimodal PDF.");
+                    }
+                } else {
+                    Log::info("Hybrid OCR: Tesseract kesusahan atau nonaktif (" . ($localResult['reason'] ?? 'Tidak ada teks') . "). Beralih ke Gemini Multimodal PDF.");
+                }
+
+                // 2. TAHAP 2: Fallback ke Gemini Multimodal PDF jika tahap lokal tidak digunakan atau gagal
+                if (!$result || !$result['success']) {
+                    $result = $service->extractFromPdfContent($content, $filenameForHint);
+                    if ($result['success']) {
+                        $methodUsed = 'gemini_multimodal';
+                    }
+                }
                 
-                if ($result['success']) {
+                if ($result && $result['success']) {
                     $data = $result['data'];
                     if (!empty($data['nomor_dokumen_polinema'])) $set('nomor_dokumen_polinema', $data['nomor_dokumen_polinema']);
                     if (!empty($data['nomor_dokumen_mitra'])) $set('nomor_dokumen_mitra', $data['nomor_dokumen_mitra']);
@@ -223,7 +314,6 @@ class GeminiOcrService
                             
                         if ($negara) {
                             $extractedNegaraId = $negara->id;
-                            // Set usulan_negara_id just in case we are on Usulan form. Kerjasama doesn't have it natively on form.
                             try { $set('usulan_negara_id', $negara->id); } catch (\Exception $e) {}
                         }
                     }
@@ -234,7 +324,6 @@ class GeminiOcrService
                             $extractedProvinsiId = $provinsi->id;
                             $set('provinsi_id', $provinsi->id);
                             
-                            // If province is found and city is provided, search city within that province
                             if (!empty($data['nama_kota'])) {
                                 $kota = \App\Models\MasterKota::query()->where('provinsi_id', $provinsi->id)
                                     ->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')
@@ -246,12 +335,10 @@ class GeminiOcrService
                             }
                         }
                     } elseif (!empty($data['nama_kota'])) {
-                        // If no province was found/extracted, just try to find the city directly
                         $kota = \App\Models\MasterKota::query()->where('nama_kota', 'like', '%' . $data['nama_kota'] . '%')->first();
                         if ($kota) {
                             $extractedKotaId = $kota->id;
                             $set('kota_id', $kota->id);
-                            // Auto-set the province from the city if we found the city directly
                             if ($kota->provinsi_id) {
                                 $extractedProvinsiId = $kota->provinsi_id;
                                 $set('provinsi_id', $kota->provinsi_id);
@@ -260,17 +347,14 @@ class GeminiOcrService
                     }
 
                     if (!empty($data['nama_mitra'])) {
-                        // 1. Direct match (normalized)
                         $normalizedInput = trim(str_ireplace([' & ', ' dan ', ' pt ', ' cv '], ' ', ' ' . $data['nama_mitra'] . ' '));
                         $mitra = \App\Models\Mitra::query()->where('nama_mitra', 'like', '%' . $data['nama_mitra'] . '%')->first();
                         
-                        // 2. Fuzzy match using similar_text to handle typos
                         if (!$mitra) {
                             $allMitras = \App\Models\Mitra::select('id', 'nama_mitra')->get();
                             $bestMatch = null;
                             $highestSimilarity = 0;
                             
-                            // Remove common prefixes/suffixes and special characters for comparison, ensuring we do strtolower FIRST so we don't accidentally remove uppercase acronyms like SMA/SMK
                             $cleanInput = preg_replace('/[^a-z0-9]/', '', strtolower(str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $data['nama_mitra'])));
 
                             if (strlen($cleanInput) > 3) {
@@ -278,13 +362,12 @@ class GeminiOcrService
                                     $cleanDb = preg_replace('/[^a-z0-9]/', '', strtolower(str_ireplace([' & ', ' dan ', 'pt ', 'cv ', 'universitas ', 'institut ', 'politeknik '], '', $m->nama_mitra)));
                                     
                                     if (strlen($cleanDb) > 3) {
-                                        // Guard against confusing numbered institutions (e.g. SMA 1 vs SMA 5)
                                         preg_match_all('/\d+/', $cleanInput, $inputNums);
                                         preg_match_all('/\d+/', $cleanDb, $dbNums);
                                         
                                         if (!empty($inputNums[0]) || !empty($dbNums[0])) {
                                             if ($inputNums[0] !== $dbNums[0]) {
-                                                continue; // Skip if numbers don't match
+                                                continue;
                                             }
                                         }
 
@@ -296,14 +379,12 @@ class GeminiOcrService
                                     }
                                 }
 
-                                // If similarity is >= 85%, we consider it a match
                                 if ($highestSimilarity >= 85 && $bestMatch) {
                                     $mitra = \App\Models\Mitra::find($bestMatch->id);
                                 }
                             }
                         }
 
-                        // 3. Auto Create
                         if (!$mitra) {
                             $mitra = \App\Models\Mitra::create([
                                 'nama_mitra' => $data['nama_mitra'],
@@ -321,9 +402,8 @@ class GeminiOcrService
                         if ($mitra) {
                             $set('mitra_id', $mitra->id);
                             
-                            // Auto-select the most recent MoU, PKS, or IA for this Mitra
                             $parentDoc = \App\Models\Kerjasama::query()->where('mitra_id', $mitra->id)
-                                ->whereIn('jenis_dokumen_id', [1, 3, 4]) // MoU, PKS, IA
+                                ->whereIn('jenis_dokumen_id', [1, 3, 4])
                                 ->latest()
                                 ->first();
                                 
@@ -332,6 +412,7 @@ class GeminiOcrService
                             }
                         }
                     }
+
                     $jurusanIds = [];
                     if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
                         foreach ($data['jurusans'] as $jurusanName) {
@@ -343,7 +424,6 @@ class GeminiOcrService
                     if (!empty($data['prodis']) && is_array($data['prodis'])) {
                         $prodiIds = [];
                         foreach ($data['prodis'] as $prodiName) {
-                            // Extra sanitization just in case AI didn't catch it
                             $searchName = trim(str_ireplace(['Program Studi', 'Prodi'], '', $prodiName));
                             $searchName = str_replace(['D-IV', 'D4', 'D-III', 'D-II', 'D-I', 'S-I', 'S-II', 'S-III'], ['Sarjana Terapan', 'Sarjana Terapan', 'D3', 'D2', 'D1', 'S1', 'S2', 'S3'], $searchName);
 
@@ -361,9 +441,24 @@ class GeminiOcrService
                     if (!empty($jurusanIds)) {
                         $set('jurusans', $jurusanIds);
                     }
-                    \Filament\Notifications\Notification::make()->title('Auto-Fill Berhasil!')->success()->send();
+
+                    // Tampilkan notifikasi keberhasilan yang informatif sesuai metode yang digunakan
+                    if ($methodUsed === 'hybrid') {
+                        $sourceLabel = ($localResult['source'] === 'pdftotext_digital') ? 'Digital PDF' : 'Tesseract OCR';
+                        \Filament\Notifications\Notification::make()
+                            ->title('Auto-Fill Berhasil via Hybrid OCR!')
+                            ->body("Teks diekstrak cepat via {$sourceLabel} & dipetakan otomatis oleh Gemini.")
+                            ->success()
+                            ->send();
+                    } else {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Auto-Fill Berhasil via Gemini Multimodal!')
+                            ->body('Dokumen diproses penuh melalui analisis dokumen AI.')
+                            ->success()
+                            ->send();
+                    }
                 } else {
-                    \Filament\Notifications\Notification::make()->title('Gagal mengekstrak data')->body($result['error'])->danger()->send();
+                    \Filament\Notifications\Notification::make()->title('Gagal mengekstrak data')->body($result['error'] ?? 'Terjadi kesalahan')->danger()->send();
                 }
             });
     }
