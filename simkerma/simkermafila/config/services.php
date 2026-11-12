@@ -39,6 +39,19 @@ return [
         'dpi'              => (int) env('PDF_RENDERER_DPI', env('TESSERACT_DPI', 200)),
     ],
 
+    'unlimited_ocr' => [
+        'enabled' => env('UNLIMITED_OCR_ENABLED', false),
+        'url' => env('UNLIMITED_OCR_URL', ''),
+        'token' => env('UNLIMITED_OCR_TOKEN', ''),
+        'model' => env('UNLIMITED_OCR_MODEL', 'Unlimited-OCR-2'),
+        'max_pages' => (int) env('UNLIMITED_OCR_MAX_PAGES', 10),
+        'dpi' => (int) env('UNLIMITED_OCR_DPI', 150),
+        'tokens_per_page' => (int) env('UNLIMITED_OCR_TOKENS_PER_PAGE', 8000),
+        'connect_timeout' => (int) env('UNLIMITED_OCR_CONNECT_TIMEOUT', 10),
+        'timeout' => (int) env('UNLIMITED_OCR_TIMEOUT', 600),
+        'render_timeout' => (int) env('UNLIMITED_OCR_RENDER_TIMEOUT', 120),
+    ],
+
     'web_api' => [
         'key' => env('WEB_API_KEY'),
     ],

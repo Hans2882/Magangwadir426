@@ -5,6 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PksSpkResource\Pages;
 use App\Filament\Resources\Traits\HasMitraFormSchema;
 use App\Models\Kerjasama;
+use App\Services\MouPdfAutofillService;
+use App\Services\UnlimitedOcrService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Infolists;
@@ -78,6 +80,77 @@ class PksSpkResource extends Resource
                         ->label('Berkas PKS / SPK / MoA / LoC')
                         ->required(fn ($get) => $get('status_workflow') === 'Selesai')
                         ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get): void {
+                            if (! config('services.unlimited_ocr.enabled', false)) {
+                                return;
+                            }
+
+                            $file = is_array($state) ? reset($state) : $state;
+                            if (! $file instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile
+                                && (! is_string($file) || $file === '')) {
+                                return;
+                            }
+
+                            try {
+                                if ($file instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+                                    $path = $file->getRealPath();
+                                    if ($path === false || ! is_file($path)) {
+                                        throw new \RuntimeException('File sementara tidak ditemukan. Coba unggah ulang PDF.');
+                                    }
+
+                                    $text = app(UnlimitedOcrService::class)->extractTextFromPdfPath($path);
+                                } else {
+                                    $stream = \Illuminate\Support\Facades\Storage::disk('google')->readStream($file);
+                                    if (! is_resource($stream)) {
+                                        throw new \RuntimeException('File PDF tidak dapat dibuka dari Google Drive.');
+                                    }
+
+                                    $text = app(UnlimitedOcrService::class)->extractTextFromStream($stream);
+                                }
+
+                                $data = app(MouPdfAutofillService::class)->extractFields($text);
+                                $filled = [];
+
+                                foreach ([
+                                    'judul' => 'Judul',
+                                    'nomor_dokumen_polinema' => 'Nomor Polinema',
+                                    'nomor_dokumen_mitra' => 'Nomor Mitra',
+                                    'tanggal_awal' => 'Tanggal Berlaku',
+                                    'tanggal_akhir' => 'Tanggal Akhir',
+                                ] as $field => $label) {
+                                    $value = $data[$field] ?? null;
+                                    if (! filled($value) || filled($get($field))) {
+                                        continue;
+                                    }
+
+                                    $set($field, $field === 'judul' ? mb_substr($value, 0, 255) : $value);
+                                    $filled[] = $label;
+                                }
+
+                                if ($filled === []) {
+                                    throw new \RuntimeException('OCR berhasil membaca PDF, tetapi tidak menemukan field kosong yang dapat diisi.');
+                                }
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Unlimited-OCR mengisi ' . count($filled) . ' field')
+                                    ->body(implode(', ', $filled) . '. Periksa kembali hasilnya sebelum menyimpan.')
+                                    ->success()
+                                    ->persistent()
+                                    ->send();
+                            } catch (\Throwable $e) {
+                                \Illuminate\Support\Facades\Log::warning('Unlimited-OCR PKS/SPK gagal', [
+                                    'error' => $e->getMessage(),
+                                ]);
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Unlimited-OCR gagal memproses PDF')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->persistent()
+                                    ->send();
+                            }
+                        })
                         ->disk('google')
                         ->directory(function (callable $get) {
                             $docMap = [2 => 'MoA', 3 => 'PKS', 5 => 'SPK', 6 => 'LoC'];

@@ -9,6 +9,7 @@ SIMKERMA adalah aplikasi pengelolaan data kerja sama, mitra, dan dokumen kerja s
 - Database yang dikonfigurasi di `.env` (SQLite dan MySQL tersedia pada konfigurasi aplikasi)
 - Kredensial Google Drive untuk menyimpan berkas dokumen
 - Poppler (`pdftotext`, `pdftoppm`, dan `pdfinfo`) serta Tesseract dengan data bahasa `ind` dan `eng` untuk autofill PDF
+- Server GPU terpisah untuk Unlimited-OCR (opsional; digunakan untuk autofill MoA/LoC/PKS/SPK)
 - Ollama bersifat opsional; tanpa Ollama, ekstraksi lokal tetap dapat mengisi field yang dikenali
 
 ## Menyiapkan aplikasi
@@ -84,6 +85,28 @@ OLLAMA_KEEP_ALIVE=30m
 ```
 
 Jangan arahkan `OLLAMA_URL` ke layanan publik atau tidak tepercaya tanpa menilai kebijakan pengiriman teks dan pengamanan koneksinya.
+
+## Unlimited-OCR untuk MoA / LoC / PKS / SPK
+
+Form tambah dokumen MoA/LoC/PKS/SPK dapat memakai Unlimited-OCR 2 untuk membaca PDF dan mengisi judul, nomor Polinema, nomor mitra, serta tanggal. PDF dirender menjadi gambar oleh Poppler di server Laravel, lalu gambar dikirim ke endpoint SGLang yang kompatibel dengan OpenAI. Field yang sudah berisi nilai tidak ditimpa. Action Gemini yang sudah ada tetap tersedia.
+
+Model ini tidak diunduh atau dijalankan oleh Laravel/Windows. Jalankan SGLang dan Unlimited-OCR 2 di server Linux dengan NVIDIA GPU mengikuti instruksi [resmi Unlimited-OCR](https://github.com/baidu/Unlimited-OCR#sglang). Model checkpoint diunduh oleh Hugging Face ketika server model pertama kali dijalankan; contoh resmi merekomendasikan GPU kelas A800 80 GB. Pastikan server model hanya dapat diakses dari jaringan tepercaya.
+
+Atur URL API SGLang dan aktifkan fitur di `.env` Laravel:
+
+```dotenv
+UNLIMITED_OCR_ENABLED=true
+UNLIMITED_OCR_URL=http://alamat-server-gpu:10000/v1/chat/completions
+UNLIMITED_OCR_TOKEN=
+UNLIMITED_OCR_MODEL=Unlimited-OCR-2
+UNLIMITED_OCR_MAX_PAGES=10
+UNLIMITED_OCR_DPI=150
+UNLIMITED_OCR_TOKENS_PER_PAGE=8000
+UNLIMITED_OCR_CONNECT_TIMEOUT=10
+UNLIMITED_OCR_TIMEOUT=600
+```
+
+`UNLIMITED_OCR_MAX_PAGES` membatasi jumlah halaman per PDF (nilai `0` menonaktifkan batas di Laravel, tetapi tetap tunduk pada kapasitas dan konfigurasi server GPU). Poppler `pdfinfo` dan `pdftoppm` harus tersedia di server Laravel; path executable dapat diatur lewat `PDFINFO_BINARY` dan `PDF_RENDERER_BINARY`. Setelah konfigurasi berubah, jalankan `php artisan config:clear`. Jaga token dan alamat internal server di `.env`, bukan di Git. Matikan fitur dengan `UNLIMITED_OCR_ENABLED=false` bila model tidak tersedia.
 
 ## Operasi
 
