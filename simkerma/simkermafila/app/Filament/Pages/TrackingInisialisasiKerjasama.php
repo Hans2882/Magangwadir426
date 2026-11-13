@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
-use Livewire\Attributes\On;
 
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables\Contracts\HasTable;
@@ -57,11 +56,5 @@ class TrackingInisialisasiKerjasama extends Page implements HasForms, HasTable
                     ->preload()
                     ->searchable(),
             ]);
-    }
-
-    #[On('refresh-parent-tracking-table')]
-    public function refreshTable(): void
-    {
-        $this->resetTable();
     }
 }

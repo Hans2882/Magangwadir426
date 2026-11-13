@@ -91,9 +91,6 @@ class TrackingDraftTable extends Component implements HasForms, HasTable, HasAct
                             4 => \App\Filament\Resources\IaResource::form($schema)->getComponents(),
                             default => [],
                         };
-                    })
-                    ->after(function (\Livewire\Component $livewire) {
-                        $livewire->dispatch('refresh-parent-tracking-table');
                     }),
             ]);
     }
