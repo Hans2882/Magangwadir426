@@ -156,10 +156,11 @@ class GeminiOcrService
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
             ])
-            ->retry(3, 1500, function ($exception, $request) {
-                return true;
+            ->retry(2, 1000, function ($exception, $request) {
+                // Hanya retry jika errornya bukan timeout koneksi (agar total waktu tidak melebihi batas 100s server)
+                return !($exception instanceof \Illuminate\Http\Client\ConnectionException);
             }, throw: false)
-            ->timeout(120)
+            ->timeout(75)
             ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={$apiKey}", $payload);
 
             if ($response->successful()) {
@@ -213,6 +214,8 @@ class GeminiOcrService
             ->modalDescription('Sistem akan membaca dokumen secara lokal (Tesseract OCR) dan memetakan data secara otomatis melalui AI.')
             ->modalSubmitActionLabel('Mulai Proses')
             ->action(function ($get, $set) {
+                @set_time_limit(100);
+
                 $state = $get('link_dokumen');
                 if (!$state) {
                     \Filament\Notifications\Notification::make()->title('Upload file terlebih dahulu')->danger()->send();
