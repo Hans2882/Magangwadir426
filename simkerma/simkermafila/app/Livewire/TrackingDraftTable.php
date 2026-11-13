@@ -3,7 +3,6 @@
 namespace App\Livewire;
 
 use Livewire\Component;
-use Livewire\Attributes\On;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Actions\Contracts\HasActions;
@@ -94,16 +93,9 @@ class TrackingDraftTable extends Component implements HasForms, HasTable, HasAct
                         };
                     })
                     ->after(function (\Livewire\Component $livewire) {
-                        $livewire->dispatch('close-modal-quietly');
-                        $livewire->dispatch('refresh-tracking-tables');
+                        $livewire->dispatch('refresh-parent-tracking-table');
                     }),
             ]);
-    }
-
-    #[On('refresh-tracking-tables')]
-    public function refreshTable(): void
-    {
-        $this->resetTable();
     }
 
     public function render()

@@ -59,7 +59,7 @@ class TrackingInisialisasiKerjasama extends Page implements HasForms, HasTable
             ]);
     }
 
-    #[On('refresh-tracking-tables')]
+    #[On('refresh-parent-tracking-table')]
     public function refreshTable(): void
     {
         $this->resetTable();
