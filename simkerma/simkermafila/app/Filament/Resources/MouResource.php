@@ -164,18 +164,15 @@ class MouResource extends Resource
                         })
                         ->rule(function (?Model $record) {
                             return function ($attribute, $value, $fail) use ($record) {
-                                $exists = \App\Models\Kerjasama::query()
-                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
-                                    ->get()
-                                    ->contains(function ($item) use ($value) {
-                                        $nomor = str_replace("\r", "", $item->nomor_dokumen);
-                                        $parts = explode("\n", $nomor);
-                                        if (count($parts) === 1 && str_contains($nomor, ' ')) {
-                                            $parts = explode(' ', $nomor, 2);
-                                        }
-                                        return trim($parts[0] ?? '') === trim($value);
-                                    });
-                                if ($exists) {
+                                $query = \App\Models\Kerjasama::query()
+                                    ->where(function ($q) use ($value) {
+                                        $q->where('nomor_dokumen', $value)
+                                            ->orWhere('nomor_dokumen', 'like', $value . "\n%")
+                                            ->orWhere('nomor_dokumen', 'like', $value . " %");
+                                    })
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id));
+
+                                if ($query->exists()) {
                                     $fail('Nomor MoU Polinema sudah digunakan.');
                                 }
                             };

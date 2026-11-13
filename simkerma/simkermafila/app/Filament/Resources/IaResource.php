@@ -184,15 +184,14 @@ class IaResource extends Resource
                         })
                         ->rule(function (?Model $record) {
                             return function ($attribute, $value, $fail) use ($record) {
-                                $query = \App\Models\Kerjasama::query()->where(
-                                    'nomor_dokumen',
-                                    'like',
-                                    $value . "\n%",
-                                    'and'
-                                );
-                                if ($record) {
-                                    $query->where('id', '!=', $record->id);
-                                }
+                                $query = \App\Models\Kerjasama::query()
+                                    ->where(function ($q) use ($value) {
+                                        $q->where('nomor_dokumen', $value)
+                                            ->orWhere('nomor_dokumen', 'like', $value . "\n%")
+                                            ->orWhere('nomor_dokumen', 'like', $value . " %");
+                                    })
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id));
+
                                 if ($query->exists()) {
                                     $fail('Nomor IA Polinema sudah digunakan.');
                                 }

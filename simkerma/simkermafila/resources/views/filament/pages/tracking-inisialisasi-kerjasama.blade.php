@@ -6,6 +6,6 @@
 
     <div>
         <h2 class="text-xl font-bold mb-4">Dokumen Dalam Proses</h2>
-        @livewire(\App\Livewire\TrackingDraftTable::class)
+        @livewire(\App\Livewire\TrackingDraftTable::class, [], key('tracking-draft-table-component'))
     </div>
 </x-filament-panels::page>
