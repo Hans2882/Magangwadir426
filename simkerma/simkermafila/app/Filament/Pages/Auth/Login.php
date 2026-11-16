@@ -121,7 +121,7 @@ class Login extends BaseLogin
         $username = trim($ssoData['username'] ?? $loginInput);
         $name = trim($ssoData['name'] ?? $loginInput);
         $email = !empty($ssoData['email']) ? trim($ssoData['email']) : ($username . '@polinema.ac.id');
-        $privilegeStr = strtolower(trim($ssoData['privilege'] ?? ''));
+        $privilegeStr = strtolower(trim($ssoData['privilege'] ?? $ssoData['role'] ?? $ssoData['level'] ?? $ssoData['user_type'] ?? ''));
 
         // Cari atau buat User berdasarkan username, loginInput, atau email
         $user = User::query()
@@ -152,11 +152,16 @@ class Login extends BaseLogin
             }
         }
 
-        // Cek apakah mahasiswa atau pegawai/dosen
-        $isMahasiswa = in_array($privilegeStr, ['mahasiswa', 'student']);
-        if (!$isMahasiswa && preg_match('/^\d{10}$/', $username)) {
-            // NIM mahasiswa Polinema umumnya 10 digit angka
-            $mhsCheck = $apiService->checkMahasiswaAktif($username);
+        // Cek apakah pengguna adalah mahasiswa berdasarkan 3 indikator:
+        // 1. Label privilege dari SSO ('mahasiswa' / 'student')
+        // 2. Domain email resmi mahasiswa Polinema (@student.polinema.ac.id)
+        // 3. Format username berupa 10 digit angka (NIM Polinema) dan terdaftar di Siakad Aktif
+        $cleanUsername = explode('@', $username)[0];
+        $isMahasiswa = in_array($privilegeStr, ['mahasiswa', 'student'])
+            || str_contains(strtolower($email), '@student.polinema.ac.id');
+
+        if (!$isMahasiswa && preg_match('/^\d{10}$/', $cleanUsername)) {
+            $mhsCheck = $apiService->checkMahasiswaAktif($cleanUsername);
             if (!empty($mhsCheck)) {
                 $isMahasiswa = true;
             }
