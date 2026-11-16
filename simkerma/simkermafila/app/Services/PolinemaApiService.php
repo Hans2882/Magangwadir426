@@ -322,6 +322,25 @@ class PolinemaApiService
         }
 
         if (empty($pegawaiInfo)) {
+            // Fallback: pastikan privilege minimal tetap terisi Dosen jika belum ada
+            $currentPrivName = $user->userPrivilege?->privilege?->nama;
+            if (!$currentPrivName || $currentPrivName === 'User biasa') {
+                $dosenPrivilege = Privilege::firstOrCreate(
+                    ['nama' => 'Dosen'],
+                    [
+                        'is_admin_panel' => false,
+                        'deskripsi' => 'Pengguna Dosen Polinema',
+                        'can_create' => true,
+                        'can_read' => true,
+                        'can_update' => true,
+                        'can_delete' => false,
+                    ]
+                );
+                UserPrivilege::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['privilege_id' => $dosenPrivilege->id]
+                );
+            }
             return $user;
         }
 
