@@ -26,7 +26,7 @@
             });
         });
 
-        // Safeguard: Ensure modal backdrop overlay & scroll locks are cleanly restored after actions
+        // Safeguard: Ensure modal backdrop overlay, scroll locks, and inert states are cleanly restored after actions
         Livewire.hook('commit', ({ succeed }) => {
             succeed(() => {
                 setTimeout(() => {
@@ -38,6 +38,17 @@
                         document.querySelectorAll('.fi-modal-close-overlay').forEach(el => {
                             if (!el.closest('.fi-modal-open')) {
                                 el.style.pointerEvents = 'none';
+                            }
+                        });
+                        // Remove any stuck inert or aria-busy attributes on table elements
+                        document.querySelectorAll('[inert]').forEach(el => {
+                            if (!el.closest('.fi-modal-open')) {
+                                el.removeAttribute('inert');
+                            }
+                        });
+                        document.querySelectorAll('[aria-busy="true"]').forEach(el => {
+                            if (!el.closest('.fi-modal-open')) {
+                                el.removeAttribute('aria-busy');
                             }
                         });
                     }
