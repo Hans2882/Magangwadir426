@@ -361,6 +361,18 @@ class PolinemaApiService
         if (!empty($nip) && preg_match('/^\d{18}$/', $nip)) {
             // Pastikan tidak ada user lain yang menggunakan NIP ini sebagai username
             $conflictUser = User::where('username', $nip)->where('id', '!=', $user->id)->first();
+            if ($conflictUser) {
+                // Jika conflict user adalah akun duplikat orang yang sama, lepaskan NIP dari conflict user
+                if (
+                    strcasecmp($conflictUser->name, $user->name) === 0 ||
+                    (!empty($namaGelar) && strcasecmp($conflictUser->name, $namaGelar) === 0) ||
+                    (!empty($biodata['namaPegawai']) && strcasecmp($conflictUser->name, $biodata['namaPegawai']) === 0)
+                ) {
+                    $conflictUser->update(['username' => null]);
+                    $conflictUser = null;
+                }
+            }
+
             if (!$conflictUser) {
                 $updates['username'] = $nip;
             }

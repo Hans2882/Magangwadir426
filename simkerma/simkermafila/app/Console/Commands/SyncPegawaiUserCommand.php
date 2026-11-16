@@ -52,12 +52,23 @@ class SyncPegawaiUserCommand extends Command
         $this->line(" - Penempatan : " . ($biodata['penempatan'] ?? '-'));
         $this->line(" - Homebase   : " . ($biodata['homebase'] ?? '-'));
 
-        // Cari atau buat User di database
+        // 1. Cari user utama di database:
+        // Prioritaskan mencari user berdasarkan identifier yang diketik Gayuh (username SSO atau email)
         $user = User::query()
-            ->where('username', $nip)
-            ->orWhere('username', $identifier)
-            ->when($email, fn ($q) => $q->orWhere('email', $email))
+            ->where('username', $identifier)
+            ->orWhere('email', $identifier)
+            ->orWhere('email', $identifier . '@polinema.ac.id')
             ->first();
+
+        // 2. Jika belum ditemukan, cari berdasarkan NIP, email Simpeg, atau nama lengkap
+        if (!$user) {
+            $user = User::query()
+                ->where('username', $nip)
+                ->when($email, fn ($q) => $q->orWhere('email', $email))
+                ->when(!empty($namaGelar), fn ($q) => $q->orWhere('name', $namaGelar))
+                ->when(!empty($biodata['namaPegawai']), fn ($q) => $q->orWhere('name', $biodata['namaPegawai']))
+                ->first();
+        }
 
         if (!$user) {
             $this->comment("User belum ada di database lokal. Membuat user baru...");
@@ -67,6 +78,28 @@ class SyncPegawaiUserCommand extends Command
                 'email' => $email ?? ($nip . '@polinema.ac.id'),
                 'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)),
             ]);
+        }
+
+        // 3. Tangani akun duplikat untuk orang yang sama jika ada di database
+        $duplicates = User::query()
+            ->where('id', '!=', $user->id)
+            ->where(function ($q) use ($nip, $namaGelar, $biodata, $identifier, $email) {
+                $q->where('username', $nip)
+                  ->orWhere('username', $identifier)
+                  ->when($email, fn ($sub) => $sub->orWhere('email', $email))
+                  ->when(!empty($namaGelar), fn ($sub) => $sub->orWhere('name', $namaGelar))
+                  ->when(!empty($biodata['namaPegawai']), fn ($sub) => $sub->orWhere('name', $biodata['namaPegawai']));
+            })
+            ->get();
+
+        foreach ($duplicates as $dup) {
+            $this->warn("Ditemukan akun duplikat untuk orang yang sama: ID {$dup->id} (Username: {$dup->username}, Email: {$dup->email}).");
+            $dup->update(['username' => null]);
+            $hasProposals = \App\Models\UsulanKerjasama::where('user_id', $dup->id)->exists();
+            if (!$hasProposals) {
+                $dup->delete();
+                $this->info("Akun duplikat kosong (ID {$dup->id}) berhasil dibersihkan otomatis.");
+            }
         }
 
         $user = $apiService->syncPegawaiDataToUser($user, $pegawaiInfo);
