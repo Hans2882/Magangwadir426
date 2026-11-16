@@ -92,6 +92,7 @@ class Login extends BaseLogin
         // 2. Fallback: Cek kredensial lokal (Superadmin / Akun Lokal SIMKERMA)
         $localUser = User::query()
             ->where('email', $loginInput)
+            ->orWhere('email', $loginInput . '@polinema.ac.id')
             ->orWhere('username', $loginInput)
             ->first();
 
@@ -128,6 +129,7 @@ class Login extends BaseLogin
             ->orWhere('username', $loginInput)
             ->orWhere('email', $email)
             ->orWhere('email', $username)
+            ->orWhere('email', $loginInput . '@polinema.ac.id')
             ->first();
 
         if (!$user) {
