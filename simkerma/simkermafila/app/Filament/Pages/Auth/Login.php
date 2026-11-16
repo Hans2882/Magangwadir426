@@ -122,9 +122,10 @@ class Login extends BaseLogin
         $email = !empty($ssoData['email']) ? trim($ssoData['email']) : ($username . '@polinema.ac.id');
         $privilegeStr = strtolower(trim($ssoData['privilege'] ?? ''));
 
-        // Cari atau buat User
+        // Cari atau buat User berdasarkan username, loginInput, atau email
         $user = User::query()
             ->where('username', $username)
+            ->orWhere('username', $loginInput)
             ->orWhere('email', $email)
             ->orWhere('email', $username)
             ->first();
@@ -149,8 +150,18 @@ class Login extends BaseLogin
             }
         }
 
-        // Sinkronisasi Privilege & Prodi
-        if (in_array($privilegeStr, ['mahasiswa', 'student'])) {
+        // Cek apakah mahasiswa atau pegawai/dosen
+        $isMahasiswa = in_array($privilegeStr, ['mahasiswa', 'student']);
+        if (!$isMahasiswa && preg_match('/^\d{10}$/', $username)) {
+            // NIM mahasiswa Polinema umumnya 10 digit angka
+            $mhsCheck = $apiService->checkMahasiswaAktif($username);
+            if (!empty($mhsCheck)) {
+                $isMahasiswa = true;
+            }
+        }
+
+        // Sinkronisasi Privilege, Jurusan, & Prodi
+        if ($isMahasiswa) {
             $mhsPrivilege = Privilege::firstOrCreate(
                 ['nama' => 'Mahasiswa'],
                 [
@@ -220,27 +231,9 @@ class Login extends BaseLogin
                     }
                 }
             }
-        } elseif (in_array($privilegeStr, ['dosen', 'lecturer', 'tendik', 'staff', 'employee'])) {
-            $dosenPrivilege = Privilege::firstOrCreate(
-                ['nama' => 'Dosen'],
-                [
-                    'is_admin_panel' => false,
-                    'deskripsi' => 'Pengguna Dosen Polinema',
-                    'can_create' => true,
-                    'can_read' => true,
-                    'can_update' => true,
-                    'can_delete' => false,
-                ]
-            );
-
-            // Hanya set privilege Dosen jika user belum memiliki privilege khusus dari Super Admin
-            $currentPrivName = $user->userPrivilege?->privilege?->nama;
-            if (!$currentPrivName || $currentPrivName === 'User biasa') {
-                UserPrivilege::updateOrCreate(
-                    ['user_id' => $user->id],
-                    ['privilege_id' => $dosenPrivilege->id]
-                );
-            }
+        } else {
+            // Dosen / Tendik / Pegawai / Pejabat Struktural
+            $user = $apiService->syncPegawaiDataToUser($user);
         }
 
         return $user;
