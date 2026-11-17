@@ -28,6 +28,13 @@ class TrackingInisialisasiKerjasama extends Page implements HasForms, HasTable
 
     protected string $view = 'filament.pages.tracking-inisialisasi-kerjasama';
 
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Pages\TrackingInisialisasiKerjasama\Widgets\TrackingDokumenTodayWidget::class,
+        ];
+    }
+
     public static function canAccess(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
