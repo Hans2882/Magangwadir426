@@ -9,7 +9,7 @@ SIMKERMA adalah aplikasi pengelolaan data kerja sama, mitra, dan dokumen kerja s
 - Database yang dikonfigurasi di `.env` (SQLite dan MySQL tersedia pada konfigurasi aplikasi)
 - Kredensial Google Drive untuk menyimpan berkas dokumen
 - Poppler (`pdftotext`, `pdftoppm`, dan `pdfinfo`) serta Tesseract dengan data bahasa `ind` dan `eng` untuk autofill PDF
-- Ollama bersifat opsional; tanpa Ollama, ekstraksi lokal tetap dapat mengisi field yang dikenali
+- Gemini bersifat opsional; tanpa API key Gemini, ekstraksi lokal tetap dapat mengisi field yang dikenali
 
 ## Menyiapkan aplikasi
 
@@ -44,17 +44,17 @@ Konfigurasikan web server dan PHP agar dapat menulis ke direktori `storage` dan 
 
 Pilih **MoU** lalu unggah PDF. Aplikasi memproses file di server: teks dicoba dibaca dengan Poppler, dan bila diperlukan halaman awal PDF dirender dengan Poppler lalu diproses dengan Tesseract OCR. Batas ukuran PDF adalah 20 MB; OCR memproses paling banyak 3 halaman.
 
-File PDF disimpan pada disk Google Drive yang dikonfigurasi. Untuk ekstraksi lokal, PDF diproses di server; **file PDF tidak dikirim ke Ollama**. Namun, bila Ollama diaktifkan dan hasil lokal masih memerlukan bantuan klasifikasi, hingga 12.000 karakter teks hasil ekstraksi dapat dikirim ke URL `OLLAMA_URL`. Secara default URL tersebut adalah `http://127.0.0.1:11434`. Jika memakai endpoint lain, pastikan endpoint itu tepercaya dan sesuai kebijakan privasi organisasi.
+File PDF disimpan pada disk Google Drive yang dikonfigurasi. PDF diproses di server dan **file PDF tidak dikirim ke Gemini**. Jika hasil lokal masih memerlukan bantuan klasifikasi, pengguna dapat mencentang **Gunakan AI** agar hingga 24.000 karakter teks hasil ekstraksi dikirim ke Google Gemini. Tanpa API key Gemini, autofill tetap berjalan secara lokal.
 
-Penggunaan AI dikendalikan dua tingkat: pengguna harus mencentang **Gunakan AI** di formulir MoU, dan Ollama juga harus diizinkan oleh konfigurasi server. Tanpa mencentang pilihan tersebut, ekstraksi tetap berjalan secara lokal dan tidak ada teks yang dikirim ke Ollama.
+Pengiriman teks ke Gemini hanya dilakukan setelah pengguna mencentang **Gunakan AI** di formulir MoU. Tanpa mencentang pilihan tersebut, ekstraksi berjalan secara lokal dan tidak ada teks yang dikirim ke Gemini.
 
-Untuk mengizinkan penggunaan Ollama pada aplikasi, atur:
+Untuk mengaktifkan opsi Gemini, atur API key di `.env`:
 
 ```dotenv
-OLLAMA_ENABLED=true
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
-Atur `OLLAMA_ENABLED=false` untuk menonaktifkan Ollama secara global; pilihan **Gunakan AI** tidak akan ditampilkan dan tidak ada permintaan Ollama yang dikirim. Perubahan `.env` berlaku di seluruh aplikasi. Setelah mengubahnya, perbarui konfigurasi Laravel yang di-cache, misalnya dengan `php artisan config:clear`.
+Tanpa nilai `GEMINI_API_KEY`, pilihan **Gunakan AI** tidak ditampilkan dan teks tidak dikirim ke layanan eksternal. Setelah mengubah `.env`, perbarui konfigurasi Laravel yang di-cache, misalnya dengan `php artisan config:clear`.
 
 Autofill hanya mengisi field yang masih kosong. Nilai yang sudah diketik atau dipilih pengguna tidak ditimpa. Periksa hasil ekstraksi sebelum menyimpan karena OCR maupun klasifikasi dokumen dapat keliru.
 
@@ -72,18 +72,6 @@ PDF_RENDERER_DPI=200
 ```
 
 Ganti path contoh dengan lokasi instalasi yang sebenarnya. Pastikan proses PHP dapat menjalankan executable tersebut dan membaca data bahasa Tesseract. `pdftoppm` diperlukan untuk OCR PDF hasil pemindaian; `pdftotext` saja tidak cukup.
-
-Untuk menyediakan Ollama bagi pengguna yang memilih **Gunakan AI**, atur opsi berikut sesuai server/model yang dikelola:
-
-```dotenv
-OLLAMA_ENABLED=true
-OLLAMA_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen2.5:7b
-OLLAMA_CONNECTION_TIMEOUT=15
-OLLAMA_KEEP_ALIVE=30m
-```
-
-Jangan arahkan `OLLAMA_URL` ke layanan publik atau tidak tepercaya tanpa menilai kebijakan pengiriman teks dan pengamanan koneksinya.
 
 ## Operasi
 

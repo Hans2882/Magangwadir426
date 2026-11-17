@@ -109,25 +109,23 @@ class MouPdfAutofillServiceTest extends TestCase
         );
     }
 
-    public function test_it_uses_ollama_to_extract_only_values_supported_by_the_document(): void
+    public function test_it_uses_gemini_to_extract_only_values_supported_by_the_document(): void
     {
-        config([
-            'ollama-laravel.enabled' => true,
-            'ollama-laravel.url' => 'http://127.0.0.1:11434',
-            'ollama-laravel.model' => 'qwen2.5:7b',
-            'ollama-laravel.connection.timeout' => 180,
-            'ollama-laravel.keep_alive' => '30m',
-        ]);
+        config(['services.gemini.api_key' => 'test-key']);
 
         Http::fake([
-            'http://127.0.0.1:11434/api/generate' => Http::response([
-                'response' => json_encode([
-                    'judul' => 'KERJA SAMA PENDIDIKAN',
-                    'nomor_dokumen_polinema' => '01/PL2/TU/2026',
-                    'nomor_dokumen_mitra' => '02/MITRA/2026',
-                    'tanggal_awal' => '2026-01-01',
-                    'tanggal_akhir' => '2026-12-31',
-                ], JSON_THROW_ON_ERROR),
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent' => Http::response([
+                'candidates' => [[
+                    'content' => ['parts' => [[
+                        'text' => json_encode([
+                            'judul' => 'KERJA SAMA PENDIDIKAN',
+                            'nomor_dokumen_polinema' => '01/PL2/TU/2026',
+                            'nomor_dokumen_mitra' => '02/MITRA/2026',
+                            'tanggal_awal' => '2026-01-01',
+                            'tanggal_akhir' => '2026-12-31',
+                        ], JSON_THROW_ON_ERROR),
+                    ]]],
+                ]],
             ]),
         ]);
 
@@ -136,7 +134,7 @@ class MouPdfAutofillServiceTest extends TestCase
             ."TENTANG\nKERJA SAMA PENDIDIKAN\n"
             .'Perjanjian berlaku mulai 1 Januari 2026 sampai dengan 31 Desember 2026.';
 
-        $data = (new MouPdfAutofillService)->extractWithOllama($text);
+        $data = (new MouPdfAutofillService)->extractWithGemini($text);
 
         $this->assertSame([
             'judul' => 'KERJA SAMA PENDIDIKAN',
@@ -146,108 +144,106 @@ class MouPdfAutofillServiceTest extends TestCase
             'tanggal_akhir' => '2026-12-31',
         ], $data);
 
-        Http::assertSent(fn ($request) => $request->url() === 'http://127.0.0.1:11434/api/generate'
-            && $request['model'] === 'qwen2.5:7b'
-            && $request['keep_alive'] === '30m');
+        Http::assertSent(fn ($request) => $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent'
+            && $request->hasHeader('x-goog-api-key', 'test-key')
+            && $request['generationConfig']['responseMimeType'] === 'application/json');
     }
 
     public function test_it_uses_context_to_classify_document_numbers_with_unfamiliar_labels(): void
     {
-        config([
-            'ollama-laravel.enabled' => true,
-            'ollama-laravel.url' => 'http://127.0.0.1:11434',
-            'ollama-laravel.model' => 'qwen2.5:7b',
-        ]);
+        config(['services.gemini.api_key' => 'test-key']);
 
         Http::fake([
-            'http://127.0.0.1:11434/api/generate' => Http::response([
-                'response' => json_encode([
-                    'judul' => null,
-                    'nomor_dokumen_polinema' => '142/PL2/HK.01.00/2026',
-                    'nomor_dokumen_mitra' => '017/NTD-MOU/X/2026',
-                    'tanggal_awal' => null,
-                    'tanggal_akhir' => null,
-                ], JSON_THROW_ON_ERROR),
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent' => Http::response([
+                'candidates' => [[
+                    'content' => ['parts' => [[
+                        'text' => json_encode([
+                            'judul' => null,
+                            'nomor_dokumen_polinema' => '142/PL2/HK.01.00/2026',
+                            'nomor_dokumen_mitra' => '017/NTD-MOU/X/2026',
+                            'tanggal_awal' => null,
+                            'tanggal_akhir' => null,
+                        ], JSON_THROW_ON_ERROR),
+                    ]]],
+                ]],
             ]),
         ]);
 
         $text = "Administrasi pihak perguruan tinggi\n142/PL2/HK.01.00/2026\n"
             ."Administrasi pihak mitra\n017/NTD-MOU/X/2026";
-        $data = (new MouPdfAutofillService)->extractWithOllama($text);
+        $data = (new MouPdfAutofillService)->extractWithGemini($text);
 
         $this->assertSame('142/PL2/HK.01.00/2026', $data['nomor_dokumen_polinema']);
         $this->assertSame('017/NTD-MOU/X/2026', $data['nomor_dokumen_mitra']);
 
         Http::assertSent(fn ($request) => str_contains(
-            $request['prompt'],
+            $request['contents'][0]['parts'][0]['text'],
             'Never assign document numbers based only on their order.'
         ));
     }
 
-    public function test_ollama_input_keeps_the_beginning_and_end_of_long_documents(): void
+    public function test_gemini_input_keeps_the_beginning_and_end_of_long_documents(): void
     {
-        config([
-            'ollama-laravel.enabled' => true,
-            'ollama-laravel.url' => 'http://127.0.0.1:11434',
-            'ollama-laravel.model' => 'qwen2.5:7b',
-        ]);
+        config(['services.gemini.api_key' => 'test-key']);
 
         Http::fake([
-            'http://127.0.0.1:11434/api/generate' => Http::response([
-                'response' => json_encode([
-                    'judul' => null,
-                    'nomor_dokumen_polinema' => null,
-                    'nomor_dokumen_mitra' => null,
-                    'tanggal_awal' => null,
-                    'tanggal_akhir' => null,
-                ], JSON_THROW_ON_ERROR),
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent' => Http::response([
+                'candidates' => [[
+                    'content' => ['parts' => [[
+                        'text' => json_encode([
+                            'judul' => null,
+                            'nomor_dokumen_polinema' => null,
+                            'nomor_dokumen_mitra' => null,
+                            'tanggal_awal' => null,
+                            'tanggal_akhir' => null,
+                        ], JSON_THROW_ON_ERROR),
+                    ]]],
+                ]],
             ]),
         ]);
 
         $text = 'AWAL-DOKUMEN ' . str_repeat('teks ', 6000) . 'AKHIR-DOKUMEN';
-        (new MouPdfAutofillService)->extractWithOllama($text);
+        (new MouPdfAutofillService)->extractWithGemini($text);
 
-        Http::assertSent(fn ($request) => str_contains($request['prompt'], 'AWAL-DOKUMEN')
-            && str_contains($request['prompt'], 'AKHIR-DOKUMEN')
-            && str_contains($request['prompt'], '[Bagian tengah dokumen dilewati]'));
+        Http::assertSent(fn ($request) => str_contains($request['contents'][0]['parts'][0]['text'], 'AWAL-DOKUMEN')
+            && str_contains($request['contents'][0]['parts'][0]['text'], 'AKHIR-DOKUMEN')
+            && str_contains($request['contents'][0]['parts'][0]['text'], '[Bagian tengah dokumen dilewati]'));
     }
 
-    public function test_it_rejects_ollama_values_not_supported_by_the_document(): void
+    public function test_it_rejects_gemini_values_not_supported_by_the_document(): void
     {
-        config([
-            'ollama-laravel.enabled' => true,
-            'ollama-laravel.url' => 'http://127.0.0.1:11434',
-            'ollama-laravel.model' => 'qwen2.5:7b',
-        ]);
+        config(['services.gemini.api_key' => 'test-key']);
 
         Http::fake([
-            'http://127.0.0.1:11434/api/generate' => Http::response([
-                'response' => json_encode([
-                    'judul' => 'A DIFFERENT AGREEMENT',
-                    'nomor_dokumen_polinema' => '99/FAKE/2026',
-                    'tanggal_awal' => '2026-04-01',
-                    'tanggal_akhir' => '2026-12-31',
-                ], JSON_THROW_ON_ERROR),
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent' => Http::response([
+                'candidates' => [[
+                    'content' => ['parts' => [[
+                        'text' => json_encode([
+                            'judul' => 'A DIFFERENT AGREEMENT',
+                            'nomor_dokumen_polinema' => '99/FAKE/2026',
+                            'tanggal_awal' => '2026-04-01',
+                            'tanggal_akhir' => '2026-12-31',
+                        ], JSON_THROW_ON_ERROR),
+                    ]]],
+                ]],
             ]),
         ]);
 
-        $data = (new MouPdfAutofillService)->extractWithOllama(
+        $data = (new MouPdfAutofillService)->extractWithGemini(
             "TENTANG\nKERJA SAMA PENDIDIKAN\nDitandatangani pada 2 Februari 2026."
         );
 
         $this->assertSame([], $data);
     }
 
-    public function test_it_does_not_send_text_to_ollama_when_disabled(): void
+    public function test_it_does_not_send_text_to_gemini_without_an_api_key(): void
     {
-        config(['ollama-laravel.enabled' => false]);
+        config(['services.gemini.api_key' => null]);
         Http::fake();
 
-        $data = (new MouPdfAutofillService)->extractWithOllama('Teks dokumen rahasia.');
-        $warmupResult = (new MouPdfAutofillService)->warmUpOllama();
+        $data = (new MouPdfAutofillService)->extractWithGemini('Teks dokumen rahasia.');
 
         $this->assertNull($data);
-        $this->assertFalse($warmupResult);
         Http::assertNothingSent();
     }
 

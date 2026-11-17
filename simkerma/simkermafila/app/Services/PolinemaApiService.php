@@ -5,6 +5,12 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use App\Models\User;
+use App\Models\MasterJurusan;
+use App\Models\MasterProgramStudi;
+use App\Models\Privilege;
+use App\Models\UserPrivilege;
+use App\Models\UserProgramStudi;
 
 class PolinemaApiService
 {
@@ -213,6 +219,280 @@ class PolinemaApiService
     }
 
     /**
+     * Mengambil detail data pegawai berdasarkan NIP, Nama, atau Username SSO
+     *
+     * @param string $identifier NIP (18 digit), Username SSO, atau Email
+     * @param string|null $name Nama lengkap dari SSO untuk bantuan pencarian
+     * @return array|null Data pegawai lengkap (biodata, nomor_identitas, riwayat, id)
+     */
+    public function getPegawaiDetail(string $identifier, ?string $name = null): ?array
+    {
+        if (!$this->isConfigured()) {
+            return null;
+        }
+
+        $identifier = trim($identifier);
+        $cleanSearch = $identifier;
+
+        // Jika berupa email, ambil username/prefix
+        if (str_contains($cleanSearch, '@')) {
+            $cleanSearch = explode('@', $cleanSearch)[0];
+        }
+
+        // Tentukan kata kunci pencarian utama dan cadangan
+        $searchQueries = [];
+        if (preg_match('/^\d+$/', $cleanSearch)) {
+            // NIP angka
+            $searchQueries[] = $cleanSearch;
+        } else {
+            // Jika ada nama lengkap dari SSO, prioritaskan nama lengkap
+            if (!empty($name)) {
+                // Bersihkan gelar umum di awal nama jika ada
+                $cleanName = preg_replace('/^(prof\.|dr\.|ir\.|drs\.)\s+/i', '', trim($name));
+                $searchQueries[] = $cleanName;
+            }
+            // Ubah titik/strip/underscore pada username email menjadi spasi (contoh: rosa.andrie -> rosa andrie)
+            $searchQueries[] = str_replace(['.', '_', '-'], ' ', $cleanSearch);
+            $searchQueries[] = $cleanSearch;
+        }
+
+        $searchQueries = array_unique(array_filter($searchQueries));
+
+        foreach ($searchQueries as $query) {
+            try {
+                $response = $this->client()->post("{$this->baseUrl}/pegawai/index", [
+                    'search' => $query,
+                    'limit' => 20,
+                    'start' => 0,
+                    'riwayat' => ['jabstruk'],
+                ]);
+
+                if ($response->successful()) {
+                    $json = $response->json();
+                    if (($json['status'] ?? '') === 'success' && !empty($json['data'])) {
+                        $items = is_array($json['data']) ? $json['data'] : [];
+
+                        // 1. Coba cari yang NIP atau email_institusi atau namanya cocok persis
+                        foreach ($items as $item) {
+                            $nipBaru = $item['nomor_identitas']['nipBaru'] ?? '';
+                            $nipLama = $item['nomor_identitas']['nipLama'] ?? '';
+                            $emailInstansi = $item['biodata']['email_institusi'] ?? '';
+                            $namaPegawai = $item['biodata']['namaPegawai'] ?? '';
+
+                            if ($identifier === $nipBaru || $identifier === $nipLama) {
+                                return $item;
+                            }
+
+                            if (!empty($emailInstansi) && (
+                                strcasecmp($emailInstansi, $identifier) === 0 ||
+                                str_starts_with(strtolower($identifier), strtolower(explode('@', $emailInstansi)[0])) ||
+                                str_starts_with(strtolower($emailInstansi), strtolower($cleanSearch . '@'))
+                            )) {
+                                return $item;
+                            }
+
+                            if (!empty($name) && stripos($namaPegawai, trim($name)) !== false) {
+                                return $item;
+                            }
+                        }
+
+                        // Jika query menghasilkan data tunggal atau beberapa hasil
+                        return $items[0] ?? null;
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning("getPegawaiDetail error for query '{$query}': " . $e->getMessage());
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Menyinkronkan data dari API Kepegawaian Polinema ke model User
+     * Mengatur NIP, Nama Gelar, Jurusan, Program Studi, dan Privilege
+     */
+    public function syncPegawaiDataToUser(User $user, ?array $pegawaiInfo = null): User
+    {
+        if (empty($pegawaiInfo)) {
+            $pegawaiInfo = $this->getPegawaiDetail($user->username ?? '', $user->name ?? null);
+            if (empty($pegawaiInfo) && !empty($user->email)) {
+                $pegawaiInfo = $this->getPegawaiDetail($user->email, $user->name ?? null);
+            }
+        }
+
+        if (empty($pegawaiInfo)) {
+            // Fallback: pastikan privilege minimal tetap terisi Dosen jika belum ada
+            $currentPrivName = $user->userPrivilege?->privilege?->nama;
+            if (!$currentPrivName || $currentPrivName === 'User biasa') {
+                $dosenPrivilege = Privilege::firstOrCreate(
+                    ['nama' => 'Dosen'],
+                    [
+                        'is_admin_panel' => false,
+                        'deskripsi' => 'Pengguna Dosen Polinema',
+                        'can_create' => true,
+                        'can_read' => true,
+                        'can_update' => true,
+                        'can_delete' => false,
+                    ]
+                );
+                UserPrivilege::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['privilege_id' => $dosenPrivilege->id]
+                );
+            }
+            return $user;
+        }
+
+        $biodata = $pegawaiInfo['biodata'] ?? [];
+        $identitas = $pegawaiInfo['nomor_identitas'] ?? [];
+        $riwayat = $pegawaiInfo['riwayat'] ?? [];
+        $idData = $pegawaiInfo['id'] ?? [];
+
+        $nip = trim((string) ($identitas['nipBaru'] ?? $identitas['nipLama'] ?? ''));
+        $namaGelar = trim((string) ($biodata['namaGelar'] ?? $biodata['namaGelar2'] ?? ''));
+        $penempatan = trim((string) ($biodata['penempatan'] ?? $biodata['namaUker'] ?? ''));
+        $idUker = $idData['iduker'] ?? null;
+        $homebase = trim((string) ($biodata['homebase'] ?? ''));
+        $namaPekerjaan = strtolower(trim((string) ($biodata['namaPekerjaan'] ?? '')));
+
+        // 1. Update username ke NIP (18 digit) dan nama bergelar
+        $updates = [];
+        if (!empty($nip) && preg_match('/^\d{18}$/', $nip)) {
+            // Pastikan tidak ada user lain yang menggunakan NIP ini sebagai username
+            $conflictUser = User::where('username', $nip)->where('id', '!=', $user->id)->first();
+            if ($conflictUser) {
+                // Jika conflict user adalah akun duplikat orang yang sama, lepaskan NIP dari conflict user
+                if (
+                    strcasecmp($conflictUser->name, $user->name) === 0 ||
+                    (!empty($namaGelar) && strcasecmp($conflictUser->name, $namaGelar) === 0) ||
+                    (!empty($biodata['namaPegawai']) && strcasecmp($conflictUser->name, $biodata['namaPegawai']) === 0)
+                ) {
+                    $conflictUser->update(['username' => null]);
+                    $conflictUser = null;
+                }
+            }
+
+            if (!$conflictUser) {
+                $updates['username'] = $nip;
+            }
+        }
+        if (!empty($namaGelar) && $user->name !== $namaGelar) {
+            $updates['name'] = $namaGelar;
+        }
+
+        // 2. Pemetaan Jurusan
+        $jurusan = null;
+        if (!empty($idUker)) {
+            $jurusan = MasterJurusan::where('integrasi_jurusan', $idUker)->first();
+        }
+        if (!$jurusan && !empty($penempatan)) {
+            $cleanJurusan = preg_replace('/^(jurusan\s+)/i', '', $penempatan);
+            $cleanJurusan = trim($cleanJurusan);
+            $jurusan = MasterJurusan::where('nama_jurusan', 'LIKE', '%' . $cleanJurusan . '%')->first();
+        }
+        if ($jurusan) {
+            $updates['jurusan_id'] = $jurusan->id;
+        }
+
+        if (!empty($updates)) {
+            $user->update($updates);
+            $user->refresh();
+        }
+
+        // 3. Pemetaan Program Studi
+        if (!empty($homebase)) {
+            $cleanProdi = preg_replace('/^(d-?[i|v|x]+|s-?[1-3]|sarjana terapan)\s+/i', '', $homebase);
+            $cleanProdi = str_ireplace('t. ', 'teknik ', $cleanProdi);
+            $cleanProdi = trim($cleanProdi);
+
+            $prodiQuery = MasterProgramStudi::query();
+            if (!empty($user->jurusan_id)) {
+                $prodiQuery->where('jurusan_id', $user->jurusan_id);
+            }
+            $prodi = $prodiQuery->where('nama_prodi', 'LIKE', '%' . $cleanProdi . '%')->orderBy('id', 'asc')->first();
+
+            // Fallback jika tidak ditemukan dengan filter jurusan
+            if (!$prodi) {
+                $prodi = MasterProgramStudi::where('nama_prodi', 'LIKE', '%' . $cleanProdi . '%')->orderBy('id', 'asc')->first();
+            }
+
+            if ($prodi) {
+                UserProgramStudi::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['program_studi_id' => $prodi->id]
+                );
+
+                if (!$user->jurusan_id && $prodi->jurusan_id) {
+                    $user->update(['jurusan_id' => $prodi->jurusan_id]);
+                }
+            }
+        }
+
+        // 4. Deteksi Jabatan Struktural / Wadir 4 & Privilege
+        $isWadir4 = false;
+        $jabstrukList = $riwayat['jabstruk'] ?? [];
+        $today = date('Y-m-d');
+        foreach ($jabstrukList as $jab) {
+            $namaJab = strtoupper($jab['namaJabStruk'] ?? $jab['namaJabatan'] ?? '');
+            $tbt = $jab['tbtJabStruk'] ?? null;
+            if ((str_contains($namaJab, 'WAKIL DIREKTUR IV') || str_contains($namaJab, 'WAKIL DIREKTUR 4')) && (empty($tbt) || $tbt >= $today)) {
+                $isWadir4 = true;
+                break;
+            }
+        }
+
+        // Khusus pejabat Wadir 4 Polinema
+        if ($nip === '198010102005011001' || str_contains(strtolower($user->email), 'rosa.andrie') || str_contains(strtolower($user->username ?? ''), 'rosa.andrie')) {
+            $isWadir4 = true;
+        }
+
+        if ($isWadir4) {
+            $wadir4Privilege = Privilege::firstOrCreate(
+                ['nama' => 'Wakil Direktur IV'],
+                [
+                    'is_admin_panel' => true,
+                    'deskripsi' => 'Pejabat Wakil Direktur IV Polinema',
+                    'can_create' => true,
+                    'can_read' => true,
+                    'can_update' => true,
+                    'can_delete' => true,
+                ]
+            );
+
+            UserPrivilege::updateOrCreate(
+                ['user_id' => $user->id],
+                ['privilege_id' => $wadir4Privilege->id]
+            );
+        } else {
+            // Pengguna Dosen / Pegawai biasa
+            $currentPrivName = $user->userPrivilege?->privilege?->nama;
+            // Jangan timpa privilege jika sudah diberi privilege khusus dari Super Admin (misal: Super Admin, Koor Magang)
+            if (!$currentPrivName || in_array($currentPrivName, ['User biasa', 'Dosen'])) {
+                $targetRoleName = ($namaPekerjaan === 'dosen' || empty($namaPekerjaan)) ? 'Dosen' : 'User biasa';
+                $rolePrivilege = Privilege::firstOrCreate(
+                    ['nama' => $targetRoleName],
+                    [
+                        'is_admin_panel' => false,
+                        'deskripsi' => 'Pengguna ' . $targetRoleName . ' Polinema',
+                        'can_create' => true,
+                        'can_read' => true,
+                        'can_update' => true,
+                        'can_delete' => false,
+                    ]
+                );
+
+                UserPrivilege::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['privilege_id' => $rolePrivilege->id]
+                );
+            }
+        }
+
+        return $user->fresh(['userPrivilege.privilege', 'userProgramStudi.programStudi', 'programStudis', 'jurusan']);
+    }
+
+    /**
      * Mengambil data pejabat Wakil Direktur IV dari API Kepegawaian
      */
     public function getPejabatWadir4(): ?array
@@ -223,29 +503,13 @@ class PolinemaApiService
             }
 
             try {
-                $response = $this->client()->post("{$this->baseUrl}/pegawai/index", [
-                    'search' => 'Wakil Direktur',
-                    'limit' => 20,
-                    'start' => 0,
-                    'riwayat' => ['jabstruk'],
-                ]);
-
-                if ($response->successful()) {
-                    $json = $response->json();
-                    if (($json['status'] ?? '') === 'success' && !empty($json['data'])) {
-                        $pegawais = is_array($json['data']) ? $json['data'] : [];
-                        foreach ($pegawais as $p) {
-                            $jabatan = $p['jabatan'] ?? $p['jabstruk'] ?? '';
-                            $jabText = is_array($jabatan) ? json_encode($jabatan) : (string) $jabatan;
-
-                            if (stripos($jabText, 'Wakil Direktur IV') !== false || stripos($jabText, 'Wakil Direktur 4') !== false || stripos($jabText, 'Bidang IV') !== false) {
-                                return [
-                                    'nama' => $p['namaGelar2'] ?? $p['namaGelar'] ?? $p['namaPegawai'] ?? '',
-                                    'nip' => $p['nipBaru'] ?? $p['nipLama'] ?? $p['nip'] ?? '',
-                                ];
-                            }
-                        }
-                    }
+                // Cari data pejabat Wadir 4 berdasarkan NIP resmi
+                $pegawai = $this->getPegawaiDetail('198010102005011001', 'Rosa Andrie Asmara');
+                if (!empty($pegawai)) {
+                    return [
+                        'nama' => $pegawai['biodata']['namaGelar'] ?? $pegawai['biodata']['namaGelar2'] ?? $pegawai['biodata']['namaPegawai'] ?? 'Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.',
+                        'nip'  => $pegawai['nomor_identitas']['nipBaru'] ?? $pegawai['nomor_identitas']['nipLama'] ?? '198010102005011001',
+                    ];
                 }
             } catch (\Throwable $e) {
                 Log::warning('getPejabatWadir4 error: ' . $e->getMessage());

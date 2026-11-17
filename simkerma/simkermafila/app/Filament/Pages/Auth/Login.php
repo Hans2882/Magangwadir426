@@ -92,6 +92,7 @@ class Login extends BaseLogin
         // 2. Fallback: Cek kredensial lokal (Superadmin / Akun Lokal SIMKERMA)
         $localUser = User::query()
             ->where('email', $loginInput)
+            ->orWhere('email', $loginInput . '@polinema.ac.id')
             ->orWhere('username', $loginInput)
             ->first();
 
@@ -120,13 +121,15 @@ class Login extends BaseLogin
         $username = trim($ssoData['username'] ?? $loginInput);
         $name = trim($ssoData['name'] ?? $loginInput);
         $email = !empty($ssoData['email']) ? trim($ssoData['email']) : ($username . '@polinema.ac.id');
-        $privilegeStr = strtolower(trim($ssoData['privilege'] ?? ''));
+        $privilegeStr = strtolower(trim($ssoData['privilege'] ?? $ssoData['role'] ?? $ssoData['level'] ?? $ssoData['user_type'] ?? ''));
 
-        // Cari atau buat User
+        // Cari atau buat User berdasarkan username, loginInput, atau email
         $user = User::query()
             ->where('username', $username)
+            ->orWhere('username', $loginInput)
             ->orWhere('email', $email)
             ->orWhere('email', $username)
+            ->orWhere('email', $loginInput . '@polinema.ac.id')
             ->first();
 
         if (!$user) {
@@ -149,8 +152,23 @@ class Login extends BaseLogin
             }
         }
 
-        // Sinkronisasi Privilege & Prodi
-        if (in_array($privilegeStr, ['mahasiswa', 'student'])) {
+        // Cek apakah pengguna adalah mahasiswa berdasarkan 3 indikator:
+        // 1. Label privilege dari SSO ('mahasiswa' / 'student')
+        // 2. Domain email resmi mahasiswa Polinema (@student.polinema.ac.id)
+        // 3. Format username berupa 10 digit angka (NIM Polinema) dan terdaftar di Siakad Aktif
+        $cleanUsername = explode('@', $username)[0];
+        $isMahasiswa = in_array($privilegeStr, ['mahasiswa', 'student'])
+            || str_contains(strtolower($email), '@student.polinema.ac.id');
+
+        if (!$isMahasiswa && preg_match('/^\d{10}$/', $cleanUsername)) {
+            $mhsCheck = $apiService->checkMahasiswaAktif($cleanUsername);
+            if (!empty($mhsCheck)) {
+                $isMahasiswa = true;
+            }
+        }
+
+        // Sinkronisasi Privilege, Jurusan, & Prodi
+        if ($isMahasiswa) {
             $mhsPrivilege = Privilege::firstOrCreate(
                 ['nama' => 'Mahasiswa'],
                 [
@@ -220,27 +238,9 @@ class Login extends BaseLogin
                     }
                 }
             }
-        } elseif (in_array($privilegeStr, ['dosen', 'lecturer', 'tendik', 'staff', 'employee'])) {
-            $dosenPrivilege = Privilege::firstOrCreate(
-                ['nama' => 'Dosen'],
-                [
-                    'is_admin_panel' => false,
-                    'deskripsi' => 'Pengguna Dosen Polinema',
-                    'can_create' => true,
-                    'can_read' => true,
-                    'can_update' => true,
-                    'can_delete' => false,
-                ]
-            );
-
-            // Hanya set privilege Dosen jika user belum memiliki privilege khusus dari Super Admin
-            $currentPrivName = $user->userPrivilege?->privilege?->nama;
-            if (!$currentPrivName || $currentPrivName === 'User biasa') {
-                UserPrivilege::updateOrCreate(
-                    ['user_id' => $user->id],
-                    ['privilege_id' => $dosenPrivilege->id]
-                );
-            }
+        } else {
+            // Dosen / Tendik / Pegawai / Pejabat Struktural
+            $user = $apiService->syncPegawaiDataToUser($user);
         }
 
         return $user;

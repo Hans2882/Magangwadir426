@@ -99,4 +99,11 @@ class ListPksSpks extends ListRecords
                 ->icon('heroicon-o-plus'),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            PksSpkResource\Widgets\PksJurusanOverview::class,
+        ];
+    }
 }

@@ -33,10 +33,16 @@ return [
 
     'pdf_ocr' => [
         'renderer_binary'  => env('PDF_RENDERER_BINARY', 'pdftoppm'),
-        'pdfinfo_binary'   => env('PDFINFO_BINARY', 'pdfinfo'),          // <-- tambahan
+        'pdfinfo_binary'   => env('PDFINFO_BINARY', 'pdfinfo'),
         'tesseract_binary' => env('TESSERACT_BINARY', 'tesseract'),
         'languages'        => env('TESSERACT_LANGUAGES', 'ind+eng'),
         'dpi'              => (int) env('PDF_RENDERER_DPI', env('TESSERACT_DPI', 200)),
+    ],
+
+    'tesseract' => [
+        'enabled' => env('TESSERACT_ENABLED', true),
+        'path'    => env('TESSERACT_PATH', 'tesseract'),
+        'lang'    => env('TESSERACT_LANG', 'ind+eng'),
     ],
 
     'web_api' => [

@@ -87,11 +87,11 @@ class MouResource extends Resource
 
                     Forms\Components\Toggle::make('gunakan_ai')
                         ->label('Gunakan AI')
-                        ->helperText('Jika diaktifkan, teks hasil ekstraksi dapat dikirim ke endpoint Ollama yang dikonfigurasi untuk membantu membaca dokumen.')
+                        ->helperText('Jika diaktifkan, teks hasil ekstraksi dapat dikirim ke Gemini untuk membantu membaca dokumen.')
                         ->default(false)
                         ->dehydrated(false)
                         ->visible(fn (callable $get): bool => (int) $get('jenis_dokumen_id') === 1
-                            && (bool) config('ollama-laravel.enabled', true))
+                            && filled(config('services.gemini.api_key')))
                         ->live()
                         ->afterStateUpdated(function ($state, callable $set, callable $get): void {
                             if ((int) $get('jenis_dokumen_id') === 1 && filled($get('link_dokumen'))) {
@@ -101,13 +101,13 @@ class MouResource extends Resource
 
                     Forms\Components\FileUpload::make('link_dokumen')
                         ->label('Berkas MoU / LoI')
-                        ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                        ->required()
                         ->validationMessages(['required' => 'Berkas MoU/LoI wajib diunggah.'])
                         ->helperText(fn ($get) => (int) $get('jenis_dokumen_id') === 7
                             ? 'Autofill PDF hanya tersedia untuk MoU.'
-                            : (config('ollama-laravel.enabled', true)
-                                ? 'PDF disimpan di Google Drive dan diproses di server hingga 10 halaman. File PDF tidak dikirim ke Ollama; centang "Gunakan AI" untuk mengizinkan pengiriman teks hasil ekstraksi. Autofill hanya mengisi field kosong dan menampilkan bukti kutipan bila tersedia.'
-                                : 'PDF disimpan di Google Drive dan diproses di server hingga 10 halaman. File maupun teksnya tidak dikirim ke Ollama. Autofill hanya mengisi field kosong dan menampilkan bukti kutipan bila tersedia.'))
+                            : (filled(config('services.gemini.api_key'))
+                                ? 'PDF disimpan di Google Drive dan diproses di server hingga 10 halaman. File PDF tidak dikirim ke Gemini; centang "Gunakan AI" untuk mengizinkan pengiriman teks hasil ekstraksi. Autofill hanya mengisi field kosong dan menampilkan bukti kutipan bila tersedia.'
+                                : 'PDF disimpan di Google Drive dan diproses di server hingga 10 halaman. File maupun teksnya tidak dikirim ke Gemini. Autofill hanya mengisi field kosong dan menampilkan bukti kutipan bila tersedia.'))
                         ->live()
                         ->afterStateUpdated(function ($state, callable $set, callable $get): void {
                             $jenisId = (int) $get('jenis_dokumen_id');
@@ -215,18 +215,15 @@ class MouResource extends Resource
                         })
                         ->rule(function (?Model $record) {
                             return function ($attribute, $value, $fail) use ($record) {
-                                $exists = \App\Models\Kerjasama::query()
-                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
-                                    ->get()
-                                    ->contains(function ($item) use ($value) {
-                                        $nomor = str_replace("\r", "", $item->nomor_dokumen);
-                                        $parts = explode("\n", $nomor);
-                                        if (count($parts) === 1 && str_contains($nomor, ' ')) {
-                                            $parts = explode(' ', $nomor, 2);
-                                        }
-                                        return trim($parts[0] ?? '') === trim($value);
-                                    });
-                                if ($exists) {
+                                $query = \App\Models\Kerjasama::query()
+                                    ->where(function ($q) use ($value) {
+                                        $q->where('nomor_dokumen', $value)
+                                            ->orWhere('nomor_dokumen', 'like', $value . "\n%")
+                                            ->orWhere('nomor_dokumen', 'like', $value . " %");
+                                    })
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id));
+
+                                if ($query->exists()) {
                                     $fail('Nomor MoU Polinema sudah digunakan.');
                                 }
                             };
@@ -254,7 +251,7 @@ class MouResource extends Resource
                             if (empty($mit)) return $pol;
                             return $pol . "\n" . $mit;
                         }),
-                    Forms\Components\DatePicker::make('tanggal_awal')
+                        Forms\Components\DatePicker::make('tanggal_awal')
                         ->label('Tanggal Berlaku')
                         ->live()
                         ->required(fn ($get) => $get('status_workflow') === 'Selesai'),
@@ -265,7 +262,7 @@ class MouResource extends Resource
                 ])
                 ->columns(2),
 
-            Section::make('Status & Pengajuan')
+            Section::make('Jenis Pengajuan')
                 ->schema([
                     Forms\Components\Select::make('status_workflow')
                         ->label('Status Proses')
@@ -287,8 +284,7 @@ class MouResource extends Resource
                         ])
                         ->default('Baru')
                         ->required(),
-                ])
-                ->columns(2),
+                ]),
         ]);
     }
 
@@ -438,7 +434,6 @@ class MouResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->where('status_workflow', 'Selesai'))
             ->recordAction(null)
             ->recordUrl(fn ($record) => static::getUrl('view', ['record' => $record]))
             ->columns([

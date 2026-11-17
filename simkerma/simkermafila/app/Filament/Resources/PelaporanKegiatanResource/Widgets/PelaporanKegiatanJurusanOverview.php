@@ -1,0 +1,214 @@
+<?php
+
+namespace App\Filament\Resources\PelaporanKegiatanResource\Widgets;
+
+use App\Filament\Resources\PelaporanKegiatanResource;
+use App\Models\Kerjasama;
+use App\Models\MasterJurusan;
+use Filament\Widgets\StatsOverviewWidget as BaseWidget;
+use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
+
+class PelaporanKegiatanJurusanOverview extends BaseWidget
+{
+    protected string $view = 'filament.resources.pelaporan-kegiatan.widgets.jurusan-overview';
+
+    public ?string $selectedYear = 'all';
+
+    protected int | array | null $columns = [
+        'default' => 1,
+        'sm' => 2,
+        'md' => 3,
+        'xl' => 4,
+    ];
+
+    public static function canView(): bool
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        // Sembunyikan untuk Mahasiswa
+        if ($user->isMahasiswa()) {
+            return false;
+        }
+
+        // Sembunyikan untuk role User Biasa / Umum
+        $privilegeName = strtolower(trim($user->userPrivilege?->privilege?->nama ?? ''));
+        if (in_array($privilegeName, ['user', 'user biasa', 'umum'])) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function mount(): void
+    {
+        $this->selectedYear = 'all';
+    }
+
+    public function updatedSelectedYear(): void
+    {
+        $this->cachedStats = null;
+    }
+
+    public function setYear(string $year): void
+    {
+        $this->selectedYear = $year;
+        $this->cachedStats = null;
+    }
+
+    public function getAvailableYears(): array
+    {
+        $years = Kerjasama::query()
+            ->whereIn('jenis_dokumen_id', [8, 9])
+            ->where('status_workflow', '!=', 'Ditolak')
+            ->get(['tahun', 'tanggal_awal', 'created_at'])
+            ->map(function ($doc) {
+                if (!empty($doc->tahun)) {
+                    return (string) $doc->tahun;
+                }
+                if (!empty($doc->tanggal_awal)) {
+                    return date('Y', strtotime($doc->tanggal_awal));
+                }
+                return date('Y', strtotime($doc->created_at));
+            })
+            ->unique()
+            ->filter()
+            ->sortDesc()
+            ->values()
+            ->all();
+
+        $currentYear = (string) date('Y');
+        if (!in_array($currentYear, $years)) {
+            array_unshift($years, $currentYear);
+        }
+
+        $lastYear = (string) ((int) $currentYear - 1);
+        if (!in_array($lastYear, $years)) {
+            $years[] = $lastYear;
+            rsort($years);
+        }
+
+        $options = [
+            'all' => 'Semua Tahun (Akumulasi)',
+        ];
+
+        foreach ($years as $y) {
+            $options[$y] = $y === $currentYear ? "{$y} (Tahun Ini)" : "Tahun {$y}";
+        }
+
+        return $options;
+    }
+
+    protected function getStats(): array
+    {
+        // Base Query: Dokumen Pelaporan Kegiatan (Case Study & Press Release) dan abaikan status Ditolak
+        $baseQuery = Kerjasama::query()
+            ->whereIn('jenis_dokumen_id', [8, 9])
+            ->where('status_workflow', '!=', 'Ditolak');
+
+        $selected = $this->selectedYear ?: 'all';
+
+        if ($selected !== 'all') {
+            $baseQuery->where(function ($q) use ($selected) {
+                $q->where('tahun', $selected)
+                  ->orWhere(function ($sub) use ($selected) {
+                      $sub->whereNull('tahun')->whereYear('tanggal_awal', $selected);
+                  })
+                  ->orWhere(function ($sub) use ($selected) {
+                      $sub->whereNull('tahun')->whereNull('tanggal_awal')->whereYear('created_at', $selected);
+                  });
+            });
+        }
+
+        // Ambil data dokumen dengan relasi jurusan dan prodi
+        $documents = (clone $baseQuery)
+            ->with(['jurusans', 'prodis'])
+            ->get(['id', 'jenis_dokumen_id']);
+
+        $totalAll = $documents->count();
+        $totalCsAll = $documents->where('jenis_dokumen_id', 8)->count();
+        $totalPrAll = $documents->where('jenis_dokumen_id', 9)->count();
+
+        $stats = [];
+
+        // 1. Kartu Ringkasan Total Semua Jurusan
+        $totalTitle = $selected === 'all'
+            ? 'Total Pelaporan (Semua Tahun)'
+            : "Total Pelaporan ({$selected})";
+
+        $stats[] = Stat::make(
+            $totalTitle,
+            new HtmlString(number_format($totalAll) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Dokumen</span>')
+        )
+            ->description("{$totalCsAll} Case Study · {$totalPrAll} Press Release")
+            ->descriptionIcon('heroicon-m-rectangle-stack')
+            ->color($totalAll > 0 ? 'primary' : 'gray');
+
+        // 2. Daftar Seluruh Master Jurusan
+        $jurusans = MasterJurusan::orderBy('nama_jurusan')->get();
+
+        // Hitung dokumen unik per jurusan (direct link via kerjasama_jurusan atau indirect via prodi)
+        $jurusanStats = [];
+        foreach ($jurusans as $j) {
+            $jurusanStats[$j->id] = [
+                'total' => 0,
+                'cs' => 0,
+                'pr' => 0,
+            ];
+        }
+
+        foreach ($documents as $doc) {
+            $matchedJurusanIds = collect();
+
+            foreach ($doc->jurusans as $j) {
+                $matchedJurusanIds->push($j->id);
+            }
+
+            foreach ($doc->prodis as $p) {
+                if ($p->jurusan_id) {
+                    $matchedJurusanIds->push($p->jurusan_id);
+                }
+            }
+
+            foreach ($matchedJurusanIds->unique() as $jid) {
+                if (isset($jurusanStats[$jid])) {
+                    $jurusanStats[$jid]['total']++;
+                    if ((int) $doc->jenis_dokumen_id === 8) {
+                        $jurusanStats[$jid]['cs']++;
+                    } elseif ((int) $doc->jenis_dokumen_id === 9) {
+                        $jurusanStats[$jid]['pr']++;
+                    }
+                }
+            }
+        }
+
+        // 3. Buat Kartu untuk Setiap Jurusan
+        foreach ($jurusans as $jurusan) {
+            $data = $jurusanStats[$jurusan->id] ?? ['total' => 0, 'cs' => 0, 'pr' => 0];
+            $countTotal = $data['total'];
+            $countCs = $data['cs'];
+            $countPr = $data['pr'];
+
+            $displayName = preg_replace('/^Jurusan\s+/i', '', $jurusan->nama_jurusan);
+
+            $desc = $countTotal > 0
+                ? "{$countCs} Case Study · {$countPr} Press Release"
+                : 'Belum ada kegiatan';
+
+            $stats[] = Stat::make(
+                $displayName,
+                new HtmlString(number_format($countTotal) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Dokumen</span>')
+            )
+                ->description($desc)
+                ->descriptionIcon('heroicon-m-academic-cap')
+                ->color($countTotal > 0 ? 'success' : 'gray');
+        }
+
+        return $stats;
+    }
+}

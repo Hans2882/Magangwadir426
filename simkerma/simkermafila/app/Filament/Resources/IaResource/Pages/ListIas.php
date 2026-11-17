@@ -131,4 +131,11 @@ class ListIAs extends ListRecords
                 ->icon('heroicon-o-list-bullet'),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            IaResource\Widgets\IaJurusanOverview::class,
+        ];
+    }
 }

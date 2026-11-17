@@ -162,10 +162,20 @@
                         minZoom: 2,
                         maxZoom: 14,
                         zoomControl: false,
-                        attributionControl: false
+                        attributionControl: false,
+                        worldCopyJump: true,
+                        maxBounds: [[-85, -180], [85, 180]],
+                        maxBoundsViscosity: 1.0
                     });
 
+                    // Basemap OpenStreetMap Standard
+                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; <a href=\'https://www.openstreetmap.org/copyright\' target=\'_blank\' rel=\'noopener\'>OpenStreetMap</a> contributors'
+                    }).addTo(this.map);
+
                     L.control.zoom({ position: 'topright' }).addTo(this.map);
+                    L.control.attribution({ position: 'bottomleft' }).addTo(this.map);
 
                     try {
                         await this.loadWorld();
@@ -211,17 +221,33 @@
                                      '#eff3ff';
                 },
 
+                getFeatureStyle(count) {
+                    return {
+                        fillColor: this.getColor(count),
+                        weight: count > 0 ? 1.5 : 0.8,
+                        opacity: count > 0 ? 0.9 : 0.5,
+                        color: count > 0 ? '#1e3a8a' : '#94a3b8',
+                        fillOpacity: count > 0 ? 0.65 : 0.15
+                    };
+                },
+
+                highlightFeature(e) {
+                    const layer = e.target;
+                    layer.setStyle({
+                        weight: 2.5,
+                        color: '#f59e0b',
+                        fillOpacity: 0.85
+                    });
+                    if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                        layer.bringToFront();
+                    }
+                },
+
                 styleFeature(feature, dataMap, keyField) {
                     let name = this.normalizeName(feature.properties.Propinsi || feature.properties.PROVINSI || feature.properties.name || '');
                     let data = dataMap[name] || 0;
                     let count = (typeof data === 'object') ? (data.total || 0) : data;
-                    return {
-                        fillColor: this.getColor(count),
-                        weight: 1,
-                        opacity: 1,
-                        color: '#000000',
-                        fillOpacity: 1
-                    };
+                    return this.getFeatureStyle(count);
                 },
 
                 async loadWorld() {
@@ -235,13 +261,7 @@
                             let name = this.normalizeCountryName(rawName);
                             let data = this.countryData[name] || null;
                             let count = data ? data.total : 0;
-                            return {
-                                fillColor: this.getColor(count),
-                                weight: 1,
-                                opacity: 1,
-                                color: '#000000',
-                                fillOpacity: 1
-                            };
+                            return this.getFeatureStyle(count);
                         },
                         onEachFeature: (feature, layer) => {
                             let rawName = feature.properties.name ? feature.properties.name.toUpperCase() : '';
@@ -257,11 +277,19 @@
                             
                             layer.bindTooltip(tooltipContent, { sticky: true });
 
-                            layer.on({'click': (e) => {
-                                if (name === 'INDONESIA') {
-                                    this.drillDownToIndonesia(e);
+                            layer.on({
+                                mouseover: (e) => this.highlightFeature(e),
+                                mouseout: (e) => {
+                                    let d = this.countryData[name] || null;
+                                    let c = d ? d.total : 0;
+                                    e.target.setStyle(this.getFeatureStyle(c));
+                                },
+                                click: (e) => {
+                                    if (name === 'INDONESIA') {
+                                        this.drillDownToIndonesia(e);
+                                    }
                                 }
-                            }});
+                            });
                         }
                     }).addTo(this.map);
                 },
@@ -302,7 +330,15 @@
                             
                             layer.bindTooltip(tooltipContent, { sticky: true });
 
-                            layer.on({'click': (e) => this.drillDownToProvince(e, name) });
+                            layer.on({
+                                mouseover: (e) => this.highlightFeature(e),
+                                mouseout: (e) => {
+                                    let d = this.provinceData[name] || null;
+                                    let c = d ? d.total : 0;
+                                    e.target.setStyle(this.getFeatureStyle(c));
+                                },
+                                click: (e) => this.drillDownToProvince(e, name)
+                            });
                         }
                     }).addTo(this.map);
                 },
@@ -335,13 +371,7 @@
                                 let name = (feature.properties.WADMKK || '').toUpperCase();
                                 let data = cityData[name] || cityData[name.replace('KABUPATEN ', '')] || cityData['KABUPATEN ' + name] || null;
                                 let count = data ? (data.total || 0) : 0;
-                                return {
-                                    fillColor: this.getColor(count),
-                                    weight: 1,
-                                    opacity: 1,
-                                    color: '#000000',
-                                    fillOpacity: 1
-                                };
+                                return this.getFeatureStyle(count);
                             },
                             onEachFeature: (feature, layer) => {
                                 let name = (feature.properties.WADMKK || '').toUpperCase();
@@ -354,6 +384,15 @@
                                     tooltipContent += `<br/><span style='color:#15803d;'>PKS: ${data.pks_count}</span>`;
                                 }
                                 layer.bindTooltip(tooltipContent, { sticky: true });
+
+                                layer.on({
+                                    mouseover: (e) => this.highlightFeature(e),
+                                    mouseout: (e) => {
+                                        let d = cityData[name] || cityData[name.replace('KABUPATEN ', '')] || cityData['KABUPATEN ' + name] || null;
+                                        let c = d ? (d.total || 0) : 0;
+                                        e.target.setStyle(this.getFeatureStyle(c));
+                                    }
+                                });
                             }
                         }).addTo(this.map);
                     } catch (err) {

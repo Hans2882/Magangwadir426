@@ -16,15 +16,15 @@ class MouPdfAutofillService
     private const MAX_PDF_SIZE = 20 * 1024 * 1024;
 
     /**
-     * Batas teks yang dikirim ke Ollama.
+     * Batas teks yang dikirim ke Gemini.
      * Informasi MoU (judul, nomor, tanggal) hampir selalu ada
      * di header. Regex menangani tanggal di luar batas ini.
      */
-    private const MAX_OLLAMA_TEXT_LENGTH = 24000;
+    private const MAX_GEMINI_TEXT_LENGTH = 24000;
 
     private const MAX_PDF_PAGES = 10;
 
-    private const CACHE_VERSION = 'v4';
+    private const CACHE_VERSION = 'v5';
 
     private const EXTRACTION_FIELDS = [
         'judul',
@@ -49,7 +49,7 @@ class MouPdfAutofillService
     /**
      * @param resource $stream
      */
-    public function extractFromStream($stream, bool $useOllama = false): array
+    public function extractFromStream($stream, bool $useGemini = false): array
     {
         if (!is_resource($stream)) {
             throw new RuntimeException(
@@ -92,7 +92,7 @@ class MouPdfAutofillService
                 );
             }
 
-            return $this->extractFromPdfPath($path, $useOllama);
+            return $this->extractFromPdfPath($path, $useGemini);
 
         } finally {
             if (is_resource($stream)) {
@@ -108,10 +108,10 @@ class MouPdfAutofillService
     /**
      * Wrapper dengan cache by content-hash.
      */
-    public function extractFromPdfPath(string $path, bool $useOllama = false): array
+    public function extractFromPdfPath(string $path, bool $useGemini = false): array
     {
-        $useOllama = $useOllama && (bool) config('ollama-laravel.enabled', true);
-        $cacheKey = $this->cacheKey($path, $useOllama);
+        $useGemini = $useGemini && filled(config('services.gemini.api_key'));
+        $cacheKey = $this->cacheKey($path, $useGemini);
 
         if ($cacheKey !== null && Cache::has($cacheKey)) {
             Log::info('MoU Autofill: cache hit.', ['key' => $cacheKey]);
@@ -119,7 +119,7 @@ class MouPdfAutofillService
             return Cache::get($cacheKey);
         }
 
-        $result = $this->doExtractFromPdfPath($path, $useOllama);
+        $result = $this->doExtractFromPdfPath($path, $useGemini);
 
         if ($cacheKey !== null) {
             $ttl = (int) config('services.mou.cache_ttl_hours', 24);
@@ -137,56 +137,12 @@ class MouPdfAutofillService
     }
 
     /**
-     * Warmup model Ollama supaya tidak cold-start saat request user.
-     * Panggil sekali di AppServiceProvider::boot() atau via scheduled job.
-     */
-    public function warmUpOllama(): bool
-    {
-        if (!config('ollama-laravel.enabled', true)) {
-            return false;
-        }
-
-        $url = rtrim((string) config('ollama-laravel.url', ''), '/');
-        $model = (string) config('ollama-laravel.model', '');
-
-        if ($url === '' || $model === '') {
-            return false;
-        }
-
-        try {
-            $response = Http::acceptJson()
-                ->connectTimeout(2)
-                ->timeout(30)
-                ->post($url . '/api/generate', [
-                    'model' => $model,
-                    'prompt' => '',
-                    'keep_alive' => config(
-                        'ollama-laravel.keep_alive',
-                        '30m'
-                    ),
-                ]);
-
-            Log::info('MoU: warmup Ollama.', [
-                'success' => $response->successful(),
-            ]);
-
-            return $response->successful();
-        } catch (\Throwable $e) {
-            Log::warning('MoU: warmup Ollama gagal.', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
-    }
-
-    /**
      * ================================================================
      * MAIN EXTRACTION PIPELINE
      * ================================================================
      */
 
-    private function doExtractFromPdfPath(string $path, bool $useOllama): array
+    private function doExtractFromPdfPath(string $path, bool $useGemini): array
     {
         $totalStart = hrtime(true);
 
@@ -308,7 +264,7 @@ class MouPdfAutofillService
 
         /*
          * ============================================================
-         * STAGE 3: OLLAMA AI
+         * STAGE 3: GEMINI AI
          * ============================================================
          */
 
@@ -319,32 +275,32 @@ class MouPdfAutofillService
             || $this->needsNumberReview($data, $explicitNumbers)
         );
 
-        if ($useOllama && $needsAi && $sourceText !== '') {
+        if ($useGemini && $needsAi && $sourceText !== '') {
             $stageStart = hrtime(true);
 
             try {
-                $aiData = $this->extractWithOllama($sourceText);
+                $aiData = $this->extractWithGemini($sourceText);
 
                 if (is_array($aiData)) {
                     $this->applyAiFields($data, $aiData, $explicitNumbers);
                 }
 
-                $this->logStage('ollama', $stageStart, [
+                $this->logStage('gemini', $stageStart, [
                     'success' => is_array($aiData),
                     'complete' => $this->isExtractionComplete($data),
                 ]);
 
             } catch (\Throwable $e) {
-                $this->logStage('ollama', $stageStart, [
+                $this->logStage('gemini', $stageStart, [
                     'success' => false,
                     'error' => $e->getMessage(),
                 ]);
 
-                Log::warning('MoU: Ollama gagal, memakai hasil ekstraksi lokal.');
+                Log::warning('MoU: Gemini gagal, memakai hasil ekstraksi lokal.');
             }
         } else {
-            Log::info('MoU: Ollama dilewati.', [
-                'requested' => $useOllama,
+            Log::info('MoU: Gemini dilewati.', [
+                'requested' => $useGemini,
                 'needed' => $needsAi,
             ]);
         }
@@ -363,7 +319,7 @@ class MouPdfAutofillService
      * ================================================================
      */
 
-    private function cacheKey(string $path, bool $useOllama): ?string
+    private function cacheKey(string $path, bool $useGemini): ?string
     {
         if (!config('services.mou.cache_enabled', true)) {
             return null;
@@ -379,7 +335,7 @@ class MouPdfAutofillService
             'mou:autofill:%s:%s:%s',
             self::CACHE_VERSION,
             $hash,
-            $useOllama ? 'ai' : 'local'
+            $useGemini ? 'ai' : 'local'
         );
     }
 
@@ -630,69 +586,51 @@ class MouPdfAutofillService
 
     /**
      * ================================================================
-     * OLLAMA AI (tuned)
+     * GEMINI AI (tuned)
      * ================================================================
      */
 
-    public function extractWithOllama(string $text): ?array
+    public function extractWithGemini(string $text): ?array
     {
-        if (!config('ollama-laravel.enabled', true)) {
-            Log::info('MoU: Ollama dinonaktifkan; ekstraksi tetap dilakukan secara lokal.');
+        $apiKey = (string) config('services.gemini.api_key', '');
 
-            return null;
-        }
-
-        $url = rtrim((string) config('ollama-laravel.url', ''), '/');
-        $model = (string) config('ollama-laravel.model', '');
-
-        if ($text === '' || $url === '' || $model === '') {
-            Log::warning('MoU: Konfigurasi Ollama belum tersedia.');
+        if ($text === '' || $apiKey === '') {
+            Log::warning('MoU: Teks atau konfigurasi Gemini belum tersedia.');
 
             return null;
         }
 
         $textLength = mb_strlen($text);
-        $halfTextLength = intdiv(self::MAX_OLLAMA_TEXT_LENGTH, 2);
-        $documentText = $textLength <= self::MAX_OLLAMA_TEXT_LENGTH
+        $halfTextLength = intdiv(self::MAX_GEMINI_TEXT_LENGTH, 2);
+        $documentText = $textLength <= self::MAX_GEMINI_TEXT_LENGTH
             ? $text
             : mb_substr($text, 0, $halfTextLength)
                 . "\n\n[Bagian tengah dokumen dilewati]\n\n"
                 . mb_substr($text, -$halfTextLength);
 
-        $prompt = $this->ollamaPrompt();
-
-        $timeout = min(
-            15,
-            max(1, (int) config('ollama-laravel.connection.timeout', 15))
-        );
-
         $payload = [
-            'model' => $model,
-            'prompt' => $prompt . "\n\n" . $documentText,
-            'stream' => false,
-            'format' => 'json',
-            'options' => [
+            'contents' => [[
+                'parts' => [[
+                    'text' => $this->geminiPrompt() . "\n\n" . $documentText,
+                ]],
+            ]],
+            'generationConfig' => [
                 'temperature' => 0,
-                'num_predict' => 250,
-                'num_ctx' => 8192,
+                'responseMimeType' => 'application/json',
             ],
         ];
 
-        $keepAlive = config('ollama-laravel.keep_alive', '30m');
-
-        if ($keepAlive !== null && $keepAlive !== '') {
-            $payload['keep_alive'] = $keepAlive;
-        }
-
         try {
             $response = Http::acceptJson()
-                ->connectTimeout(2)
-                ->timeout($timeout)
-                ->post($url . '/api/generate', $payload);
-
+                ->withHeaders(['x-goog-api-key' => $apiKey])
+                ->connectTimeout(5)
+                ->timeout(75)
+                ->post(
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent',
+                    $payload
+                );
         } catch (ConnectionException $exception) {
-            Log::warning('MoU: Ollama tidak dapat dihubungi.', [
-                'url' => $url,
+            Log::warning('MoU: Gemini tidak dapat dihubungi.', [
                 'error' => $exception->getMessage(),
             ]);
 
@@ -700,17 +638,17 @@ class MouPdfAutofillService
         }
 
         if (!$response->successful()) {
-            Log::warning('MoU: Ollama mengembalikan HTTP error.', [
+            Log::warning('MoU: Gemini mengembalikan HTTP error.', [
                 'status' => $response->status(),
             ]);
 
             return null;
         }
 
-        $responseText = $response->json('response');
+        $responseText = $response->json('candidates.0.content.parts.0.text');
 
         if (!is_string($responseText) || trim($responseText) === '') {
-            Log::warning('MoU: Respons Ollama kosong atau tidak valid.');
+            Log::warning('MoU: Respons Gemini kosong atau tidak valid.');
 
             return null;
         }
@@ -724,7 +662,7 @@ class MouPdfAutofillService
             );
 
         } catch (\JsonException $exception) {
-            Log::warning('MoU: JSON Ollama tidak valid.', [
+            Log::warning('MoU: JSON Gemini tidak valid.', [
                 'error' => $exception->getMessage(),
             ]);
 
@@ -735,10 +673,10 @@ class MouPdfAutofillService
             return null;
         }
 
-        return $this->validateOllamaFields($fields, $text);
+        return $this->validateGeminiFields($fields, $text);
     }
 
-    private function ollamaPrompt(): string
+    private function geminiPrompt(): string
     {
         return <<<'PROMPT'
 You are an Indonesian legal document extraction assistant.
@@ -779,7 +717,7 @@ PROMPT;
      * Validasi hasil AI terhadap teks asli.
      * Normalisasi teks dilakukan SEKALI (bukan per field).
      */
-    private function validateOllamaFields(array $fields, string $text): array
+    private function validateGeminiFields(array $fields, string $text): array
     {
         $normalizedText = $this->normalizeText($text);
 

@@ -143,9 +143,26 @@ public function getFilamentName(): string
             $query->where('nama', 'Wakil Direktur IV');
         })->first();
 
+        // Validasi NIP: pastikan berupa string angka 18 digit
+        $nip = null;
+        if (!empty($user?->username) && preg_match('/^\d{18}$/', $user->username)) {
+            $nip = $user->username;
+        } else {
+            // Coba ambil dari PolinemaApiService jika ada
+            try {
+                $apiPejabat = app(\App\Services\PolinemaApiService::class)->getPejabatWadir4();
+                if (!empty($apiPejabat['nip']) && preg_match('/^\d{18}$/', $apiPejabat['nip'])) {
+                    $nip = $apiPejabat['nip'];
+                }
+            } catch (\Throwable $e) {}
+
+            // Fallback NIP resmi Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.
+            $nip = $nip ?? '198010102005011001';
+        }
+
         return (object) [
             'nama' => $user?->name ?? 'Prof. Dr. Eng. Rosa Andrie Asmara, S.T., M.T.',
-            'nip'  => $user?->username ?? '198010102005011001',
+            'nip'  => $nip,
         ];
     }
 
