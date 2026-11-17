@@ -74,7 +74,7 @@ class MouResource extends Resource
                 ->schema([
                     Forms\Components\FileUpload::make('link_dokumen')
                         ->label('Berkas MoU / LoI')
-                        ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                        ->required()
                         ->validationMessages(['required' => 'Berkas MoU/LoI wajib diunggah.'])
                         ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                         ->disk('google')
@@ -199,25 +199,13 @@ class MouResource extends Resource
                             if (empty($mit)) return $pol;
                             return $pol . "\n" . $mit;
                         }),
-                    Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
-                    Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir')->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+                    Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(),
+                    Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Berakhir')->required(),
                 ])
                 ->columns(2),
 
-            Section::make('Status & Pengajuan')
+            Section::make('Jenis Pengajuan')
                 ->schema([
-                    Forms\Components\Select::make('status_workflow')
-                        ->label('Status Proses')
-                        ->options([
-                            'Draft' => 'Draft (Sedang Disusun)',
-                            'Review Internal' => 'Review Internal',
-                            'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
-                            'Menunggu TTD Direktur' => 'Menunggu TTD Direktur',
-                            'Selesai' => 'Selesai (Aktif)',
-                        ])
-                        ->default('Draft')
-                        ->live()
-                        ->required(),
                     Forms\Components\Select::make('jenis_pengajuan')
                         ->label('Jenis Pengajuan')
                         ->options([
@@ -226,14 +214,12 @@ class MouResource extends Resource
                         ])
                         ->default('Baru')
                         ->required(),
-                ])
-                ->columns(2),
+                ]),
         ]);
     }
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->where('status_workflow', 'Selesai'))
             ->recordAction(null)
             ->recordUrl(fn ($record) => static::getUrl('view', ['record' => $record]))
             ->columns([

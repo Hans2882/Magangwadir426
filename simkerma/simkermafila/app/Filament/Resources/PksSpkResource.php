@@ -76,7 +76,7 @@ class PksSpkResource extends Resource
                 ->schema([
                     Forms\Components\FileUpload::make('link_dokumen')
                         ->label('Berkas PKS / SPK / MoA / LoC')
-                        ->required(fn ($get) => $get('status_workflow') === 'Selesai')
+                        ->required()
                         ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
                         ->disk('google')
                         ->directory(function (callable $get) {
@@ -253,11 +253,11 @@ class PksSpkResource extends Resource
 
                     Forms\Components\DatePicker::make('tanggal_awal')
                         ->label('Tanggal Berlaku')
-                        ->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+                        ->required(),
 
                     Forms\Components\DatePicker::make('tanggal_akhir')
                         ->label('Tanggal Akhir')
-                        ->required(fn ($get) => $get('status_workflow') === 'Selesai'),
+                        ->required(),
                 ])
                 ->columns(2),
 
@@ -277,19 +277,6 @@ class PksSpkResource extends Resource
                         ->multiple()
                         ->preload()
                         ->searchable(),
-
-                    Forms\Components\Select::make('status_workflow')
-                        ->label('Status Proses')
-                        ->options([
-                            'Draft' => 'Draft (Sedang Disusun)',
-                            'Review Internal' => 'Review Internal',
-                            'Menunggu TTD Mitra' => 'Menunggu TTD Mitra',
-                            'Menunggu TTD Direktur' => 'Menunggu TTD Direktur',
-                            'Selesai' => 'Selesai (Aktif)',
-                        ])
-                        ->default('Draft')
-                        ->live()
-                        ->required(),
 
                     Forms\Components\Select::make('jenis_pengajuan')
                         ->label('Jenis Pengajuan')
@@ -317,7 +304,6 @@ class PksSpkResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->where('status_workflow', 'Selesai'))
             ->columns([
                 Tables\Columns\TextColumn::make('jenisDokumen.nama')
                     ->label('Jenis')
