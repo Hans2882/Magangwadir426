@@ -695,6 +695,13 @@ class PksSpkResource extends Resource
         return [];
     }
 
+    public static function getWidgets(): array
+    {
+        return [
+            PksSpkResource\Widgets\PksJurusanOverview::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [

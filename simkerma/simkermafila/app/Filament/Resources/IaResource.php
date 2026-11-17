@@ -612,6 +612,13 @@ class IaResource extends Resource
         return [];
     }
 
+    public static function getWidgets(): array
+    {
+        return [
+            IaResource\Widgets\IaJurusanOverview::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
