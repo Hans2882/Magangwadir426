@@ -74,7 +74,7 @@ class IaResource extends Resource
                     Forms\Components\FileUpload::make('link_dokumen')
                         ->label('Berkas IA')
                         ->required()
-                        ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction())
+                        ->hintAction(\App\Services\GeminiOcrService::getAutoFillAction('IA'))
                         ->disk('google')
                         ->directory(function (callable $get) {
                             $base = $get('jenis') === 'Luar Negeri' ? 'IA LN' : 'IA';
@@ -225,8 +225,29 @@ class IaResource extends Resource
                             }
                             return $pol . "\n" . $mit;
                         }),
-                    Forms\Components\DatePicker::make('tanggal_awal')->label('Tanggal Berlaku')->required(),
-                    Forms\Components\DatePicker::make('tanggal_akhir')->label('Tanggal Akhir')->required(),
+                    Forms\Components\DatePicker::make('tanggal_awal')
+                        ->label('Tanggal Berlaku')
+                        ->required()
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            if (!empty($state) && empty($get('tanggal_akhir'))) {
+                                try {
+                                    $raw = trim((string) $state);
+                                    if (preg_match('/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/', $raw, $m)) {
+                                        $c = \Carbon\Carbon::createFromDate((int)$m[3], (int)$m[2], (int)$m[1]);
+                                    } elseif (preg_match('/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/', $raw, $m)) {
+                                        $c = \Carbon\Carbon::createFromDate((int)$m[1], (int)$m[2], (int)$m[3]);
+                                    } else {
+                                        $c = \Carbon\Carbon::parse($raw);
+                                    }
+                                    $set('tanggal_akhir', $c->addYear()->format('Y-m-d'));
+                                } catch (\Throwable $e) {}
+                            }
+                        }),
+                    Forms\Components\DatePicker::make('tanggal_akhir')
+                        ->label('Tanggal Akhir')
+                        ->required()
+                        ->helperText('Diutamakan sesuai yang tertera di dokumen. Jika tidak disebutkan di dokumen IA, otomatis berlaku 1 tahun.'),
                 ])
                 ->columns(2),
 

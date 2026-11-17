@@ -119,7 +119,7 @@ class GeminiOcrService
                 . "- nomor_dokumen_polinema (String, the first document number at the top, usually containing PL2, or the 'Surat Tugas' number for activity reports)\n"
                 . "- nomor_dokumen_mitra (String, the second document number at the top, belonging to the partner. Leave blank for activity reports)\n"
                 . "- tanggal_awal (Date in YYYY-MM-DD format, the start date, signing date, or the date of the activity)\n"
-                . "- tanggal_akhir (Date in YYYY-MM-DD format, the end date if mentioned, otherwise null)\n"
+                . "- tanggal_akhir (Date in YYYY-MM-DD format. FIRST, search the document thoroughly for any explicit end date, expiration date, or duration clause, e.g. 'berlaku sampai...', 'sampai dengan...', 'berlaku hingga...', or 'berlaku selama X tahun/bulan'. If the document explicitly states an end date or duration, extract or calculate that exact date. If and only if the document contains NO mention of an end date or validity duration whatsoever: for IA documents, fallback to 1 year after tanggal_awal; for other documents, return null)\n"
                 . "- judul (String, the specific title or subject of the agreement or activity. For agreements, include text AFTER 'TENTANG'. For reports, include the main activity title)\n"
                 . "- nama_mitra (String, the name of the external partner organization or university)\n"
                 . "- alamat_mitra (String, the full address of the partner organization. If not explicitly mentioned in the document, use your world knowledge to find and provide their official headquarters address)\n"
@@ -204,7 +204,7 @@ class GeminiOcrService
     /**
      * Returns a Filament Form Action for Auto-Fill via AI with Hybrid Pipeline.
      */
-    public static function getAutoFillAction(): \Filament\Actions\Action
+    public static function getAutoFillAction(?string $documentType = null): \Filament\Actions\Action
     {
         return \Filament\Actions\Action::make('autofill')
             ->label('Auto-Fill via AI')
@@ -213,7 +213,7 @@ class GeminiOcrService
             ->modalHeading('Ekstrak Data Otomatis')
             ->modalDescription('Sistem akan membaca dokumen secara lokal dan memetakan data secara otomatis melalui AI.')
             ->modalSubmitActionLabel('Mulai Proses')
-            ->action(function ($get, $set) {
+            ->action(function ($get, $set, $livewire = null) use ($documentType) {
                 @set_time_limit(100);
 
                 $state = $get('link_dokumen');
@@ -278,14 +278,80 @@ class GeminiOcrService
                 
                 if ($result && $result['success']) {
                     $data = $result['data'];
+
+                    // Deteksi apakah dokumen ini adalah IA (Implementation Arrangement)
+                    $isIa = ($documentType !== null && strtoupper($documentType) === 'IA');
+                    if (!$isIa && $get('jenis_dokumen_id') == 4) {
+                        $isIa = true;
+                    }
+                    if (!$isIa && $livewire) {
+                        $livewireClass = get_class($livewire);
+                        if (str_contains($livewireClass, 'IaResource')) {
+                            $isIa = true;
+                        }
+                    }
+                    if (!$isIa && !empty($data['jenis_dokumen_id']) && (int) $data['jenis_dokumen_id'] === 4) {
+                        $isIa = true;
+                    }
+
                     if (!empty($data['nomor_dokumen_polinema'])) $set('nomor_dokumen_polinema', $data['nomor_dokumen_polinema']);
                     if (!empty($data['nomor_dokumen_mitra'])) $set('nomor_dokumen_mitra', $data['nomor_dokumen_mitra']);
-                    if (!empty($data['tanggal_awal'])) $set('tanggal_awal', $data['tanggal_awal']);
-                    if (!empty($data['tanggal_akhir'])) $set('tanggal_akhir', $data['tanggal_akhir']);
+
+                    // Pemetaan Tanggal Awal & Tanggal Akhir
+                    if (!empty($data['tanggal_awal'])) {
+                        $parsedAwal = null;
+                        try {
+                            $rawAwal = trim((string) $data['tanggal_awal']);
+                            if (preg_match('/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/', $rawAwal, $m)) {
+                                $parsedAwal = \Carbon\Carbon::createFromDate((int)$m[3], (int)$m[2], (int)$m[1]);
+                            } elseif (preg_match('/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/', $rawAwal, $m)) {
+                                $parsedAwal = \Carbon\Carbon::createFromDate((int)$m[1], (int)$m[2], (int)$m[3]);
+                            } else {
+                                $parsedAwal = \Carbon\Carbon::parse($rawAwal);
+                            }
+                            $set('tanggal_awal', $parsedAwal->format('Y-m-d'));
+                        } catch (\Throwable $e) {
+                            $set('tanggal_awal', $data['tanggal_awal']);
+                        }
+
+                    }
+
+                    // Tanggal Akhir: Cari & utamakan tanggal akhir yang tertera di dokumen terlebih dahulu
+                    if (!empty($data['tanggal_akhir'])) {
+                        try {
+                            $rawAkhir = trim((string) $data['tanggal_akhir']);
+                            if (preg_match('/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/', $rawAkhir, $m)) {
+                                $parsedAkhir = \Carbon\Carbon::createFromDate((int)$m[3], (int)$m[2], (int)$m[1]);
+                            } elseif (preg_match('/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/', $rawAkhir, $m)) {
+                                $parsedAkhir = \Carbon\Carbon::createFromDate((int)$m[1], (int)$m[2], (int)$m[3]);
+                            } else {
+                                $parsedAkhir = \Carbon\Carbon::parse($rawAkhir);
+                            }
+                            $set('tanggal_akhir', $parsedAkhir->format('Y-m-d'));
+                        } catch (\Throwable $e) {
+                            $set('tanggal_akhir', $data['tanggal_akhir']);
+                        }
+                    } elseif ($isIa && !empty($data['tanggal_awal'])) {
+                        // Jika di dokumen IA tidak tertera tanggal akhir, baru gunakan fallback standar 1 tahun
+                        if ($parsedAwal) {
+                            $set('tanggal_akhir', $parsedAwal->copy()->addYear()->format('Y-m-d'));
+                        } else {
+                            try {
+                                $set('tanggal_akhir', \Carbon\Carbon::parse($data['tanggal_awal'])->addYear()->format('Y-m-d'));
+                            } catch (\Throwable $e) {}
+                        }
+                    }
+
                     if (!empty($data['judul'])) $set('judul', $data['judul']);
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
                     if (!empty($data['bidang_id'])) $set('bidang_id', $data['bidang_id']);
-                    if (!empty($data['jenis_dokumen_id'])) $set('jenis_dokumen_id', $data['jenis_dokumen_id']);
+
+                    if ($isIa) {
+                        $set('jenis_dokumen_id', 4);
+                    } elseif (!empty($data['jenis_dokumen_id'])) {
+                        $set('jenis_dokumen_id', $data['jenis_dokumen_id']);
+                    }
+
                     if (!empty($data['jenis'])) $set('jenis', $data['jenis']);
                     
                     $extractedNegaraId = null;
