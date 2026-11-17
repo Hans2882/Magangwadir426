@@ -44,6 +44,10 @@ class UserPanelProvider extends PanelProvider
                 \Filament\View\PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.calendar-button")')
             )
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::BODY_END,
+                fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.hooks.livewire-error-handler") @include("filament.hooks.autofill-loading-bar")')
+            )
             ->colors([
                 'primary' => Color::Indigo,
             ])

@@ -48,7 +48,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 \Filament\View\PanelsRenderHook::BODY_END,
-                fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.hooks.livewire-error-handler")')
+                fn (): string => \Illuminate\Support\Facades\Blade::render('@include("filament.hooks.livewire-error-handler") @include("filament.hooks.autofill-loading-bar")')
             )
             ->colors([
                 'primary' => Color::hex('#113261'),

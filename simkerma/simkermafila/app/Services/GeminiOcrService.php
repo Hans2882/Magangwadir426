@@ -211,7 +211,7 @@ class GeminiOcrService
             ->icon('heroicon-m-sparkles')
             ->requiresConfirmation()
             ->modalHeading('Ekstrak Data Otomatis')
-            ->modalDescription('Sistem akan membaca dokumen secara lokal (Tesseract OCR) dan memetakan data secara otomatis melalui AI.')
+            ->modalDescription('Sistem akan membaca dokumen secara lokal dan memetakan data secara otomatis melalui AI.')
             ->modalSubmitActionLabel('Mulai Proses')
             ->action(function ($get, $set) {
                 @set_time_limit(100);
