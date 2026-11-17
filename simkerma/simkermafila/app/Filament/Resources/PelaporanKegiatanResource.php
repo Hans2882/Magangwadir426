@@ -799,6 +799,13 @@ class PelaporanKegiatanResource extends Resource
             ]);
     }
 
+    public static function getWidgets(): array
+    {
+        return [
+            PelaporanKegiatanResource\Widgets\PelaporanKegiatanJurusanOverview::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [

@@ -16,5 +16,12 @@ class ListPelaporanKegiatans extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            PelaporanKegiatanResource\Widgets\PelaporanKegiatanJurusanOverview::class,
+        ];
+    }
 }
 
