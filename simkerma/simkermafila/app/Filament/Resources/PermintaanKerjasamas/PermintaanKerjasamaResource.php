@@ -93,9 +93,32 @@ class PermintaanKerjasamaResource extends Resource
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
+
+        if (! $user || $user->isDosen()) {
             return false;
         }
+
+        // Usulan yang sudah disetujui menjadi mitra resmi tidak boleh diedit lagi
+        if ($record->status_permintaan === 'Disetujui') {
+            return false;
+        }
+
+        // Mahasiswa hanya dapat mengedit usulan miliknya sendiri yang masih Proses atau Ditolak
+        if ($user->isMahasiswa()) {
+            return (int) $record->user_id === (int) $user->id 
+                && in_array($record->status_permintaan, ['Proses', 'Ditolak']);
+        }
+
+        // Koordinator Magang dapat mengedit usulan mahasiswa dalam lingkup prodinya
+        if ($user->isKoorMagang()) {
+            $prodiIds = $user->getProdiIds();
+            if (!empty($prodiIds)) {
+                $pengusulProdiIds = $record->pengusul?->getProdiIds() ?? [];
+                return !empty(array_intersect($pengusulProdiIds, $prodiIds));
+            }
+            return (int) $record->user_id === (int) $user->id;
+        }
+
         return true;
     }
 
