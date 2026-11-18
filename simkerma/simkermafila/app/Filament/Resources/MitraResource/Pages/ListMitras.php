@@ -56,22 +56,33 @@ class ListMitras extends ListRecords
         ];
     }
 
+    protected function getFilteredBaseQuery(): Builder
+    {
+        $query = static::getResource()::getEloquentQuery();
+        $this->applyFiltersToTableQuery($query);
+        $this->applySearchToTableQuery($query);
+
+        return $query;
+    }
+
     public function getTabs(): array
     {
         return [
             'dalam_negeri' => Tab::make('Dalam Negeri')
                 ->icon('heroicon-o-building-office-2')
-                ->badge(
-                    Mitra::query()->where(function ($query) {
+                ->badge(fn () => $this->getFilteredBaseQuery()
+                    ->where(function ($query) {
                         $query->whereNull('negara_id')
                             ->orWhere('negara_id', '<', 1);
-                    })->count()
+                    })
+                    ->count()
                 ),
 
             'luar_negeri' => Tab::make('Luar Negeri')
                 ->icon('heroicon-o-globe-alt')
-                ->badge(
-                    Mitra::query()->where('negara_id', '>=', 1)->count()
+                ->badge(fn () => $this->getFilteredBaseQuery()
+                    ->where('negara_id', '>=', 1)
+                    ->count()
                 ),
         ];
     }
