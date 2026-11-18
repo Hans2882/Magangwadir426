@@ -124,8 +124,8 @@ class TesseractOcrService
             file_put_contents($tempPdf, $pdfContent);
 
             try {
-                $process = new Process([$pdftotextBin, '-f', '1', '-l', '3', $tempPdf, '-']);
-                $process->setTimeout(10);
+                $process = new Process([$pdftotextBin, '-f', '1', '-l', '4', $tempPdf, '-']);
+                $process->setTimeout(15);
                 $process->run();
 
                 if ($process->isSuccessful()) {
@@ -163,7 +163,7 @@ class TesseractOcrService
             ];
         }
 
-        $extractedImages = $this->extractImagesFromPdfStream($pdfContent, 2);
+        $extractedImages = $this->extractImagesFromPdfStream($pdfContent, 4);
         if (!empty($extractedImages)) {
             $combinedText = '';
             foreach ($extractedImages as $idx => $imgBytes) {
@@ -265,7 +265,7 @@ class TesseractOcrService
     /**
      * Extract JPEG streams from raw PDF content (scanners wrap page scans as DCTDecode JPEGs).
      */
-    protected function extractImagesFromPdfStream(string $pdfContent, int $maxPages = 2): array
+    protected function extractImagesFromPdfStream(string $pdfContent, int $maxPages = 4): array
     {
         $images = [];
         $offset = 0;
