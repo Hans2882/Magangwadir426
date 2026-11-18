@@ -18,6 +18,34 @@ class PermintaanKerjasamaForm
                 ])
                 ->visible(fn ($record) => $record && $record->status_permintaan === 'Ditolak'),
 
+            \Filament\Schemas\Components\Section::make('Informasi Pengusul (Mahasiswa)')
+                ->schema([
+                    Forms\Components\Placeholder::make('pengusul_name')
+                        ->label('Nama Pengusul')
+                        ->content(fn ($record) => $record?->pengusul?->name ?? $record?->nama_pengusul ?? '-'),
+                    Forms\Components\Placeholder::make('pengusul_nim')
+                        ->label('NIM Pengusul')
+                        ->content(fn ($record) => $record?->pengusul?->username ?? '-'),
+                    Forms\Components\Placeholder::make('pengusul_prodi')
+                        ->label('Program Studi')
+                        ->content(function ($record) {
+                            $pengusul = $record?->pengusul;
+                            if (! $pengusul) return '-';
+                            $prodiNames = $pengusul->programStudis?->pluck('nama_prodi')->toArray();
+                            return !empty($prodiNames) 
+                                ? implode(', ', $prodiNames) 
+                                : ($pengusul->userProgramStudi?->programStudi?->nama_prodi ?? '-');
+                        }),
+                    Forms\Components\Placeholder::make('pengusul_jurusan')
+                        ->label('Jurusan')
+                        ->content(fn ($record) => $record?->pengusul?->jurusan?->nama_jurusan ?? '-'),
+                    Forms\Components\Placeholder::make('pengusul_email')
+                        ->label('Email Pengusul')
+                        ->content(fn ($record) => $record?->pengusul?->email ?? '-'),
+                ])
+                ->columns(2)
+                ->visible(fn ($record) => $record !== null),
+
             Forms\Components\TextInput::make('nama_mitra')
                 ->label('Nama Mitra')
                 ->required()

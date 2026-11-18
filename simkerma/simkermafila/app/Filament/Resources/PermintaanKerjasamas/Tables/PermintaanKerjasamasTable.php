@@ -62,7 +62,29 @@ class PermintaanKerjasamasTable
                 TextColumn::make('nama_pengusul_display')
                     ->label('Pengusul')
                     ->getStateUsing(fn ($record) => $record->pengusul ? $record->pengusul->name : ($record->nama_pengusul ?? '-'))
-                    ->searchable(['nama_pengusul', 'pengusul.name'])
+                    ->description(function ($record) {
+                        $pengusul = $record->pengusul;
+                        if (! $pengusul) {
+                            return null;
+                        }
+
+                        $nim = $pengusul->username;
+                        $prodiNames = $pengusul->programStudis?->pluck('nama_prodi')->toArray();
+                        $prodi = !empty($prodiNames)
+                            ? implode(', ', $prodiNames)
+                            : ($pengusul->userProgramStudi?->programStudi?->nama_prodi ?? null);
+
+                        $parts = [];
+                        if (!empty($nim)) {
+                            $parts[] = "NIM: {$nim}";
+                        }
+                        if (!empty($prodi)) {
+                            $parts[] = $prodi;
+                        }
+
+                        return !empty($parts) ? implode(' • ', $parts) : null;
+                    })
+                    ->searchable(['nama_pengusul', 'pengusul.name', 'pengusul.username'])
                     ->sortable(),
                 TextColumn::make('status_permintaan')
                     ->label('Status')
