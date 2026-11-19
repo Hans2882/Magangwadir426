@@ -15,6 +15,7 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
     protected string $view = 'filament.resources.pelaporan-kegiatan.widgets.jurusan-overview';
 
     public ?string $selectedYear = 'all';
+    public ?string $sortBy = 'desc';
 
     protected int | array | null $columns = [
         'default' => 1,
@@ -48,6 +49,7 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
     public function mount(): void
     {
         $this->selectedYear = 'all';
+        $this->sortBy = 'desc';
     }
 
     public function updatedSelectedYear(): void
@@ -55,9 +57,20 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
         $this->cachedStats = null;
     }
 
+    public function updatedSortBy(): void
+    {
+        $this->cachedStats = null;
+    }
+
     public function setYear(string $year): void
     {
         $this->selectedYear = $year;
+        $this->cachedStats = null;
+    }
+
+    public function setSort(string $sort): void
+    {
+        $this->sortBy = $sort;
         $this->cachedStats = null;
     }
 
@@ -187,14 +200,43 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
             }
         }
 
-        // 3. Buat Kartu untuk Setiap Jurusan
+        // 3. Susun dan Urutkan Data Jurusan
+        $jurusanItems = [];
         foreach ($jurusans as $jurusan) {
             $data = $jurusanStats[$jurusan->id] ?? ['total' => 0, 'cs' => 0, 'pr' => 0];
-            $countTotal = $data['total'];
-            $countCs = $data['cs'];
-            $countPr = $data['pr'];
+            $jurusanItems[] = [
+                'jurusan' => $jurusan,
+                'nama_jurusan' => $jurusan->nama_jurusan,
+                'total' => $data['total'],
+                'cs' => $data['cs'],
+                'pr' => $data['pr'],
+            ];
+        }
 
-            $displayName = preg_replace('/^Jurusan\s+/i', '', $jurusan->nama_jurusan);
+        $sortBy = $this->sortBy ?: 'desc';
+        usort($jurusanItems, function ($a, $b) use ($sortBy) {
+            if ($sortBy === 'desc') {
+                if ($b['total'] === $a['total']) {
+                    return strcmp($a['nama_jurusan'], $b['nama_jurusan']);
+                }
+                return $b['total'] <=> $a['total'];
+            } elseif ($sortBy === 'asc') {
+                if ($a['total'] === $b['total']) {
+                    return strcmp($a['nama_jurusan'], $b['nama_jurusan']);
+                }
+                return $a['total'] <=> $b['total'];
+            }
+            return strcmp($a['nama_jurusan'], $b['nama_jurusan']);
+        });
+
+        // 4. Buat Kartu untuk Setiap Jurusan dengan Nomor Urut
+        foreach ($jurusanItems as $index => $item) {
+            $rank = $index + 1;
+            $countTotal = $item['total'];
+            $countCs = $item['cs'];
+            $countPr = $item['pr'];
+
+            $displayName = '#' . $rank . ' ' . preg_replace('/^Jurusan\s+/i', '', $item['nama_jurusan']);
 
             $desc = $countTotal > 0
                 ? "{$countCs} Case Study · {$countPr} Press Release"
