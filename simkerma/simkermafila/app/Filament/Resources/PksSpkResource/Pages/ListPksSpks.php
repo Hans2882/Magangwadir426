@@ -79,6 +79,7 @@ class ListPksSpks extends ListRecords
                             'mitra',
                             'bidang',
                             'prodis',
+                            'jurusans',
                             'jenisDokumen',
                         ]);
 
