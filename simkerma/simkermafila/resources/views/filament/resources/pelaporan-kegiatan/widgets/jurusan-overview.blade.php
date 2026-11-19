@@ -12,7 +12,6 @@
                         $currYear = (string) date('Y');
                         $lastYear = (string) ((int) $currYear - 1);
                         $activeYear = $this->selectedYear ?: 'all';
-                        $activeSort = $this->sortBy ?: 'desc';
                     @endphp
                     @if ($activeYear === 'all')
                         <x-filament::badge color="info" size="sm">
@@ -27,20 +26,6 @@
                             Tahun {{ $activeYear }}
                         </x-filament::badge>
                     @endif
-
-                    @if ($activeSort === 'desc')
-                        <x-filament::badge color="primary" size="sm">
-                            Urutan: Terbanyak
-                        </x-filament::badge>
-                    @elseif ($activeSort === 'asc')
-                        <x-filament::badge color="warning" size="sm">
-                            Urutan: Paling Sedikit
-                        </x-filament::badge>
-                    @elseif ($activeSort === 'name_asc')
-                        <x-filament::badge color="gray" size="sm">
-                            Urutan: A - Z
-                        </x-filament::badge>
-                    @endif
                 </div>
             </x-slot>
 
@@ -50,39 +35,6 @@
 
             <x-slot name="afterHeader">
                 <div style="display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;">
-                    {{-- Sort Filter Buttons --}}
-                    <div style="display: inline-flex; align-items: center; gap: 0.25rem;">
-                        <span style="font-size: 0.75rem; font-weight: 500; color: #6b7280; margin-right: 0.25rem;">Urutan:</span>
-                        <x-filament::button
-                            size="xs"
-                            :color="$activeSort === 'desc' ? 'primary' : 'gray'"
-                            :outlined="$activeSort !== 'desc'"
-                            wire:click="setSort('desc')"
-                            icon="heroicon-m-bars-arrow-down"
-                        >
-                            Terbanyak
-                        </x-filament::button>
-
-                        <x-filament::button
-                            size="xs"
-                            :color="$activeSort === 'asc' ? 'primary' : 'gray'"
-                            :outlined="$activeSort !== 'asc'"
-                            wire:click="setSort('asc')"
-                            icon="heroicon-m-bars-arrow-up"
-                        >
-                            Paling Sedikit
-                        </x-filament::button>
-
-                        <x-filament::button
-                            size="xs"
-                            :color="$activeSort === 'name_asc' ? 'primary' : 'gray'"
-                            :outlined="$activeSort !== 'name_asc'"
-                            wire:click="setSort('name_asc')"
-                        >
-                            A - Z
-                        </x-filament::button>
-                    </div>
-
                     {{-- Quick preset buttons --}}
                     <div style="display: inline-flex; align-items: center; gap: 0.25rem;">
                         <x-filament::button
