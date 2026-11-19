@@ -249,15 +249,13 @@ class PelaporanKegiatanResource extends Resource
                 ->relationship('mitra', 'nama_mitra')
                 ->searchable()
                 ->preload()
-                ->required(fn ($get) => (int) $get('jenis_dokumen_id') === 8)
-                ->helperText(fn ($get) => (int) $get('jenis_dokumen_id') === 9 ? 'Opsional untuk Press Release.' : 'Wajib dipilih untuk Case Study.')
+                ->required()
                 ->live()
                 ->afterStateUpdated(fn ($set) => $set('parent_id', null)),
 
             Forms\Components\Select::make('parent_id')
-                ->label('Dokumen Rujukan (MoU / PKS / IA)')
-                ->required(fn ($get) => (int) $get('jenis_dokumen_id') === 8)
-                ->helperText(fn ($get) => (int) $get('jenis_dokumen_id') === 9 ? 'Opsional jika Press Release berkaitan dengan dokumen kerjasama.' : 'Wajib dipilih untuk Case Study.')
+                ->label('Dokumen Rujukan')
+                ->required()
                 ->options(function ($get) {
                     $mitraId = $get('mitra_id');
                     if (! $mitraId) {
@@ -265,7 +263,7 @@ class PelaporanKegiatanResource extends Resource
                     }
                     return \App\Models\Kerjasama::query()
                         ->where('mitra_id', $mitraId)
-                        ->whereIn('jenis_dokumen_id', [1, 3, 4]) // MoU, PKS, IA
+                        ->whereIn('jenis_dokumen_id', [1, 2, 3, 4, 5, 6]) // MoU, MoA, PKS, IA, SPK, LoC
                         ->with('jenisDokumen')
                         ->get()
                         ->mapWithKeys(function ($item) {

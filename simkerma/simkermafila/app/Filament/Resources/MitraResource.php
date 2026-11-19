@@ -83,7 +83,7 @@ class MitraResource extends Resource
                 ->optionsLimit(200)
                 ->hint('Kosongkan untuk Mitra Dalam Negeri (Indonesia)'),
             Forms\Components\Select::make('kategori_id')
-                ->label('Kategori (IKU)')
+                ->label('Kategori Perusahaan')
                 ->relationship('kategori', 'kategori')
                 ->searchable()
                 ->preload(),
@@ -129,7 +129,7 @@ class MitraResource extends Resource
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('kategori.kategori')
-                    ->label('Kategori')
+                    ->label('Kategori Perusahaan')
                     ->searchable()
                     ->sortable()
                     ->default('-')
@@ -167,7 +167,7 @@ class MitraResource extends Resource
             ->paginated([10, 25, 50, 100])
             ->filters([
     Tables\Filters\SelectFilter::make('kategori_id')
-        ->label('Kategori IKU')
+        ->label('Kategori Perusahaan')
         ->relationship('kategori', 'kategori')
         ->searchable()
         ->preload(),
@@ -192,7 +192,7 @@ class MitraResource extends Resource
                         ->default('Indonesia')
                         ->visible(fn ($record) => $record->negara_id >= 1),
                     \Filament\Infolists\Components\TextEntry::make('kategori.kategori')
-                        ->label('Kategori IKU')
+                        ->label('Kategori Perusahaan')
                         ->default('-')
                         ->badge()
                         ->color('primary'),

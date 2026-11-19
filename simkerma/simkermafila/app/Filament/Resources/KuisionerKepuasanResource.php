@@ -31,37 +31,25 @@ class KuisionerKepuasanResource extends Resource
     public static function canViewAny(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
-            return false;
-        }
-        return parent::canViewAny();
+        return (bool) $user?->isAdmin();
     }
 
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
-            return false;
-        }
-        return parent::canView($record);
+        return (bool) $user?->isAdmin();
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
-            return false;
-        }
-        return parent::canEdit($record);
+        return (bool) $user?->isAdmin();
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
-            return false;
-        }
-        return parent::canDelete($record);
+        return (bool) $user?->isAdmin();
     }
 
     public static function form(Schema $schema): Schema
