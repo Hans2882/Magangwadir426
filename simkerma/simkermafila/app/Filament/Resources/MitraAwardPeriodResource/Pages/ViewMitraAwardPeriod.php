@@ -14,6 +14,8 @@ class ViewMitraAwardPeriod extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            MitraAwardPeriodResource::configurationAction()
+                ->label('Bobot'),
             EditAction::make(),
             DeleteAction::make(),
         ];
