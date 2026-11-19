@@ -58,17 +58,17 @@ class CreatePermintaanKerjasama extends CreateRecord
                 : ($pengusul?->userProgramStudi?->programStudi?->nama_resmi ?? $pengusul?->userProgramStudi?->programStudi?->nama_prodi);
 
             $body = $prodiName
-                ? "Mahasiswa {$pengusulName} ({$prodiName}) mengajukan usulan mitra magang: {$record->nama_mitra}."
-                : "Mahasiswa {$pengusulName} mengajukan usulan mitra magang: {$record->nama_mitra}.";
+                ? "Mahasiswa {$pengusulName} ({$prodiName}) mengajukan usulan mitra baru: \"{$record->nama_mitra}\"."
+                : "Mahasiswa {$pengusulName} mengajukan usulan mitra baru: \"{$record->nama_mitra}\".";
 
             Notification::make()
-                ->title('Permintaan Kerjasama Magang Baru')
+                ->title('Permintaan Mitra Baru')
                 ->body($body)
                 ->icon('heroicon-o-briefcase')
                 ->info()
                 ->actions([
                     Action::make('view')
-                        ->label('Lihat Daftar')
+                        ->label('Tinjau Usulan')
                         ->url(PermintaanKerjasamaResource::getUrl('index')),
                 ])
                 ->sendToDatabase($recipients);

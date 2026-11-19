@@ -62,7 +62,29 @@ class PermintaanKerjasamasTable
                 TextColumn::make('nama_pengusul_display')
                     ->label('Pengusul')
                     ->getStateUsing(fn ($record) => $record->pengusul ? $record->pengusul->name : ($record->nama_pengusul ?? '-'))
-                    ->searchable(['nama_pengusul', 'pengusul.name'])
+                    ->description(function ($record) {
+                        $pengusul = $record->pengusul;
+                        if (! $pengusul) {
+                            return null;
+                        }
+
+                        $nim = $pengusul->username;
+                        $prodiNames = $pengusul->programStudis?->pluck('nama_prodi')->toArray();
+                        $prodi = !empty($prodiNames)
+                            ? implode(', ', $prodiNames)
+                            : ($pengusul->userProgramStudi?->programStudi?->nama_prodi ?? null);
+
+                        $parts = [];
+                        if (!empty($nim)) {
+                            $parts[] = "NIM: {$nim}";
+                        }
+                        if (!empty($prodi)) {
+                            $parts[] = $prodi;
+                        }
+
+                        return !empty($parts) ? implode(' • ', $parts) : null;
+                    })
+                    ->searchable(['nama_pengusul', 'pengusul.name', 'pengusul.username'])
                     ->sortable(),
                 TextColumn::make('status_permintaan')
                     ->label('Status')
@@ -111,8 +133,8 @@ class PermintaanKerjasamasTable
                         // Notifikasi Database ke Mahasiswa Pengusul
                         if ($record->pengusul) {
                             \Filament\Notifications\Notification::make()
-                                ->title('Permintaan Magang Disetujui')
-                                ->body("Usulan kemitraan magang dengan {$record->nama_mitra} telah disetujui menjadi mitra resmi.")
+                                ->title('Permintaan Mitra Baru Disetujui')
+                                ->body("Usulan mitra baru \"{$record->nama_mitra}\" telah disetujui dan resmi terdaftar di Simkerma.")
                                 ->icon('heroicon-o-check-circle')
                                 ->success()
                                 ->actions([
@@ -146,14 +168,14 @@ class PermintaanKerjasamasTable
                         // Notifikasi Database ke Mahasiswa Pengusul
                         if ($record->pengusul) {
                             \Filament\Notifications\Notification::make()
-                                ->title('Permintaan Magang Ditolak')
-                                ->body("Usulan kemitraan magang dengan {$record->nama_mitra} ditolak. Alasan: {$data['keterangan_tolak']}")
+                                ->title('Permintaan Mitra Baru Ditolak')
+                                ->body("Usulan mitra baru \"{$record->nama_mitra}\" ditolak. Alasan: {$data['keterangan_tolak']}")
                                 ->icon('heroicon-o-x-circle')
                                 ->danger()
                                 ->actions([
-                                    Action::make('view')
-                                        ->label('Lihat Keterangan')
-                                        ->url(\App\Filament\Resources\PermintaanKerjasamas\PermintaanKerjasamaResource::getUrl('index')),
+                                    Action::make('edit')
+                                        ->label('Perbaiki Usulan')
+                                        ->url(\App\Filament\Resources\PermintaanKerjasamas\PermintaanKerjasamaResource::getUrl('edit', ['record' => $record])),
                                 ])
                                 ->sendToDatabase($record->pengusul);
                         }
@@ -163,7 +185,8 @@ class PermintaanKerjasamasTable
                     ->visible(fn ($record) => $record->status_permintaan === 'Proses' && !\Illuminate\Support\Facades\Auth::user()?->isMahasiswa()),
                     
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn ($record) => \App\Filament\Resources\PermintaanKerjasamas\PermintaanKerjasamaResource::canEdit($record)),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
