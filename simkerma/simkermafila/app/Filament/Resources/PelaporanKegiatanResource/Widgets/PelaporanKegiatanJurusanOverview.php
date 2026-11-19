@@ -78,6 +78,8 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
     {
         $years = Kerjasama::query()
             ->whereIn('jenis_dokumen_id', [8, 9])
+            ->whereNotNull('parent_id')
+            ->whereHas('parent')
             ->where('status_workflow', '!=', 'Ditolak')
             ->get(['tahun', 'tanggal_awal', 'created_at'])
             ->map(function ($doc) {
@@ -119,10 +121,19 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        // Base Query: Dokumen Pelaporan Kegiatan (Case Study & Press Release) dan abaikan status Ditolak
+        // 1. Base Query: Dokumen Pelaporan Kegiatan yang memiliki rujukan kerjasama sah
         $baseQuery = Kerjasama::query()
             ->whereIn('jenis_dokumen_id', [8, 9])
-            ->where('status_workflow', '!=', 'Ditolak');
+            ->whereNotNull('parent_id')
+            ->whereHas('parent')
+            ->where('status_workflow', '!=', 'Ditolak')
+            ->with([
+                'jurusans',
+                'prodis',
+                'parent.jurusans',
+                'parent.prodis',
+                'parent.jenisDokumen',
+            ]);
 
         $selected = $this->selectedYear ?: 'all';
 
@@ -138,41 +149,52 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
             });
         }
 
-        // Ambil data dokumen dengan relasi jurusan dan prodi
-        $documents = (clone $baseQuery)
-            ->with(['jurusans', 'prodis'])
-            ->get(['id', 'jenis_dokumen_id']);
+        $documents = $baseQuery->get(['id', 'jenis_dokumen_id', 'parent_id', 'tahun', 'tanggal_awal', 'created_at']);
 
-        $totalAll = $documents->count();
+        // 2. Hitung Total Rujukan Unik Institusi (Sama Persis dengan UserCountWidget di Admin)
+        $totalUniqueAll = $documents
+            ->groupBy(function ($cs) {
+                if (!empty($cs->tahun)) return (string) $cs->tahun;
+                if (!empty($cs->tanggal_awal)) return date('Y', strtotime($cs->tanggal_awal));
+                return date('Y', strtotime($cs->created_at));
+            })
+            ->map(function ($itemsInYear) {
+                return $itemsInYear->map(function ($item) {
+                    $nomor = trim($item->parent?->nomor_dokumen ?? '');
+                    return !empty($nomor) ? strtolower($nomor) : 'PARENT_ID_' . $item->parent_id;
+                })->unique()->count();
+            })
+            ->sum();
+
         $totalCsAll = $documents->where('jenis_dokumen_id', 8)->count();
         $totalPrAll = $documents->where('jenis_dokumen_id', 9)->count();
 
         $stats = [];
 
-        // 1. Kartu Ringkasan Total Semua Jurusan
+        // 3. Kartu Ringkasan Total Semua Jurusan (Total Dokumen Kerma)
         $totalTitle = $selected === 'all'
-            ? 'Total Pelaporan (Semua Tahun)'
-            : "Total Pelaporan ({$selected})";
+            ? 'Total Dokumen Kerma (Semua Tahun)'
+            : "Total Dokumen Kerma ({$selected})";
 
         $stats[] = Stat::make(
             $totalTitle,
-            new HtmlString(number_format($totalAll) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Dokumen</span>')
+            new HtmlString(number_format($totalUniqueAll) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Dokumen</span>')
         )
-            ->description("{$totalCsAll} Case Study · {$totalPrAll} Press Release")
-            ->descriptionIcon('heroicon-m-rectangle-stack')
-            ->color($totalAll > 0 ? 'primary' : 'gray');
+            ->description("Didukung {$totalCsAll} Case Study · {$totalPrAll} Press Release")
+            ->descriptionIcon('heroicon-m-document-check')
+            ->color($totalUniqueAll > 0 ? 'primary' : 'gray');
 
-        // 2. Daftar Seluruh Master Jurusan
+        // 4. Daftar Seluruh Master Jurusan
         $jurusans = MasterJurusan::orderBy('nama_jurusan')->get();
 
-        // Hitung dokumen unik per jurusan (direct link via kerjasama_jurusan atau indirect via prodi)
-        $jurusanStats = [];
+        $jurusanUniqueParents = [];
+        $jurusanCsCount = [];
+        $jurusanPrCount = [];
+
         foreach ($jurusans as $j) {
-            $jurusanStats[$j->id] = [
-                'total' => 0,
-                'cs' => 0,
-                'pr' => 0,
-            ];
+            $jurusanUniqueParents[$j->id] = [];
+            $jurusanCsCount[$j->id] = 0;
+            $jurusanPrCount[$j->id] = 0;
         }
 
         foreach ($documents as $doc) {
@@ -188,28 +210,43 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
                 }
             }
 
+            // Fallback: Jika pelaporan tidak memiliki jurusan/prodi langsung, ambil dari parent
+            if ($matchedJurusanIds->isEmpty() && $doc->parent) {
+                foreach ($doc->parent->jurusans as $j) {
+                    $matchedJurusanIds->push($j->id);
+                }
+                foreach ($doc->parent->prodis as $p) {
+                    if ($p->jurusan_id) {
+                        $matchedJurusanIds->push($p->jurusan_id);
+                    }
+                }
+            }
+
+            $nomor = trim($doc->parent?->nomor_dokumen ?? '');
+            $uniqueKey = !empty($nomor) ? strtolower($nomor) : 'PARENT_ID_' . $doc->parent_id;
+
             foreach ($matchedJurusanIds->unique() as $jid) {
-                if (isset($jurusanStats[$jid])) {
-                    $jurusanStats[$jid]['total']++;
+                if (isset($jurusanUniqueParents[$jid])) {
+                    $jurusanUniqueParents[$jid][$uniqueKey] = true;
                     if ((int) $doc->jenis_dokumen_id === 8) {
-                        $jurusanStats[$jid]['cs']++;
+                        $jurusanCsCount[$jid]++;
                     } elseif ((int) $doc->jenis_dokumen_id === 9) {
-                        $jurusanStats[$jid]['pr']++;
+                        $jurusanPrCount[$jid]++;
                     }
                 }
             }
         }
 
-        // 3. Susun dan Urutkan Data Jurusan
+        // 5. Susun dan Urutkan Data Jurusan (SEMUA Jurusan Tampil, Termasuk yang 0)
         $jurusanItems = [];
         foreach ($jurusans as $jurusan) {
-            $data = $jurusanStats[$jurusan->id] ?? ['total' => 0, 'cs' => 0, 'pr' => 0];
+            $uniqueCount = count($jurusanUniqueParents[$jurusan->id] ?? []);
             $jurusanItems[] = [
                 'jurusan' => $jurusan,
                 'nama_jurusan' => $jurusan->nama_jurusan,
-                'total' => $data['total'],
-                'cs' => $data['cs'],
-                'pr' => $data['pr'],
+                'total' => $uniqueCount,
+                'cs' => $jurusanCsCount[$jurusan->id] ?? 0,
+                'pr' => $jurusanPrCount[$jurusan->id] ?? 0,
             ];
         }
 
@@ -229,7 +266,7 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
             return strcmp($a['nama_jurusan'], $b['nama_jurusan']);
         });
 
-        // 4. Buat Kartu untuk Setiap Jurusan dengan Nomor Urut
+        // 6. Buat Kartu untuk Setiap Jurusan (SEMUA Jurusan Tampil, Termasuk yang 0)
         foreach ($jurusanItems as $index => $item) {
             $rank = $index + 1;
             $countTotal = $item['total'];

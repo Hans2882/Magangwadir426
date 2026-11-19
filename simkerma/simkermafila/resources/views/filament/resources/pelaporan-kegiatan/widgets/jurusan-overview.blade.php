@@ -45,7 +45,7 @@
             </x-slot>
 
             <x-slot name="description">
-                Sebaran capaian dokumen Pelaporan Kegiatan (Case Study & Press Release) di masing-masing jurusan Polinema
+                Sebaran rujukan dokumen kerjasama (MoU / MoA / PKS / IA) dari Pelaporan Kegiatan di masing-masing jurusan Polinema
             </x-slot>
 
             <x-slot name="afterHeader">
