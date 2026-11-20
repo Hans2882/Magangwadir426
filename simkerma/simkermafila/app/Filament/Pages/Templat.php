@@ -100,46 +100,12 @@ class Templat extends Page
                         ->default(true),
                 ])
                 ->action(function (array $data): void {
-                    $fileRaw = $data['file'] ?? null;
-                    if (is_array($fileRaw)) {
-                        $fileRaw = \Illuminate\Support\Arr::first($fileRaw);
+                    $file = $data['file'] ?? null;
+                    if (is_array($file)) {
+                        $file = \Illuminate\Support\Arr::first($file);
                     }
 
-                    $disk = \Illuminate\Support\Facades\Storage::disk('templates');
-                    $fileName = null;
-
-                    if ($fileRaw instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
-                        $fileName = $fileRaw->getClientOriginalName();
-                        $fileRaw->storeAs('', $fileName, ['disk' => 'templates']);
-                    } elseif (is_string($fileRaw) && filled($fileRaw)) {
-                        $fileName = basename($fileRaw);
-
-                        // Jika file belum ada di disk templates, cek apakah masih berada di livewire-tmp
-                        if (! $disk->exists($fileName)) {
-                            $lwDiskName = \Livewire\Features\SupportFileUploads\FileUploadConfiguration::disk();
-                            $lwDisk = \Illuminate\Support\Facades\Storage::disk($lwDiskName);
-                            $lwPath = \Livewire\Features\SupportFileUploads\FileUploadConfiguration::path($fileName, false);
-
-                            if ($lwDisk->exists($lwPath)) {
-                                $stream = $lwDisk->readStream($lwPath);
-                                if ($stream) {
-                                    $disk->writeStream($fileName, $stream);
-                                    fclose($stream);
-                                }
-                            }
-                        }
-                    }
-
-                    $filePath = public_path('templates/' . $fileName);
-
-                    if (empty($fileName) || !file_exists($filePath)) {
-                        Notification::make()
-                            ->title('Gagal mengunggah berkas')
-                            ->body('Berkas fisik gagal tersimpan ke server. Pastikan Anda menunggu hingga proses unggah selesai (centang hijau) sebelum menekan tombol Kirim.')
-                            ->danger()
-                            ->send();
-                        return;
-                    }
+                    $fileName = basename((string) $file);
 
                     MasterTemplatDokumen::create([
                         'judul' => $data['judul'],
@@ -228,46 +194,11 @@ class Templat extends Page
                 $record->is_active = $data['is_active'];
 
                 if (!empty($data['replacement_file'])) {
-                    $fileRaw = $data['replacement_file'];
-                    if (is_array($fileRaw)) {
-                        $fileRaw = \Illuminate\Support\Arr::first($fileRaw);
+                    $file = $data['replacement_file'];
+                    if (is_array($file)) {
+                        $file = \Illuminate\Support\Arr::first($file);
                     }
-
-                    $disk = \Illuminate\Support\Facades\Storage::disk('templates');
-                    $newFileName = null;
-
-                    if ($fileRaw instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
-                        $newFileName = $fileRaw->getClientOriginalName();
-                        $fileRaw->storeAs('', $newFileName, ['disk' => 'templates']);
-                    } elseif (is_string($fileRaw) && filled($fileRaw)) {
-                        $newFileName = basename($fileRaw);
-
-                        if (! $disk->exists($newFileName)) {
-                            $lwDiskName = \Livewire\Features\SupportFileUploads\FileUploadConfiguration::disk();
-                            $lwDisk = \Illuminate\Support\Facades\Storage::disk($lwDiskName);
-                            $lwPath = \Livewire\Features\SupportFileUploads\FileUploadConfiguration::path($newFileName, false);
-
-                            if ($lwDisk->exists($lwPath)) {
-                                $stream = $lwDisk->readStream($lwPath);
-                                if ($stream) {
-                                    $disk->writeStream($newFileName, $stream);
-                                    fclose($stream);
-                                }
-                            }
-                        }
-                    }
-
-                    $newFilePath = public_path('templates/' . $newFileName);
-
-                    if (empty($newFileName) || !file_exists($newFilePath)) {
-                        Notification::make()
-                            ->title('Gagal mengganti berkas')
-                            ->body('Berkas fisik pengganti tidak ditemukan di server. Pastikan Anda menunggu hingga proses unggah selesai (centang hijau) sebelum menekan tombol Simpan.')
-                            ->danger()
-                            ->send();
-                        return;
-                    }
-
+                    $newFileName = basename((string) $file);
                     $oldFileName = $record->file_name;
 
                     // Hapus file fisik lama jika berbeda nama dan tidak dipakai record lain
