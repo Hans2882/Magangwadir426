@@ -91,7 +91,26 @@ class Templat extends Page
                         ])
                         ->maxSize(51200)
                         ->required()
-                        ->helperText('Ukuran maksimal berkas: 50 MB.'),
+                        ->helperText('Ukuran maksimal berkas: 50 MB.')
+                        ->saveUploadedFileUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): ?string {
+                            $fileName = $file->getClientOriginalName();
+                            $target = public_path('templates/' . $fileName);
+                            $source = $file->getRealPath();
+
+                            if (file_exists($source) && is_file($source)) {
+                                @copy($source, $target);
+                            }
+
+                            if (! file_exists($target) || filesize($target) === 0) {
+                                $stream = fopen($source, 'r');
+                                if ($stream) {
+                                    \Illuminate\Support\Facades\Storage::disk('templates')->put($fileName, $stream, ['visibility' => 'public']);
+                                    fclose($stream);
+                                }
+                            }
+
+                            return (file_exists($target) && filesize($target) > 0) ? $fileName : null;
+                        }),
                     Forms\Components\Toggle::make('is_active')
                         ->label('Status Aktif')
                         ->helperText('Jika aktif, dokumen akan langsung tampil dan dapat diunduh.')
@@ -182,7 +201,26 @@ class Templat extends Page
                         'application/msword',
                         'application/pdf',
                     ])
-                    ->maxSize(51200),
+                    ->maxSize(51200)
+                    ->saveUploadedFileUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): ?string {
+                        $fileName = $file->getClientOriginalName();
+                        $target = public_path('templates/' . $fileName);
+                        $source = $file->getRealPath();
+
+                        if (file_exists($source) && is_file($source)) {
+                            @copy($source, $target);
+                        }
+
+                        if (! file_exists($target) || filesize($target) === 0) {
+                            $stream = fopen($source, 'r');
+                            if ($stream) {
+                                \Illuminate\Support\Facades\Storage::disk('templates')->put($fileName, $stream, ['visibility' => 'public']);
+                                fclose($stream);
+                            }
+                        }
+
+                        return (file_exists($target) && filesize($target) > 0) ? $fileName : null;
+                    }),
                 Forms\Components\Toggle::make('is_active')
                     ->label('Status Aktif (Tampilkan di Daftar)')
                     ->helperText('Jika dinonaktifkan, dokumen ini otomatis disembunyikan dari pengguna umum (diarsipkan).'),
