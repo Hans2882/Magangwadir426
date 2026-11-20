@@ -82,6 +82,7 @@ class Templat extends Page
                         ->label('Berkas Templat (.docx / .doc / .pdf)')
                         ->disk('templates')
                         ->directory('')
+                        ->preserveFilenames()
                         ->acceptedFileTypes([
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                             'application/msword',
@@ -99,9 +100,21 @@ class Templat extends Page
                         ->default(true),
                 ])
                 ->action(function (array $data): void {
+                    $fileName = basename($data['file'] ?? '');
+                    $filePath = public_path('templates/' . $fileName);
+
+                    if (empty($fileName) || !file_exists($filePath)) {
+                        Notification::make()
+                            ->title('Gagal mengunggah berkas')
+                            ->body('Berkas fisik gagal tersimpan ke server. Pastikan ukuran berkas tidak melebihi batas dan coba unggah kembali.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
                     MasterTemplatDokumen::create([
                         'judul' => $data['judul'],
-                        'file_name' => basename($data['file']),
+                        'file_name' => $fileName,
                         'kategori' => $data['kategori'],
                         'bahasa' => $data['bahasa'],
                         'is_active' => $data['is_active'] ?? true,
@@ -164,6 +177,7 @@ class Templat extends Page
                     ->helperText('Kosongkan jika hanya ingin mengedit informasi judul/kategori tanpa mengganti berkas file yang ada.')
                     ->disk('templates')
                     ->directory('')
+                    ->preserveFilenames()
                     ->acceptedFileTypes([
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         'application/msword',
@@ -185,8 +199,19 @@ class Templat extends Page
                 $record->is_active = $data['is_active'];
 
                 if (!empty($data['replacement_file'])) {
-                    $oldFileName = $record->file_name;
                     $newFileName = basename($data['replacement_file']);
+                    $newFilePath = public_path('templates/' . $newFileName);
+
+                    if (!file_exists($newFilePath)) {
+                        Notification::make()
+                            ->title('Gagal mengganti berkas')
+                            ->body('Berkas fisik pengganti tidak ditemukan di server. Pastikan ukuran berkas sesuai dan coba unggah kembali.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    $oldFileName = $record->file_name;
 
                     // Hapus file fisik lama jika berbeda nama dan tidak dipakai record lain
                     if ($oldFileName && $oldFileName !== $newFileName) {
