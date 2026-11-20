@@ -27,6 +27,7 @@ class ListIAs extends ListRecords
             Action::make('api')
                 ->label('Lihat API')
                 ->icon('heroicon-o-code-bracket')
+                ->visible(fn () => ! \Illuminate\Support\Facades\Auth::user()?->isDosen())
                 ->modalHeading('API Data IA')
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Tutup')

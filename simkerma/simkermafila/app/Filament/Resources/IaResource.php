@@ -44,8 +44,11 @@ class IaResource extends Resource
     public static function canViewAny(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
+        if ($user?->isMahasiswa()) {
             return false;
+        }
+        if ($user?->isDosen()) {
+            return true;
         }
         return parent::canViewAny();
     }
@@ -53,10 +56,37 @@ class IaResource extends Resource
     public static function canCreate(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
+        if ($user?->isMahasiswa()) {
             return false;
         }
+        if ($user?->isDosen()) {
+            return true;
+        }
         return parent::canCreate();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        if ($user?->isDosen()) {
+            return (int) $record->user_id === (int) $user->id;
+        }
+        return parent::canEdit($record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa()) {
+            return false;
+        }
+        if ($user?->isDosen()) {
+            return (int) $record->user_id === (int) $user->id;
+        }
+        return parent::canDelete($record);
     }
 
     public static function getEloquentQuery(): Builder
@@ -256,6 +286,13 @@ class IaResource extends Resource
                     Forms\Components\Select::make('jurusans')
                         ->label('Jurusan')
                         ->relationship('jurusans', 'nama_jurusan')
+                        ->default(function () {
+                            $user = \Illuminate\Support\Facades\Auth::user();
+                            if ($user?->isDosen() && $jurusanId = $user->getJurusanId()) {
+                                return [$jurusanId];
+                            }
+                            return [];
+                        })
                         ->multiple()
                         ->preload()
                         ->searchable()
@@ -268,6 +305,13 @@ class IaResource extends Resource
                             if (!empty($jurusans)) {
                                 $query->whereIn('jurusan_id', $jurusans);
                             }
+                        })
+                        ->default(function () {
+                            $user = \Illuminate\Support\Facades\Auth::user();
+                            if ($user?->isDosen()) {
+                                return $user->getProdiIds();
+                            }
+                            return [];
                         })
                         ->multiple()
                         ->preload()
