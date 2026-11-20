@@ -27,7 +27,7 @@ class MasterTemplatDokumen extends Model
 
     public function getUrlAttribute(): string
     {
-        return asset('templates/' . $this->file_name);
+        return asset('templates/' . rawurlencode($this->file_name));
     }
 
     public function getFileSizeFormattedAttribute(): ?string
