@@ -117,6 +117,23 @@ class Templat extends Page
                         ->default(true),
                 ])
                 ->action(function (array $data): void {
+                    $targetDir = public_path('templates');
+                    if (! file_exists($targetDir)) {
+                        @mkdir($targetDir, 0775, true);
+                    }
+
+                    if (! is_writable($targetDir)) {
+                        \Illuminate\Support\Facades\Log::error("Template Upload Error: Direktori [{$targetDir}] tidak dapat ditulis oleh web server (Permission Denied).");
+
+                        Notification::make()
+                            ->title('Izin Penyimpanan Server Ditolak')
+                            ->body('Folder penyimpanan templat di server (public/templates) tidak memiliki izin tulis untuk web server (permission denied). Hubungi admin server untuk mengatur izin folder.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     $fileName = $this->storeUploadedTemplateFile($data['file'] ?? null);
 
                     if (! $fileName) {
@@ -233,6 +250,23 @@ class Templat extends Page
                 $record->is_active = $data['is_active'];
 
                 if (!empty($data['replacement_file'])) {
+                    $targetDir = public_path('templates');
+                    if (! file_exists($targetDir)) {
+                        @mkdir($targetDir, 0775, true);
+                    }
+
+                    if (! is_writable($targetDir)) {
+                        \Illuminate\Support\Facades\Log::error("Template Upload Error: Direktori [{$targetDir}] tidak dapat ditulis oleh web server (Permission Denied).");
+
+                        Notification::make()
+                            ->title('Izin Penyimpanan Server Ditolak')
+                            ->body('Folder penyimpanan templat di server (public/templates) tidak memiliki izin tulis untuk web server (permission denied). Hubungi admin server untuk mengatur izin folder.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     $newFileName = $this->storeUploadedTemplateFile($data['replacement_file']);
 
                     if (! $newFileName) {
@@ -338,6 +372,17 @@ class Templat extends Page
         }
 
         if (blank($fileInput)) {
+            \Illuminate\Support\Facades\Log::warning('Template Upload Warning: Input berkas kosong.');
+            return null;
+        }
+
+        $targetDir = public_path('templates');
+        if (! file_exists($targetDir)) {
+            @mkdir($targetDir, 0775, true);
+        }
+
+        if (! is_writable($targetDir)) {
+            \Illuminate\Support\Facades\Log::error("Template Upload Error: Direktori target [{$targetDir}] tidak memiliki izin tulis (Permission Denied).");
             return null;
         }
 
@@ -437,7 +482,18 @@ class Templat extends Page
             }
         }
 
-        return ($fileName && $templatesDisk->exists($fileName)) ? $fileName : null;
+        $fileExists = ($fileName && $templatesDisk->exists($fileName));
+        if (! $fileExists) {
+            \Illuminate\Support\Facades\Log::warning('Template Upload Warning: Berkas fisik tidak ditemukan di disk templates.', [
+                'input' => is_scalar($fileInput) ? $fileInput : gettype($fileInput),
+                'resolved_filename' => $fileName,
+                'target_dir' => $targetDir,
+                'target_dir_writable' => is_writable($targetDir),
+            ]);
+            return null;
+        }
+
+        return $fileName;
     }
 
     public function getViewData(): array
