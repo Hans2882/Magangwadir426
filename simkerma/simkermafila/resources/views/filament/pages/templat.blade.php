@@ -172,10 +172,14 @@
                                     <span style="font-size: 0.7rem; color: #9ca3af; margin-left: 0.25rem;">
                                         {{ $item->file_size_formatted }}
                                     </span>
+                                @else
+                                    <x-filament::badge color="danger" size="xs">
+                                        Berkas Belum Tersedia
+                                    </x-filament::badge>
                                 @endif
 
                                 @if($isAdmin && ! $item->is_active)
-                                    <x-filament::badge color="danger" size="xs">
+                                    <x-filament::badge color="warning" size="xs">
                                         Diarsipkan (Nonaktif)
                                     </x-filament::badge>
                                 @endif
@@ -215,17 +219,29 @@
                         @endif
 
                         {{-- Download Button --}}
-                        <x-filament::button
-                            tag="a"
-                            href="{{ $item->url }}"
-                            target="_blank"
-                            download="{{ $item->file_name }}"
-                            color="primary"
-                            size="sm"
-                            icon="heroicon-m-arrow-down-tray"
-                        >
-                            Unduh
-                        </x-filament::button>
+                        @if($item->file_size_formatted)
+                            <x-filament::button
+                                tag="a"
+                                href="{{ $item->url }}"
+                                target="_blank"
+                                download="{{ $item->file_name }}"
+                                color="primary"
+                                size="sm"
+                                icon="heroicon-m-arrow-down-tray"
+                            >
+                                Unduh
+                            </x-filament::button>
+                        @else
+                            <x-filament::button
+                                color="gray"
+                                size="sm"
+                                icon="heroicon-m-exclamation-triangle"
+                                disabled
+                                tooltip="Berkas belum diunggah ke server. Silakan edit templat ini untuk mengunggah berkas."
+                            >
+                                Berkas Kosong
+                            </x-filament::button>
+                        @endif
                     </div>
                 </div>
             @endforeach
