@@ -82,26 +82,73 @@ class Templat extends Page
                         ->label('Berkas Templat (.docx / .doc / .pdf)')
                         ->disk('templates')
                         ->directory('')
+                        ->visibility('public')
+                        ->preserveFilenames()
                         ->acceptedFileTypes([
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                             'application/msword',
                             'application/pdf',
-                            '.docx',
-                            '.doc',
-                            '.pdf',
                         ])
-                        ->maxSize(20480)
+                        ->maxSize(51200)
                         ->required()
-                        ->helperText('Ukuran maksimal berkas: 20 MB.'),
+                        ->helperText('Ukuran maksimal berkas: 50 MB.')
+                        ->saveUploadedFileUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): ?string {
+                            $fileName = $file->getClientOriginalName();
+                            $target = public_path('templates/' . $fileName);
+                            $source = $file->getRealPath();
+
+                            if (file_exists($source) && is_file($source)) {
+                                @copy($source, $target);
+                            }
+
+                            if (! file_exists($target) || filesize($target) === 0) {
+                                $stream = fopen($source, 'r');
+                                if ($stream) {
+                                    \Illuminate\Support\Facades\Storage::disk('templates')->put($fileName, $stream, ['visibility' => 'public']);
+                                    fclose($stream);
+                                }
+                            }
+
+                            return (file_exists($target) && filesize($target) > 0) ? $fileName : null;
+                        }),
                     Forms\Components\Toggle::make('is_active')
                         ->label('Status Aktif')
                         ->helperText('Jika aktif, dokumen akan langsung tampil dan dapat diunduh.')
                         ->default(true),
                 ])
                 ->action(function (array $data): void {
+                    $targetDir = public_path('templates');
+                    if (! file_exists($targetDir)) {
+                        @mkdir($targetDir, 0775, true);
+                    }
+
+                    if (! is_writable($targetDir)) {
+                        \Illuminate\Support\Facades\Log::error("Template Upload Error: Direktori [{$targetDir}] tidak dapat ditulis oleh web server (Permission Denied).");
+
+                        Notification::make()
+                            ->title('Izin Penyimpanan Server Ditolak')
+                            ->body('Folder penyimpanan templat di server (public/templates) tidak memiliki izin tulis untuk web server (permission denied). Hubungi admin server untuk mengatur izin folder.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $fileName = $this->storeUploadedTemplateFile($data['file'] ?? null);
+
+                    if (! $fileName) {
+                        Notification::make()
+                            ->title('Gagal mengunggah berkas')
+                            ->body('Berkas fisik gagal tersimpan ke server. Pastikan Anda menunggu hingga proses unggah selesai (indikator hijau) sebelum menekan tombol Kirim, dan coba kembali.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     MasterTemplatDokumen::create([
                         'judul' => $data['judul'],
-                        'file_name' => basename($data['file']),
+                        'file_name' => $fileName,
                         'kategori' => $data['kategori'],
                         'bahasa' => $data['bahasa'],
                         'is_active' => $data['is_active'] ?? true,
@@ -161,18 +208,36 @@ class Templat extends Page
                 ]),
                 Forms\Components\FileUpload::make('replacement_file')
                     ->label('Unggah Berkas Baru Pengganti (Opsional)')
-                    ->helperText('Kosongkan jika hanya ingin mengedit informasi judul/kategori tanpa mengganti berkas file yang ada.')
+                    ->helperText('Kosongkan jika hanya ingin mengedit informasi judul/kategori tanpa mengganti berkas file yang ada. Ukuran maksimal: 50 MB.')
                     ->disk('templates')
                     ->directory('')
+                    ->visibility('public')
+                    ->preserveFilenames()
                     ->acceptedFileTypes([
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         'application/msword',
                         'application/pdf',
-                        '.docx',
-                        '.doc',
-                        '.pdf',
                     ])
-                    ->maxSize(20480),
+                    ->maxSize(51200)
+                    ->saveUploadedFileUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): ?string {
+                        $fileName = $file->getClientOriginalName();
+                        $target = public_path('templates/' . $fileName);
+                        $source = $file->getRealPath();
+
+                        if (file_exists($source) && is_file($source)) {
+                            @copy($source, $target);
+                        }
+
+                        if (! file_exists($target) || filesize($target) === 0) {
+                            $stream = fopen($source, 'r');
+                            if ($stream) {
+                                \Illuminate\Support\Facades\Storage::disk('templates')->put($fileName, $stream, ['visibility' => 'public']);
+                                fclose($stream);
+                            }
+                        }
+
+                        return (file_exists($target) && filesize($target) > 0) ? $fileName : null;
+                    }),
                 Forms\Components\Toggle::make('is_active')
                     ->label('Status Aktif (Tampilkan di Daftar)')
                     ->helperText('Jika dinonaktifkan, dokumen ini otomatis disembunyikan dari pengguna umum (diarsipkan).'),
@@ -185,8 +250,36 @@ class Templat extends Page
                 $record->is_active = $data['is_active'];
 
                 if (!empty($data['replacement_file'])) {
+                    $targetDir = public_path('templates');
+                    if (! file_exists($targetDir)) {
+                        @mkdir($targetDir, 0775, true);
+                    }
+
+                    if (! is_writable($targetDir)) {
+                        \Illuminate\Support\Facades\Log::error("Template Upload Error: Direktori [{$targetDir}] tidak dapat ditulis oleh web server (Permission Denied).");
+
+                        Notification::make()
+                            ->title('Izin Penyimpanan Server Ditolak')
+                            ->body('Folder penyimpanan templat di server (public/templates) tidak memiliki izin tulis untuk web server (permission denied). Hubungi admin server untuk mengatur izin folder.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $newFileName = $this->storeUploadedTemplateFile($data['replacement_file']);
+
+                    if (! $newFileName) {
+                        Notification::make()
+                            ->title('Gagal mengunggah berkas pengganti')
+                            ->body('Berkas fisik baru gagal tersimpan ke server. Data templat belum diubah. Silakan pastikan proses unggah selesai lalu coba kembali.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     $oldFileName = $record->file_name;
-                    $newFileName = basename($data['replacement_file']);
 
                     // Hapus file fisik lama jika berbeda nama dan tidak dipakai record lain
                     if ($oldFileName && $oldFileName !== $newFileName) {
@@ -266,6 +359,141 @@ class Templat extends Page
             ->title($pesan)
             ->color($record->is_active ? 'success' : 'warning')
             ->send();
+    }
+
+    /**
+     * Memastikan berkas templat fisik benar-benar tersimpan ke disk 'templates' (public/templates/)
+     * dan mengembalikan nama berkasnya. Mengembalikan null jika gagal.
+     */
+    protected function storeUploadedTemplateFile(mixed $fileInput): ?string
+    {
+        if (is_array($fileInput)) {
+            $fileInput = \Illuminate\Support\Arr::first($fileInput);
+        }
+
+        if (blank($fileInput)) {
+            \Illuminate\Support\Facades\Log::warning('Template Upload Warning: Input berkas kosong.');
+            return null;
+        }
+
+        $targetDir = public_path('templates');
+        if (! file_exists($targetDir)) {
+            @mkdir($targetDir, 0775, true);
+        }
+
+        if (! is_writable($targetDir)) {
+            \Illuminate\Support\Facades\Log::error("Template Upload Error: Direktori target [{$targetDir}] tidak memiliki izin tulis (Permission Denied).");
+            return null;
+        }
+
+        $templatesDisk = \Illuminate\Support\Facades\Storage::disk('templates');
+        $fileName = null;
+
+        // 1. Jika bertipe TemporaryUploadedFile (Livewire)
+        if ($fileInput instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+            $fileName = $fileInput->getClientOriginalName();
+            $fileInput->storeAs('', $fileName, ['disk' => 'templates', 'visibility' => 'public']);
+            if ($templatesDisk->exists($fileName)) {
+                return $fileName;
+            }
+        }
+
+        // 2. Jika bertipe UploadedFile (Laravel Standard)
+        if ($fileInput instanceof \Illuminate\Http\UploadedFile) {
+            $fileName = $fileInput->getClientOriginalName();
+            $fileInput->storeAs('', $fileName, ['disk' => 'templates', 'visibility' => 'public']);
+            if ($templatesDisk->exists($fileName)) {
+                return $fileName;
+            }
+        }
+
+        // 3. Jika bertipe string
+        if (is_string($fileInput)) {
+            $fileName = basename($fileInput);
+
+            // Cek apakah berkas sudah otomatis tersimpan di disk 'templates'
+            if ($templatesDisk->exists($fileName)) {
+                return $fileName;
+            }
+
+            // Jika belum ada di disk 'templates', cari di disk temporary Livewire
+            $lwDiskName = \Livewire\Features\SupportFileUploads\FileUploadConfiguration::disk();
+            $lwDisk = \Illuminate\Support\Facades\Storage::disk($lwDiskName);
+
+            // Kemungkinan 1: Berkas di livewire-tmp dengan nama file/hash yang sama
+            $candidatePaths = [
+                $fileInput,
+                'livewire-tmp/' . $fileName,
+                'livewire-tmp/' . $fileInput,
+                $fileName,
+            ];
+
+            foreach ($candidatePaths as $candidate) {
+                if ($lwDisk->exists($candidate)) {
+                    $stream = $lwDisk->readStream($candidate);
+                    if ($stream) {
+                        $templatesDisk->put($fileName, $stream, ['visibility' => 'public']);
+                        if (is_resource($stream)) {
+                            fclose($stream);
+                        }
+                        if ($templatesDisk->exists($fileName)) {
+                            return $fileName;
+                        }
+                    }
+                }
+            }
+
+            // Kemungkinan 2: $fileName adalah original name, sedangkan berkas fisik di livewire-tmp tersimpan sebagai hash
+            // Cari metadata JSON di livewire-tmp yang memiliki "name" sama dengan $fileName
+            $allFiles = $lwDisk->files('livewire-tmp');
+            foreach ($allFiles as $metaFile) {
+                if (str_ends_with($metaFile, '.json')) {
+                    $meta = json_decode($lwDisk->get($metaFile), true);
+                    if (($meta['name'] ?? null) === $fileName) {
+                        $hashFile = substr($metaFile, 0, -5); // Hapus akhiran .json
+                        if ($lwDisk->exists($hashFile)) {
+                            $stream = $lwDisk->readStream($hashFile);
+                            if ($stream) {
+                                $templatesDisk->put($fileName, $stream, ['visibility' => 'public']);
+                                if (is_resource($stream)) {
+                                    fclose($stream);
+                                }
+                                if ($templatesDisk->exists($fileName)) {
+                                    return $fileName;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Kemungkinan 3: Cek path lokal absolut
+            if (file_exists($fileInput) && is_file($fileInput)) {
+                $stream = fopen($fileInput, 'r');
+                if ($stream) {
+                    $templatesDisk->put($fileName, $stream, ['visibility' => 'public']);
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
+                    if ($templatesDisk->exists($fileName)) {
+                        return $fileName;
+                    }
+                }
+            }
+        }
+
+        $fileExists = ($fileName && $templatesDisk->exists($fileName));
+        if (! $fileExists) {
+            \Illuminate\Support\Facades\Log::warning('Template Upload Warning: Berkas fisik tidak ditemukan di disk templates.', [
+                'input' => is_scalar($fileInput) ? $fileInput : gettype($fileInput),
+                'resolved_filename' => $fileName,
+                'target_dir' => $targetDir,
+                'target_dir_writable' => is_writable($targetDir),
+            ]);
+            return null;
+        }
+
+        return $fileName;
     }
 
     public function getViewData(): array

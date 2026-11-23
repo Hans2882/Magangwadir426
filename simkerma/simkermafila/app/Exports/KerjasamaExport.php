@@ -32,7 +32,13 @@ class KerjasamaExport implements
 
     public function query(): Builder
     {
-        return $this->query;
+        return $this->query->with([
+            'mitra',
+            'bidang',
+            'prodis',
+            'jurusans',
+            'jenisDokumen',
+        ]);
     }
 
     /**
@@ -111,183 +117,78 @@ class KerjasamaExport implements
 
         /*
          * ============================================================
-         * DATA DASAR
-         * ============================================================
-         */
-
-        $data = [
-            $jenisDokumen,
-            $item->judul,
-            $item->mitra?->nama_mitra,
-            $item->jenis,
-        ];
-
-        /*
-         * ============================================================
-         * PROGRAM STUDI & JURUSAN
+         * PROGRAM STUDI & JURUSAN (DEDUPLIKASI)
          * ============================================================
          *
          * MoU:
-         *   Tidak ada Program Studi maupun Jurusan.
+         *   Tidak menggunakan Program Studi maupun Jurusan (-).
          *
-         * PKS:
-         *   Program Studi + Jurusan.
-         *
-         * IA:
-         *   Program Studi + Jurusan.
-         *
-         * Dokumen lainnya:
-         *   Program Studi saja.
+         * PKS, MoA, IA, SPK, LoC, dll:
+         *   Menggunakan Program Studi dan Jurusan (bebas duplikat).
          */
 
-        if ($jenisDokumen === 'MOU') {
-            /*
-             * MoU tidak menggunakan Prodi maupun Jurusan.
-             */
-        } elseif (in_array($jenisDokumen, ['PKS', 'IA'])) {
+        $prodiText = '';
+        $jurusanText = '';
 
-            /*
-             * PKS dan IA menggunakan:
-             *
-             * 1. Program Studi
-             * 2. Jurusan
-             */
-
-            $data[] = $item->prodis
+        if ($jenisDokumen !== 'MOU') {
+            $prodiText = $item->prodis
                 ?->pluck('nama_prodi')
+                ?->unique()
+                ?->filter()
+                ?->values()
                 ?->implode(', ') ?? '';
 
-            $data[] = $item->jurusans
+            $jurusanText = $item->jurusans
                 ?->pluck('nama_jurusan')
-                ?->implode(', ') ?? '';
-
-        } else {
-
-            /*
-             * Dokumen lainnya hanya menggunakan Program Studi.
-             */
-
-            $data[] = $item->prodis
-                ?->pluck('nama_prodi')
+                ?->unique()
+                ?->filter()
+                ?->values()
                 ?->implode(', ') ?? '';
         }
 
         /*
          * ============================================================
-         * DATA LANJUTAN
+         * STANDAR 13 KOLOM TETAP (ZERO SHIFTING)
          * ============================================================
          */
 
-        $data[] = $item->bidang?->bidang_kerjasama;
-        $data[] = $item->nomor_dokumen;
-        $data[] = $item->tahun;
-        $data[] = optional($item->tanggal_awal)->format('d/m/Y');
-        $data[] = optional($item->tanggal_akhir)->format('d/m/Y');
-        $data[] = $item->status;
-        $data[] = $link;
-
-        return $data;
+        return [
+            $jenisDokumen !== '' ? $jenisDokumen : '-',
+            $item->judul ?? '-',
+            $item->mitra?->nama_mitra ?? '-',
+            $item->jenis ?? '-',
+            $prodiText !== '' ? $prodiText : '-',
+            $jurusanText !== '' ? $jurusanText : '-',
+            $item->bidang?->bidang_kerjasama ?? '-',
+            $item->nomor_dokumen ?? '-',
+            $item->tahun ?? '-',
+            optional($item->tanggal_awal)->format('d/m/Y') ?? '-',
+            optional($item->tanggal_akhir)->format('d/m/Y') ?? '-',
+            $item->status ?? '-',
+            $link,
+        ];
     }
 
     /**
-     * Heading Excel.
+     * Heading Excel (13 Kolom Tetap).
      */
     public function headings(): array
     {
-        /*
-         * Ambil jenis dokumen dari data yang akan diexport.
-         */
-        $jenisDokumen = $this->getJenisDokumenExport();
-
-        /*
-         * Heading dasar.
-         */
-        $headings = [
+        return [
             'Jenis Dokumen',
             'Judul',
             'Nama Mitra',
             'Jenis Kerjasama',
+            'Program Studi',
+            'Jurusan',
+            'Bidang',
+            'Nomor Dokumen',
+            'Tahun',
+            'Tanggal Awal',
+            'Tanggal Akhir',
+            'Status',
+            'Dokumen',
         ];
-
-        /*
-         * ============================================================
-         * PROGRAM STUDI & JURUSAN
-         * ============================================================
-         *
-         * MoU:
-         *   Tidak ada Prodi / Jurusan.
-         *
-         * PKS:
-         *   Program Studi + Jurusan.
-         *
-         * IA:
-         *   Program Studi + Jurusan.
-         *
-         * Dokumen lainnya:
-         *   Program Studi saja.
-         */
-
-        if ($jenisDokumen === 'MOU') {
-
-            /*
-             * MoU tidak memiliki Prodi maupun Jurusan.
-             */
-
-        } elseif (in_array($jenisDokumen, ['PKS', 'IA'])) {
-
-            /*
-             * PKS dan IA memiliki dua kolom:
-             *
-             * Program Studi
-             * Jurusan
-             */
-
-            $headings[] = 'Program Studi';
-            $headings[] = 'Jurusan';
-
-        } else {
-
-            /*
-             * Dokumen lainnya hanya memiliki Program Studi.
-             */
-
-            $headings[] = 'Program Studi';
-        }
-
-        /*
-         * Heading berikutnya.
-         */
-        $headings[] = 'Bidang';
-        $headings[] = 'Nomor Dokumen';
-        $headings[] = 'Tahun';
-        $headings[] = 'Tanggal Awal';
-        $headings[] = 'Tanggal Akhir';
-        $headings[] = 'Status';
-        $headings[] = 'Dokumen';
-
-        return $headings;
-    }
-
-    /**
-     * Mengambil jenis dokumen dari query export.
-     *
-     * Digunakan untuk menentukan struktur heading.
-     */
-    protected function getJenisDokumenExport(): ?string
-    {
-        $model = clone $this->query;
-
-        $item = $model
-            ->with('jenisDokumen')
-            ->first();
-
-        if (!$item) {
-            return null;
-        }
-
-        return strtoupper(
-            trim((string) ($item->jenisDokumen?->nama ?? ''))
-        );
     }
 
     /**
@@ -344,7 +245,7 @@ class KerjasamaExport implements
                             ->getCell("{$documentColumn}{$row}")
                             ->getValue();
 
-                        if (is_string($url) && $url !== '') {
+                        if (is_string($url) && str_starts_with($url, 'http')) {
 
                             /*
                              * Ubah isi cell menjadi "Lihat PDF".
@@ -378,6 +279,11 @@ class KerjasamaExport implements
                                 ->getFont()
                                 ->getColor()
                                 ->setARGB('FF0000FF');
+                        } elseif (empty($url) || $url === '-') {
+                            $sheet->setCellValue(
+                                "{$documentColumn}{$row}",
+                                '-'
+                            );
                         }
                     }
                 }

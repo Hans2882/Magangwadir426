@@ -9,14 +9,48 @@ Route::get('/login', function () {
     return redirect(route('filament.admin.auth.login'));
 })->name('login');
 
-Route::middleware(['auth'])->get('/view-dokumen', function (\Illuminate\Http\Request $request) {
+Route::get('/view-dokumen', function (\Illuminate\Http\Request $request) {
     $path = $request->query('path');
+    $id = $request->query('id');
 
     if (! $path || $path === '-') {
         return abort(404);
     }
 
-    if ($request->user()?->isMahasiswa() && (str_contains($path, 'StudyCase') || str_contains($path, 'Case_Study'))) {
+    $pathNormalized = str_replace(['\\', '&'], ['/', '_'], $path);
+    $pathClean = str_replace('\\', '/', $path);
+
+    // Cek apakah dokumen ini merupakan Case Study publik yang sudah selesai
+    $isPublicCaseStudy = false;
+    if ($id) {
+        $isPublicCaseStudy = \App\Models\Kerjasama::where('id', $id)
+            ->where('jenis_dokumen_id', 8)
+            ->where('status_workflow', 'Selesai')
+            ->exists();
+    }
+
+    if (! $isPublicCaseStudy && (str_contains($pathNormalized, 'StudyCase') || str_contains($pathNormalized, 'Case_Study'))) {
+        $isPublicCaseStudy = \App\Models\Kerjasama::where('jenis_dokumen_id', 8)
+            ->where('status_workflow', 'Selesai')
+            ->where(function ($q) use ($path, $pathClean, $pathNormalized) {
+                $q->where('link_dokumen', $path)
+                    ->orWhere('link_dokumen', $pathClean)
+                    ->orWhere('link_dokumen', $pathNormalized)
+                    ->orWhere('link_dokumen', 'like', '%' . $path . '%')
+                    ->orWhere('link_dokumen', 'like', '%' . $pathClean . '%')
+                    ->orWhere('link_dokumen', 'like', '%' . $pathNormalized . '%');
+            })
+            ->exists();
+    }
+
+    // Jika bukan Case Study publik yang selesai dan pengunjung belum login, arahkan ke login
+    if (! $isPublicCaseStudy && ! $request->user()) {
+        return redirect()->guest(route('login'));
+    }
+
+    // Jika login sebagai mahasiswa:
+    // Izinkan jika Case Study publik yang selesai. Tolak jika bukan publik atau dokumen lain yang dibatasi.
+    if ($request->user()?->isMahasiswa() && ! $isPublicCaseStudy && (str_contains($pathNormalized, 'StudyCase') || str_contains($pathNormalized, 'Case_Study'))) {
         return abort(403, 'Anda tidak memiliki hak akses untuk mengunduh atau melihat dokumen ini.');
     }
 

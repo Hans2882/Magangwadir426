@@ -123,7 +123,7 @@ class ListMitras extends ListRecords
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('kategori.kategori')
-                    ->label('Kategori IKU')
+                    ->label('Kategori Perusahaan')
                     ->badge()
                     ->searchable()
                     ->sortable()
@@ -225,11 +225,11 @@ class ListMitras extends ListRecords
 
                 /*
                 |--------------------------------------------------------------------------
-                | KATEGORI IKU
+                | KATEGORI PERUSAHAAN
                 |--------------------------------------------------------------------------
                 */
                 Tables\Filters\SelectFilter::make('kategori_id')
-                    ->label('Kategori IKU')
+                    ->label('Kategori Perusahaan')
                     ->relationship('kategori', 'kategori')
                     ->searchable()
                     ->preload(),

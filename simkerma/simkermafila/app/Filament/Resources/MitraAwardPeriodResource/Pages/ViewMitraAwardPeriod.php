@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\MitraAwardPeriodResource\Pages;
 
 use App\Filament\Resources\MitraAwardPeriodResource;
+use App\Models\MitraAwardPeriod;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -15,6 +16,7 @@ class ViewMitraAwardPeriod extends ViewRecord
     {
         return [
             MitraAwardPeriodResource::configurationAction()
+                ->record(fn (): MitraAwardPeriod => $this->getRecord())
                 ->label('Bobot'),
             EditAction::make(),
             DeleteAction::make(),

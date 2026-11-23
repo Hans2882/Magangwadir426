@@ -25,7 +25,7 @@ trait HasMitraFormSchema
                 ->optionsLimit(200)
                 ->hint('Kosongkan untuk Mitra Dalam Negeri (Indonesia)'),
             Forms\Components\Select::make('kategori_id')
-                ->label('Kategori (IKU)')
+                ->label('Kategori Perusahaan')
                 ->relationship('kategori', 'kategori')
                 ->searchable()
                 ->preload(),

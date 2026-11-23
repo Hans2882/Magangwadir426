@@ -88,7 +88,7 @@
                             @php
                                 $path = is_array($study->link_dokumen) ? array_values($study->link_dokumen)[0] : $study->link_dokumen;
                             @endphp
-                            <a href="{{ route('view-dokumen', ['path' => $path]) }}" target="_blank" class="btn-primary">
+                            <a href="{{ route('view-dokumen', ['path' => $path, 'id' => $study->id]) }}" target="_blank" class="btn-primary">
                                 <i data-lucide="file-text" class="icon-sm"></i>
                                 Lihat Dokumen
                             </a>

@@ -17,7 +17,7 @@ class KerjasamaPolicy extends BasePolicy
 
     public function update(User $user, $model): bool
     {
-        if ($user->isDosen() && in_array($model->jenis_dokumen_id, [8, 9]) && (int) $model->user_id === (int) $user->id) {
+        if ($user->isDosen() && in_array($model->jenis_dokumen_id, [4, 8, 9]) && (int) $model->user_id === (int) $user->id) {
             return true;
         }
 
@@ -26,7 +26,7 @@ class KerjasamaPolicy extends BasePolicy
 
     public function delete(User $user, $model): bool
     {
-        if ($user->isDosen() && in_array($model->jenis_dokumen_id, [8, 9]) && (int) $model->user_id === (int) $user->id) {
+        if ($user->isDosen() && in_array($model->jenis_dokumen_id, [4, 8, 9]) && (int) $model->user_id === (int) $user->id) {
             return true;
         }
 

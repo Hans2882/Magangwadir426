@@ -27,6 +27,7 @@ class ListIAs extends ListRecords
             Action::make('api')
                 ->label('Lihat API')
                 ->icon('heroicon-o-code-bracket')
+                ->visible(fn () => ! \Illuminate\Support\Facades\Auth::user()?->isDosen())
                 ->modalHeading('API Data IA')
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Tutup')
@@ -98,8 +99,15 @@ class ListIAs extends ListRecords
             |--------------------------------------------------------------------------
             */
 
+            Action::make('tambah_terpadu')
+                ->label('Tambah Dokumen Baru')
+                ->icon('heroicon-o-document-plus')
+                ->color('primary')
+                ->url(fn (): string => \App\Filament\Pages\TambahDokumenBaru::getUrl()),
+
             Actions\CreateAction::make()
-                ->label('Tambah Data')
+                ->label('Tambah Manual IA')
+                ->color('gray')
                 ->icon('heroicon-o-plus'),
         ];
     }

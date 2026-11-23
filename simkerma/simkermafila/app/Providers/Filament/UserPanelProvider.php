@@ -55,10 +55,10 @@ class UserPanelProvider extends PanelProvider
                 'Data Mitra',
                 'Data Kerjasama',
                 'Luaran Dokumen kerjasama',
-                'Pelaporan & Tracking',
                 'Pengajuan Berita Acara',
                 'Simmagang',
-                'Mitra Awards',
+                'Pelaporan & Tracking',
+                'Mitra Award',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
