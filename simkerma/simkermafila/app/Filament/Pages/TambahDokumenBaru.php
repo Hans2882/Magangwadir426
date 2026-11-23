@@ -540,6 +540,7 @@ class TambahDokumenBaru extends Page implements HasForms
         if ($user?->isDosen()) {
             if ((int) ($data['jenis_dokumen_id'] ?? 1) !== 4) {
                 $this->isCreating = false;
+                $this->dispatch('document-save-failed');
                 Notification::make()
                     ->title('Akses Dibatasi')
                     ->body('Dosen hanya dapat menambahkan dokumen Implementation Arrangement (IA).')
@@ -552,13 +553,14 @@ class TambahDokumenBaru extends Page implements HasForms
             // 1. Validasi berdasarkan hasil AI OCR
             $detectedCat = strtoupper(trim((string) ($data['ai_detected_category'] ?? $this->data['ai_detected_category'] ?? '')));
             if ($detectedCat && !in_array($detectedCat, ['IA', 'IMPLEMENTATION ARRANGEMENT'])) {
+                $this->isCreating = false;
+                $this->dispatch('document-save-failed');
                 Notification::make()
                     ->title('Dokumen Tidak Dapat Disimpan')
                     ->body("Berkas yang Anda unggah terdeteksi sebagai dokumen {$detectedCat}. Dosen hanya diperkenankan mengunggah dokumen Implementation Arrangement (IA). Silakan periksa kembali berkas yang Anda pilih.")
                     ->danger()
                     ->persistent()
                     ->send();
-                $this->isCreating = false;
                 return;
             }
 
@@ -568,6 +570,8 @@ class TambahDokumenBaru extends Page implements HasForms
             if (is_string($fileName) && !empty($fileName)) {
                 $lowerName = strtolower(basename($fileName));
                 if (preg_match('/\b(mou|nota[-_ ]kesepahaman)\b/i', $lowerName)) {
+                    $this->isCreating = false;
+                    $this->dispatch('document-save-failed');
                     Notification::make()
                         ->title('Dokumen Tidak Dapat Disimpan')
                         ->body('Berkas yang Anda unggah terindikasi sebagai dokumen MoU. Dosen hanya dapat mengunggah dokumen Implementation Arrangement (IA).')
@@ -576,6 +580,8 @@ class TambahDokumenBaru extends Page implements HasForms
                         ->send();
                     return;
                 } elseif (preg_match('/\b(pks|spk|perjanjian[-_ ]kerja[-_ ]sama|perjanjian[-_ ]kerjasama)\b/i', $lowerName)) {
+                    $this->isCreating = false;
+                    $this->dispatch('document-save-failed');
                     Notification::make()
                         ->title('Dokumen Tidak Dapat Disimpan')
                         ->body('Berkas yang Anda unggah terindikasi sebagai dokumen PKS/SPK. Dosen hanya dapat mengunggah dokumen Implementation Arrangement (IA).')
@@ -603,6 +609,7 @@ class TambahDokumenBaru extends Page implements HasForms
 
             if ($existing) {
                 $this->isCreating = false;
+                $this->dispatch('document-save-failed');
                 Notification::make()
                     ->title('Nomor Dokumen Sudah Digunakan')
                     ->body("Nomor dokumen Polinema '{$pol}' sudah terdaftar pada dokumen: '{$existing->judul}'. Silakan periksa kembali nomor berkas Anda.")
@@ -734,6 +741,7 @@ class TambahDokumenBaru extends Page implements HasForms
         }
         } catch (\Throwable $e) {
             $this->isCreating = false;
+            $this->dispatch('document-save-failed');
             throw $e;
         }
     }
