@@ -217,11 +217,31 @@ class TambahDokumenBaru extends Page implements HasForms
                             ->native(false)
                             ->live()
                             ->helperText($isDosen ? 'Dosen hanya memiliki hak akses untuk menambahkan dokumen IA (Implementation Arrangement).' : 'Pilihan ini terisi otomatis dari berkas dan dapat Anda sesuaikan jika diperlukan.')
-                            ->afterStateUpdated(function ($state, callable $set) {
+                            ->afterStateUpdated(function ($state, callable $set, Get $get) {
                                 if (in_array((int) $state, [2, 6])) {
                                     $set('jenis', 'Luar Negeri');
                                 } elseif (in_array((int) $state, [1, 3, 5])) {
                                     $set('jenis', 'Dalam Negeri');
+                                }
+
+                                // Jika mitra_id sudah dipilih, sinkronkan dokumen induk (MoU & PKS)
+                                $mitraId = $get('mitra_id');
+                                if ($mitraId && in_array((int) $state, [2, 3, 4, 5, 6])) {
+                                    $latestMou = Kerjasama::query()
+                                        ->where('mitra_id', $mitraId)
+                                        ->whereIn('jenis_dokumen_id', [1, 7])
+                                        ->latest('tanggal_awal')
+                                        ->first();
+                                    $set('parent_id', $latestMou?->id);
+
+                                    if ((int) $state === 4) {
+                                        $latestPks = Kerjasama::query()
+                                            ->where('mitra_id', $mitraId)
+                                            ->whereIn('jenis_dokumen_id', [2, 3, 5, 6])
+                                            ->latest('tanggal_awal')
+                                            ->first();
+                                        $set('pks_id', $latestPks?->id);
+                                    }
                                 }
                             }),
 
@@ -386,7 +406,57 @@ class TambahDokumenBaru extends Page implements HasForms
                             ->label('Nomor Dokumen Polinema')
                             ->required()
                             ->maxLength(100)
-                            ->helperText('Jika nomor dokumen ditulis tangan bisa dicek terlebih dahulu.'),
+                            ->live(onBlur: true)
+                            ->helperText(function (Get $get) {
+                                $val = trim((string) ($get('nomor_dokumen_polinema') ?? ''));
+                                if (empty($val)) {
+                                    return 'Masukkan nomor dokumen resmi Polinema (jika nomor dokumen ditulis tangan bisa dicek terlebih dahulu).';
+                                }
+
+                                $existing = Kerjasama::query()
+                                    ->where(function ($q) use ($val) {
+                                        $q->where('nomor_dokumen', $val)
+                                            ->orWhere('nomor_dokumen', 'like', $val . "\n%")
+                                            ->orWhere('nomor_dokumen', 'like', $val . " %");
+                                    })
+                                    ->first();
+
+                                if ($existing) {
+                                    $jenisName = match ((int) $existing->jenis_dokumen_id) {
+                                        1 => 'MoU',
+                                        7 => 'LoI',
+                                        2 => 'MoA',
+                                        3 => 'PKS',
+                                        4 => 'IA',
+                                        5 => 'SPK',
+                                        6 => 'LoC',
+                                        default => 'Kerjasama',
+                                    };
+                                    return new \Illuminate\Support\HtmlString("<span style='color: #dc2626; font-weight: 600;'>⚠️ Perhatian: Nomor ini sudah terdaftar pada dokumen {$jenisName}: '{$existing->judul}' ({$existing->tahun}).</span>");
+                                }
+
+                                return new \Illuminate\Support\HtmlString("<span style='color: #16a34a; font-weight: 500;'>✓ Nomor dokumen Polinema tersedia.</span>");
+                            })
+                            ->rule(function () {
+                                return function ($attribute, $value, $fail) {
+                                    $val = trim((string) $value);
+                                    if (empty($val)) {
+                                        return;
+                                    }
+
+                                    $existing = Kerjasama::query()
+                                        ->where(function ($q) use ($val) {
+                                            $q->where('nomor_dokumen', $val)
+                                                ->orWhere('nomor_dokumen', 'like', $val . "\n%")
+                                                ->orWhere('nomor_dokumen', 'like', $val . " %");
+                                        })
+                                        ->first();
+
+                                    if ($existing) {
+                                        $fail("Nomor Dokumen Polinema sudah digunakan pada: '{$existing->judul}'. Silakan gunakan nomor yang belum pernah terdaftar.");
+                                    }
+                                };
+                            }),
 
                         Forms\Components\TextInput::make('nomor_dokumen_mitra')
                             ->label('Nomor Dokumen Mitra')
@@ -394,7 +464,23 @@ class TambahDokumenBaru extends Page implements HasForms
 
                         Forms\Components\DatePicker::make('tanggal_awal')
                             ->label('Tanggal Berlaku / Penandatanganan')
-                            ->required(),
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                if ((int) $get('jenis_dokumen_id') === 4 && !empty($state) && empty($get('tanggal_akhir'))) {
+                                    try {
+                                        $raw = trim((string) $state);
+                                        if (preg_match('/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/', $raw, $m)) {
+                                            $c = \Carbon\Carbon::createFromDate((int)$m[3], (int)$m[2], (int)$m[1]);
+                                        } elseif (preg_match('/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/', $raw, $m)) {
+                                            $c = \Carbon\Carbon::createFromDate((int)$m[1], (int)$m[2], (int)$m[3]);
+                                        } else {
+                                            $c = \Carbon\Carbon::parse($raw);
+                                        }
+                                        $set('tanggal_akhir', $c->addYear()->format('Y-m-d'));
+                                    } catch (\Throwable $e) {}
+                                }
+                            }),
 
                         Forms\Components\DatePicker::make('tanggal_akhir')
                             ->label('Tanggal Berakhir')
@@ -504,6 +590,28 @@ class TambahDokumenBaru extends Page implements HasForms
         // Susun nomor_dokumen gabungan
         $pol = trim($data['nomor_dokumen_polinema'] ?? '');
         $mit = trim($data['nomor_dokumen_mitra'] ?? '');
+
+        // Safety-net: Validasi nomor Polinema redundan di backend
+        if (!empty($pol)) {
+            $existing = Kerjasama::query()
+                ->where(function ($q) use ($pol) {
+                    $q->where('nomor_dokumen', $pol)
+                        ->orWhere('nomor_dokumen', 'like', $pol . "\n%")
+                        ->orWhere('nomor_dokumen', 'like', $pol . " %");
+                })
+                ->first();
+
+            if ($existing) {
+                $this->isCreating = false;
+                Notification::make()
+                    ->title('Nomor Dokumen Sudah Digunakan')
+                    ->body("Nomor dokumen Polinema '{$pol}' sudah terdaftar pada dokumen: '{$existing->judul}'. Silakan periksa kembali nomor berkas Anda.")
+                    ->danger()
+                    ->persistent()
+                    ->send();
+                return;
+            }
+        }
         $nomorDokumen = null;
         if (!empty($pol) && !empty($mit)) {
             $nomorDokumen = $pol . "\n" . $mit;
