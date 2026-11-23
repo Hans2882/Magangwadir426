@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Facades\FilamentView;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -56,6 +57,8 @@ class TambahDokumenBaru extends Page implements HasForms
     protected string $view = 'filament.pages.tambah-dokumen-baru';
 
     public ?array $data = [];
+
+    public bool $isCreating = false;
 
     public static function canAccess(): bool
     {
@@ -437,12 +440,20 @@ class TambahDokumenBaru extends Page implements HasForms
 
     protected function saveDocument(bool $another = false): void
     {
-        $data = $this->form->getState();
-        $user = Auth::user();
+        if ($this->isCreating) {
+            return;
+        }
+
+        $this->isCreating = true;
+
+        try {
+            $data = $this->form->getState();
+            $user = Auth::user();
 
         // Validasi batasan Dosen: hanya boleh mengunggah IA (4)
         if ($user?->isDosen()) {
             if ((int) ($data['jenis_dokumen_id'] ?? 1) !== 4) {
+                $this->isCreating = false;
                 Notification::make()
                     ->title('Akses Dibatasi')
                     ->body('Dosen hanya dapat menambahkan dokumen Implementation Arrangement (IA).')
@@ -461,6 +472,7 @@ class TambahDokumenBaru extends Page implements HasForms
                     ->danger()
                     ->persistent()
                     ->send();
+                $this->isCreating = false;
                 return;
             }
 
@@ -580,6 +592,7 @@ class TambahDokumenBaru extends Page implements HasForms
         };
 
         if ($another) {
+            $this->isCreating = false;
             Notification::make()
                 ->title("Dokumen {$jenisNama} Berhasil Disimpan!")
                 ->body("'{$record->judul}' berhasil tercatat. Formulir telah dibersihkan untuk berkas berikutnya.")
@@ -609,7 +622,11 @@ class TambahDokumenBaru extends Page implements HasForms
                 default => MouResource::getUrl('index'),
             };
 
-            $this->redirect($redirectUrl);
+            $this->redirect($redirectUrl, navigate: FilamentView::hasSpaMode($redirectUrl));
+        }
+        } catch (\Throwable $e) {
+            $this->isCreating = false;
+            throw $e;
         }
     }
 }
