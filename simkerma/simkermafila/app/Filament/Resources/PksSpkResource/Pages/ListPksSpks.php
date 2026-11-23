@@ -95,8 +95,15 @@ class ListPksSpks extends ListRecords
             |--------------------------------------------------------------------------
             */
 
+            Action::make('tambah_terpadu')
+                ->label('Tambah Dokumen Baru')
+                ->icon('heroicon-o-document-plus')
+                ->color('primary')
+                ->url(fn (): string => \App\Filament\Pages\TambahDokumenBaru::getUrl()),
+
             Actions\CreateAction::make()
-                ->label('Tambah Data')
+                ->label('Tambah Manual PKS')
+                ->color('gray')
                 ->icon('heroicon-o-plus'),
         ];
     }

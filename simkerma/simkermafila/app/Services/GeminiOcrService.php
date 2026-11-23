@@ -134,7 +134,17 @@ class GeminiOcrService
                 . "  - 'institusi/organisasi multilateral' includes PBB, UNICEF, dsb.\n"
                 . "  - 'instansi Pemerintah, BUMN, atau BUMD' includes government agencies, regional government, state-owned enterprises.)\n"
                 . "- bidang_id (Integer or null, guess the collaboration field (Bidang Kerjasama) based on the document title and content. Use ONLY one of the keys from this exact mapping: $bidangString)\n"
-                . "- jenis_dokumen_id (Integer or null, guess the document type (e.g. MoU, LoI, PKS, IA) based on the document title and content. Use ONLY one of the keys from this exact mapping: $jenisDokumenString)\n"
+                . "- jenis_dokumen_id (Integer or null, classify the document type strictly based on title, heading, and content. Use ONLY one of the keys from this exact mapping: $jenisDokumenString.\n"
+                . "  Classification guide:\n"
+                . "  * 1 (MoU) if titled 'NOTA KESEPAHAMAN' or 'MEMORANDUM OF UNDERSTANDING'.\n"
+                . "  * 7 (LoI) if titled 'LETTER OF INTENT' or 'SURAT PERNYATAAN KEHENDAK'.\n"
+                . "  * 3 (PKS) if titled 'PERJANJIAN KERJA SAMA', 'PERJANJIAN KERJASAMA', or 'SURAT PERJANJIAN'.\n"
+                . "  * 2 (MoA) if titled 'MEMORANDUM OF AGREEMENT' or 'MOA'.\n"
+                . "  * 5 (SPK) if titled 'SURAT PERJANJIAN KERJA' or 'SPK'.\n"
+                . "  * 6 (LoC) if titled 'LETTER OF COLLABORATION'.\n"
+                . "  * 4 (IA) if titled 'IMPLEMENTATION ARRANGEMENT', 'IA', or 'PENGATURAN PELAKSANAAN'.)\n"
+                . "- detected_category (String, exactly 'MoU', 'PKS', or 'IA' representing the main category)\n"
+                . "- detected_reason (String, 1 concise sentence in Indonesian explaining why this document type was chosen)\n"
                 . "- jenis (String, guess the scope or Cakupan (DN/LN) based on the partner's country. Must be EXACTLY 'Dalam Negeri' if the partner is from Indonesia, or 'Luar Negeri' if the partner is from outside Indonesia)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
                 . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document. IMPORTANT: Extract ONLY the major name, do not include the word 'Program Studi' or 'Prodi'. Standardize degree prefixes from Roman numerals to alphanumeric, e.g., 'D-III' -> 'D3', 'S-I' -> 'S1'. For 'D-IV' or 'D4', change it to 'Sarjana Terapan'. Example: 'Program Studi D-IV Administrasi Bisnis' should be extracted strictly as 'Sarjana Terapan Administrasi Bisnis')\n"
@@ -207,12 +217,12 @@ class GeminiOcrService
     public static function getAutoFillAction(?string $documentType = null): \Filament\Actions\Action
     {
         return \Filament\Actions\Action::make('autofill')
-            ->label('Auto-Fill via AI')
-            ->icon('heroicon-m-sparkles')
+            ->label('Isi Otomatis')
+            ->icon('heroicon-m-document-text')
             ->requiresConfirmation()
-            ->modalHeading('Ekstrak Data Otomatis')
-            ->modalDescription('Sistem akan membaca dokumen secara lokal dan memetakan data secara otomatis melalui AI.')
-            ->modalSubmitActionLabel('Mulai Proses')
+            ->modalHeading('Baca Dokumen Otomatis')
+            ->modalDescription('Sistem akan membaca isi berkas yang diunggah dan mengisi kolom formulir secara otomatis.')
+            ->modalSubmitActionLabel('Mulai Baca Berkas')
             ->action(function ($get, $set, $livewire = null) use ($documentType) {
                 @set_time_limit(100);
 
@@ -279,20 +289,16 @@ class GeminiOcrService
                 if ($result && $result['success']) {
                     $data = $result['data'];
 
-                    // Deteksi apakah dokumen ini adalah IA (Implementation Arrangement)
-                    $isIa = ($documentType !== null && strtoupper($documentType) === 'IA');
-                    if (!$isIa && $get('jenis_dokumen_id') == 4) {
-                        $isIa = true;
+                    // Konteks form: apakah form secara spesifik khusus untuk IA (misal IaResource)
+                    $isIaContext = ($documentType !== null && strtoupper($documentType) === 'IA');
+                    if (!$isIaContext && $livewire && str_contains(get_class($livewire), 'IaResource')) {
+                        $isIaContext = true;
                     }
-                    if (!$isIa && $livewire) {
-                        $livewireClass = get_class($livewire);
-                        if (str_contains($livewireClass, 'IaResource')) {
-                            $isIa = true;
-                        }
-                    }
-                    if (!$isIa && !empty($data['jenis_dokumen_id']) && (int) $data['jenis_dokumen_id'] === 4) {
-                        $isIa = true;
-                    }
+
+                    // Deteksi dari hasil ekstraksi Gemini
+                    $detectedDocId = !empty($data['jenis_dokumen_id']) ? (int) $data['jenis_dokumen_id'] : null;
+                    $detectedCategory = !empty($data['detected_category']) ? trim((string) $data['detected_category']) : null;
+                    $isDetectedAsIa = ($detectedDocId === 4) || (strtoupper((string) $detectedCategory) === 'IA');
 
                     if (!empty($data['nomor_dokumen_polinema'])) $set('nomor_dokumen_polinema', $data['nomor_dokumen_polinema']);
                     if (!empty($data['nomor_dokumen_mitra'])) $set('nomor_dokumen_mitra', $data['nomor_dokumen_mitra']);
@@ -331,7 +337,7 @@ class GeminiOcrService
                         } catch (\Throwable $e) {
                             $set('tanggal_akhir', $data['tanggal_akhir']);
                         }
-                    } elseif ($isIa && !empty($data['tanggal_awal'])) {
+                    } elseif ($isDetectedAsIa && !empty($data['tanggal_awal'])) {
                         // Jika di dokumen IA tidak tertera tanggal akhir, baru gunakan fallback standar 1 tahun
                         if ($parsedAwal) {
                             $set('tanggal_akhir', $parsedAwal->copy()->addYear()->format('Y-m-d'));
@@ -346,10 +352,29 @@ class GeminiOcrService
                     if (!empty($data['link_laporan_kegiatan'])) $set('link_laporan_kegiatan', $data['link_laporan_kegiatan']);
                     if (!empty($data['bidang_id'])) $set('bidang_id', $data['bidang_id']);
 
-                    if ($isIa) {
+                    $user = \Illuminate\Support\Facades\Auth::user();
+                    $isDosenUser = (bool) $user?->isDosen();
+
+                    // Tetapkan ai_detected_category sesuai deteksi dokumen yang sebenarnya
+                    $actualDetectedCategory = $detectedCategory ?? match ($detectedDocId) {
+                        1, 7 => 'MoU',
+                        2, 3, 5, 6 => 'PKS',
+                        4 => 'IA',
+                        default => ($isDetectedAsIa ? 'IA' : 'Dokumen'),
+                    };
+                    $set('ai_detected_category', $actualDetectedCategory);
+
+                    if (!empty($data['detected_reason'])) {
+                        $set('ai_detected_reason', $data['detected_reason']);
+                    }
+
+                    // Tentukan nilai field jenis_dokumen_id pada formulir
+                    if ($isIaContext || $isDosenUser) {
+                        // Form IA atau role Dosen: opsi formulir dikunci pada IA (4)
                         $set('jenis_dokumen_id', 4);
-                    } elseif (!empty($data['jenis_dokumen_id'])) {
-                        $set('jenis_dokumen_id', $data['jenis_dokumen_id']);
+                    } elseif ($detectedDocId) {
+                        // Form umum: sesuaikan jenis_dokumen_id dengan hasil deteksi berkas
+                        $set('jenis_dokumen_id', $detectedDocId);
                     }
 
                     if (!empty($data['jenis'])) $set('jenis', $data['jenis']);
@@ -471,13 +496,34 @@ class GeminiOcrService
                         if ($mitra) {
                             $set('mitra_id', $mitra->id);
                             
-                            $parentDoc = \App\Models\Kerjasama::query()->where('mitra_id', $mitra->id)
-                                ->whereIn('jenis_dokumen_id', [1, 3, 4])
-                                ->latest()
-                                ->first();
-                                
-                            if ($parentDoc) {
-                                $set('parent_id', $parentDoc->id);
+                            $resolvedDocId = ($isIaContext || $isDosenUser)
+                            ? 4
+                            : ($detectedDocId ?? (int) ($get('jenis_dokumen_id') ?? 1));
+
+                            // Jika PKS/MoA/SPK/LoC (2,3,5,6) atau IA (4), cari referensi MoU aktif mitra tersebut
+                            if (in_array($resolvedDocId, [2, 3, 4, 5, 6])) {
+                                $latestMou = \App\Models\Kerjasama::query()
+                                    ->where('mitra_id', $mitra->id)
+                                    ->whereIn('jenis_dokumen_id', [1, 7])
+                                    ->latest('tanggal_awal')
+                                    ->first();
+                                    
+                                if ($latestMou) {
+                                    $set('parent_id', $latestMou->id);
+                                }
+                            }
+
+                            // Jika IA (4), cari juga referensi PKS aktif mitra tersebut
+                            if ($resolvedDocId === 4) {
+                                $latestPks = \App\Models\Kerjasama::query()
+                                    ->where('mitra_id', $mitra->id)
+                                    ->whereIn('jenis_dokumen_id', [2, 3, 5, 6])
+                                    ->latest('tanggal_awal')
+                                    ->first();
+
+                                if ($latestPks) {
+                                    $set('pks_id', $latestPks->id);
+                                }
                             }
                         }
                     }
@@ -511,18 +557,25 @@ class GeminiOcrService
                         $set('jurusans', $jurusanIds);
                     }
 
-                    // Tampilkan notifikasi keberhasilan yang informatif sesuai metode yang digunakan
-                    if ($methodUsed === 'hybrid') {
-                        $sourceLabel = ($localResult['source'] === 'pdftotext_digital') ? 'Digital PDF' : 'Tesseract OCR';
+                    // Tampilkan notifikasi keberhasilan atau peringatan jika Dosen/Form IA mengunggah selain IA
+                    if ($isDosenUser && !$isDetectedAsIa) {
                         \Filament\Notifications\Notification::make()
-                            ->title('Auto-Fill Berhasil via Hybrid OCR!')
-                            ->body("Teks diekstrak cepat via {$sourceLabel} & dipetakan otomatis oleh Gemini.")
-                            ->success()
+                            ->title('Perhatian: Berkas Terdeteksi ' . $actualDetectedCategory)
+                            ->body("Berkas yang Anda unggah terdeteksi sebagai dokumen {$actualDetectedCategory}. Role Dosen hanya dapat mengunggah dokumen Implementation Arrangement (IA).")
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    } elseif ($isIaContext && !$isDetectedAsIa) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Perhatian: Berkas Terdeteksi ' . $actualDetectedCategory)
+                            ->body("Formulir ini khusus untuk dokumen IA, namun berkas yang diunggah terdeteksi sebagai dokumen {$actualDetectedCategory}.")
+                            ->warning()
+                            ->persistent()
                             ->send();
                     } else {
                         \Filament\Notifications\Notification::make()
-                            ->title('Auto-Fill Berhasil via Gemini Multimodal!')
-                            ->body('Dokumen diproses penuh melalui analisis dokumen AI.')
+                            ->title('Data Dokumen Berhasil Dibaca')
+                            ->body('Informasi dokumen telah berhasil dimasukkan ke dalam formulir.')
                             ->success()
                             ->send();
                     }

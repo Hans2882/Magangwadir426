@@ -129,6 +129,8 @@ class IaResource extends Resource
                             return "{$sequence}_{$type}_{$originalName}";
                         })
                         ->columnSpanFull(),
+                    Forms\Components\Hidden::make('ai_detected_category')->dehydrated(),
+                    Forms\Components\Hidden::make('ai_detected_reason')->dehydrated(),
                     Forms\Components\TextInput::make('judul')->label('Judul')->maxLength(255)->required()->columnSpanFull(),
                     Forms\Components\Select::make('parent_id')
                         ->label('Referensi MoU')
