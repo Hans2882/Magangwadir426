@@ -115,6 +115,21 @@ class MitraResource extends Resource
                     ->pluck('nama_kota', 'id'))
                 ->searchable()
                 ->preload(),
+            \Filament\Schemas\Components\Section::make('Visibilitas Kontak di Landing Page')
+                ->description('Pilih informasi kontak mitra yang akan ditampilkan kepada publik.')
+                ->schema([
+                    Forms\Components\Toggle::make('tampilkan_telepon')
+                        ->label('Tampilkan nomor telepon')
+                        ->default(true),
+                    Forms\Components\Toggle::make('tampilkan_email')
+                        ->label('Tampilkan email')
+                        ->default(true),
+                    Forms\Components\Toggle::make('tampilkan_alamat')
+                        ->label('Tampilkan alamat')
+                        ->default(true),
+                ])
+                ->columns(3)
+                ->columnSpanFull(),
         ]);
     }
 

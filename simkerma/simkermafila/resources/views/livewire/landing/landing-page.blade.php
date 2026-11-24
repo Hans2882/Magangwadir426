@@ -209,6 +209,9 @@
                         <th>Negara</th>
                         <th>Kategori</th>
                         <th>QS Rank</th>
+                        <th>Telepon</th>
+                        <th>Email</th>
+                        <th>Alamat</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -236,10 +239,13 @@
                         <td>
                             {{ $mitra->qs_rank ? '#' . $mitra->qs_rank : '-' }}
                         </td>
+                        <td>{{ $mitra->tampilkan_telepon && $mitra->telepon ? $mitra->telepon : '-' }}</td>
+                        <td>{{ $mitra->tampilkan_email && $mitra->email ? $mitra->email : '-' }}</td>
+                        <td>{{ $mitra->tampilkan_alamat && $mitra->alamat ? $mitra->alamat : '-' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="text-center py-8">
+                        <td colspan="7" class="text-center py-8">
                             <div class="empty-state-small">
                                 <i data-lucide="users" class="empty-icon-small"></i>
                                 <p>Belum ada data Mitra.</p>
