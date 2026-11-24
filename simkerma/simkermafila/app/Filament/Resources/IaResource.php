@@ -47,7 +47,7 @@ class IaResource extends Resource
         if ($user?->isMahasiswa()) {
             return false;
         }
-        if ($user?->isDosen()) {
+        if ($user?->isDosen() || $user?->isKoorMagang()) {
             return true;
         }
         return parent::canViewAny();
@@ -59,7 +59,7 @@ class IaResource extends Resource
         if ($user?->isMahasiswa()) {
             return false;
         }
-        if ($user?->isDosen()) {
+        if ($user?->isDosen() || $user?->isKoorMagang()) {
             return true;
         }
         return parent::canCreate();
@@ -71,7 +71,7 @@ class IaResource extends Resource
         if ($user?->isMahasiswa()) {
             return false;
         }
-        if ($user?->isDosen()) {
+        if ($user?->isDosen() || $user?->isKoorMagang()) {
             return (int) $record->user_id === (int) $user->id;
         }
         return parent::canEdit($record);
@@ -83,10 +83,19 @@ class IaResource extends Resource
         if ($user?->isMahasiswa()) {
             return false;
         }
-        if ($user?->isDosen()) {
+        if ($user?->isDosen() || $user?->isKoorMagang()) {
             return (int) $record->user_id === (int) $user->id;
         }
         return parent::canDelete($record);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isMahasiswa() || $user?->isDosen() || $user?->isKoorMagang()) {
+            return false;
+        }
+        return parent::canDeleteAny();
     }
 
     public static function getEloquentQuery(): Builder

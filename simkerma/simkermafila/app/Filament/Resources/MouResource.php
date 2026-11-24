@@ -49,10 +49,37 @@ class MouResource extends Resource
     public static function canCreate(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa() || $user?->isDosen()) {
+        if ($user?->isMahasiswa() || $user?->isDosen() || $user?->isKoorMagang()) {
             return false;
         }
         return parent::canCreate();
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isKoorMagang()) {
+            return false;
+        }
+        return parent::canEdit($record);
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isKoorMagang()) {
+            return false;
+        }
+        return parent::canDelete($record);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user?->isKoorMagang()) {
+            return false;
+        }
+        return parent::canDeleteAny();
     }
 
     public static function getEloquentQuery(): Builder
@@ -398,6 +425,7 @@ class MouResource extends Resource
         }),
 ])
             ->actions([
+                \Filament\Actions\ViewAction::make(),
                 \Filament\Actions\EditAction::make(),
                 \Filament\Actions\DeleteAction::make(),
             ])

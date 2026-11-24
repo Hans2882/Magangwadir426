@@ -90,6 +90,9 @@ class PelaporanKegiatanResource extends Resource
         if ($user?->isMahasiswa()) {
             return false;
         }
+        if ($user?->isKoorMagang() || $user?->isDosen()) {
+            return (int) $record->user_id === (int) $user->id;
+        }
         if (! static::canView($record)) {
             return false;
         }
@@ -102,6 +105,9 @@ class PelaporanKegiatanResource extends Resource
         if ($user?->isMahasiswa()) {
             return false;
         }
+        if ($user?->isKoorMagang() || $user?->isDosen()) {
+            return (int) $record->user_id === (int) $user->id;
+        }
         if (! static::canView($record)) {
             return false;
         }
@@ -111,7 +117,7 @@ class PelaporanKegiatanResource extends Resource
     public static function canDeleteAny(): bool
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user?->isMahasiswa()) {
+        if ($user?->isMahasiswa() || $user?->isKoorMagang() || $user?->isDosen()) {
             return false;
         }
         return parent::canDeleteAny();

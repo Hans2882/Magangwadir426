@@ -99,6 +99,7 @@ class ListPksSpks extends ListRecords
                 ->label('Tambah Dokumen Baru')
                 ->icon('heroicon-o-document-plus')
                 ->color('primary')
+                ->visible(fn (): bool => !\Illuminate\Support\Facades\Auth::user()?->isKoorMagang())
                 ->url(fn (): string => \App\Filament\Pages\TambahDokumenBaru::getUrl()),
 
             Actions\CreateAction::make()

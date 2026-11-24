@@ -43,11 +43,25 @@ class TambahDokumenBaru extends Page implements HasForms
     public function getSubheading(): ?string
     {
         $user = Auth::user();
-        if ($user?->isDosen()) {
-            return 'Khusus Dosen, pengunggahan dokumen difokuskan untuk Implementation Arrangement (IA). Formulir akan terisi otomatis dari berkas yang Anda pilih.';
+        if (static::isRestrictedToIa($user)) {
+            $roleName = static::getRestrictedRoleName($user);
+            return "Khusus {$roleName}, pengunggahan dokumen difokuskan untuk Implementation Arrangement (IA). Formulir akan terisi otomatis dari berkas yang Anda pilih.";
         }
 
         return 'Unggah berkas kerja sama (MoU, PKS, atau IA). Formulir akan terisi otomatis berdasarkan berkas yang Anda pilih.';
+    }
+
+    protected static function isRestrictedToIa(?\App\Models\User $user): bool
+    {
+        return (bool) ($user?->isDosen() || $user?->isKoorMagang());
+    }
+
+    protected static function getRestrictedRoleName(?\App\Models\User $user): string
+    {
+        if ($user?->isKoorMagang()) {
+            return 'Koordinator Magang';
+        }
+        return 'Dosen';
     }
 
     protected static ?string $slug = 'tambah-dokumen-baru';
@@ -75,14 +89,14 @@ class TambahDokumenBaru extends Page implements HasForms
     public function mount(): void
     {
         $user = Auth::user();
-        $isDosen = (bool) $user?->isDosen();
+        $isRestricted = static::isRestrictedToIa($user);
 
         $this->form->fill([
-            'jenis_dokumen_id' => $isDosen ? 4 : 1,
+            'jenis_dokumen_id' => $isRestricted ? 4 : 1,
             'jenis' => 'Dalam Negeri',
             'jenis_pengajuan' => 'Baru',
-            'jurusans' => ($isDosen && $jurusanId = $user?->getJurusanId()) ? [$jurusanId] : [],
-            'prodis' => ($isDosen) ? $user?->getProdiIds() : [],
+            'jurusans' => ($isRestricted && $jurusanId = $user?->getJurusanId()) ? [$jurusanId] : [],
+            'prodis' => ($isRestricted) ? $user?->getProdiIds() : [],
         ]);
     }
 
@@ -94,9 +108,10 @@ class TambahDokumenBaru extends Page implements HasForms
     public function form(Schema $schema): Schema
     {
         $user = Auth::user();
-        $isDosen = (bool) $user?->isDosen();
+        $isRestricted = static::isRestrictedToIa($user);
+        $roleName = static::getRestrictedRoleName($user);
 
-        $jenisDokumenOptions = $isDosen
+        $jenisDokumenOptions = $isRestricted
             ? [
                 4 => 'IA (Implementation Arrangement)',
             ]
@@ -181,14 +196,14 @@ class TambahDokumenBaru extends Page implements HasForms
 
                         Forms\Components\Placeholder::make('ai_dosen_category_warning')
                             ->hiddenLabel()
-                            ->visible(function (Get $get) use ($isDosen) {
-                                if (!$isDosen) {
+                            ->visible(function (Get $get) use ($isRestricted) {
+                                if (!$isRestricted) {
                                     return false;
                                 }
                                 $cat = strtoupper(trim((string) ($get('ai_detected_category') ?? '')));
                                 return !empty($cat) && !in_array($cat, ['IA', 'IMPLEMENTATION ARRANGEMENT']);
                             })
-                            ->content(function (Get $get) {
+                            ->content(function (Get $get) use ($roleName) {
                                 $cat = htmlspecialchars(trim((string) ($get('ai_detected_category') ?? 'Bukan IA')));
                                 $reason = htmlspecialchars(trim((string) ($get('ai_detected_reason') ?? '')));
                                 $reasonHtml = $reason ? "<div style=\"margin-top: 6px; font-size: 0.825rem; color: #b91c1c;\"><strong>Alasan deteksi:</strong> {$reason}</div>" : "";
@@ -202,7 +217,7 @@ class TambahDokumenBaru extends Page implements HasForms
                                             Peringatan: Berkas Terdeteksi Sebagai Dokumen {$cat}
                                         </div>
                                         <div style=\"margin-top: 6px; color: #7f1d1d; line-height: 1.45;\">
-                                            Role Dosen hanya memiliki wewenang untuk menambahkan dokumen <strong>Implementation Arrangement (IA)</strong>. Dokumen berjenis {$cat} tidak dapat disimpan. Silakan unggah berkas IA yang sesuai atau hubungi Tim Kerja Sama Polinema jika memerlukan pemrosesan dokumen MoU/PKS.
+                                            Role {$roleName} hanya memiliki wewenang untuk menambahkan dokumen <strong>Implementation Arrangement (IA)</strong>. Dokumen berjenis {$cat} tidak dapat disimpan. Silakan unggah berkas IA yang sesuai atau hubungi Tim Kerja Sama Polinema jika memerlukan pemrosesan dokumen MoU/PKS.
                                         </div>
                                         {$reasonHtml}
                                     </div>
@@ -216,7 +231,7 @@ class TambahDokumenBaru extends Page implements HasForms
                             ->required()
                             ->native(false)
                             ->live()
-                            ->helperText($isDosen ? 'Dosen hanya memiliki hak akses untuk menambahkan dokumen IA (Implementation Arrangement).' : 'Pilihan ini terisi otomatis dari berkas dan dapat Anda sesuaikan jika diperlukan.')
+                            ->helperText($isRestricted ? "{$roleName} hanya memiliki hak akses untuk menambahkan dokumen IA (Implementation Arrangement)." : 'Pilihan ini terisi otomatis dari berkas dan dapat Anda sesuaikan jika diperlukan.')
                             ->afterStateUpdated(function ($state, callable $set, Get $get) {
                                 if (in_array((int) $state, [2, 6])) {
                                     $set('jenis', 'Luar Negeri');
@@ -368,7 +383,7 @@ class TambahDokumenBaru extends Page implements HasForms
                             ->relationship('jurusans', 'nama_jurusan')
                             ->default(function () {
                                 $user = Auth::user();
-                                if ($user?->isDosen() && $jurusanId = $user->getJurusanId()) {
+                                if (static::isRestrictedToIa($user) && $jurusanId = $user->getJurusanId()) {
                                     return [$jurusanId];
                                 }
                                 return [];
@@ -389,7 +404,7 @@ class TambahDokumenBaru extends Page implements HasForms
                             })
                             ->default(function () {
                                 $user = Auth::user();
-                                if ($user?->isDosen()) {
+                                if (static::isRestrictedToIa($user)) {
                                     return $user->getProdiIds();
                                 }
                                 return [];
@@ -536,14 +551,15 @@ class TambahDokumenBaru extends Page implements HasForms
             $data = $this->form->getState();
             $user = Auth::user();
 
-        // Validasi batasan Dosen: hanya boleh mengunggah IA (4)
-        if ($user?->isDosen()) {
+        // Validasi batasan Dosen / Koor Magang: hanya boleh mengunggah IA (4)
+        if (static::isRestrictedToIa($user)) {
+            $roleName = static::getRestrictedRoleName($user);
             if ((int) ($data['jenis_dokumen_id'] ?? 1) !== 4) {
                 $this->isCreating = false;
                 $this->dispatch('document-save-failed');
                 Notification::make()
                     ->title('Akses Dibatasi')
-                    ->body('Dosen hanya dapat menambahkan dokumen Implementation Arrangement (IA).')
+                    ->body("{$roleName} hanya dapat menambahkan dokumen Implementation Arrangement (IA).")
                     ->danger()
                     ->persistent()
                     ->send();
@@ -557,7 +573,7 @@ class TambahDokumenBaru extends Page implements HasForms
                 $this->dispatch('document-save-failed');
                 Notification::make()
                     ->title('Dokumen Tidak Dapat Disimpan')
-                    ->body("Berkas yang Anda unggah terdeteksi sebagai dokumen {$detectedCat}. Dosen hanya diperkenankan mengunggah dokumen Implementation Arrangement (IA). Silakan periksa kembali berkas yang Anda pilih.")
+                    ->body("Berkas yang Anda unggah terdeteksi sebagai dokumen {$detectedCat}. {$roleName} hanya diperkenankan mengunggah dokumen Implementation Arrangement (IA). Silakan periksa kembali berkas yang Anda pilih.")
                     ->danger()
                     ->persistent()
                     ->send();
@@ -574,7 +590,7 @@ class TambahDokumenBaru extends Page implements HasForms
                     $this->dispatch('document-save-failed');
                     Notification::make()
                         ->title('Dokumen Tidak Dapat Disimpan')
-                        ->body('Berkas yang Anda unggah terindikasi sebagai dokumen MoU. Dosen hanya dapat mengunggah dokumen Implementation Arrangement (IA).')
+                        ->body("Berkas yang Anda unggah terindikasi sebagai dokumen MoU. {$roleName} hanya dapat mengunggah dokumen Implementation Arrangement (IA).")
                         ->danger()
                         ->persistent()
                         ->send();
@@ -584,7 +600,7 @@ class TambahDokumenBaru extends Page implements HasForms
                     $this->dispatch('document-save-failed');
                     Notification::make()
                         ->title('Dokumen Tidak Dapat Disimpan')
-                        ->body('Berkas yang Anda unggah terindikasi sebagai dokumen PKS/SPK. Dosen hanya dapat mengunggah dokumen Implementation Arrangement (IA).')
+                        ->body("Berkas yang Anda unggah terindikasi sebagai dokumen PKS/SPK. {$roleName} hanya dapat mengunggah dokumen Implementation Arrangement (IA).")
                         ->danger()
                         ->persistent()
                         ->send();
@@ -685,8 +701,8 @@ class TambahDokumenBaru extends Page implements HasForms
             $record->prodis()->sync($data['prodis']);
         }
 
-        // Jika Dosen dan belum ada relasi terpasang, otomatis lampirkan prodi dosen
-        if ($user?->isDosen()) {
+        // Jika Dosen atau Koor Magang dan belum ada relasi terpasang, otomatis lampirkan prodi & jurusan
+        if (static::isRestrictedToIa($user)) {
             if ($record->prodis()->count() === 0 && $prodiId = $user->getProdiId()) {
                 $record->prodis()->attach($prodiId);
             }
@@ -714,13 +730,13 @@ class TambahDokumenBaru extends Page implements HasForms
                 ->success()
                 ->send();
 
-            $isDosen = (bool) $user?->isDosen();
+            $isRestricted = static::isRestrictedToIa($user);
             $this->form->fill([
-                'jenis_dokumen_id' => $isDosen ? 4 : 1,
+                'jenis_dokumen_id' => $isRestricted ? 4 : 1,
                 'jenis' => 'Dalam Negeri',
                 'jenis_pengajuan' => 'Baru',
-                'jurusans' => ($isDosen && $jurusanId = $user?->getJurusanId()) ? [$jurusanId] : [],
-                'prodis' => ($isDosen) ? $user?->getProdiIds() : [],
+                'jurusans' => ($isRestricted && $jurusanId = $user?->getJurusanId()) ? [$jurusanId] : [],
+                'prodis' => ($isRestricted) ? $user?->getProdiIds() : [],
             ]);
         } else {
             Notification::make()
