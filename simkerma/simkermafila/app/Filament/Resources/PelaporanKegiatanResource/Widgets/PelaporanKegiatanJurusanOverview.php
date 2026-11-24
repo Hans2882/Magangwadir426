@@ -133,6 +133,8 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
                 'parent.jurusans',
                 'parent.prodis',
                 'parent.jenisDokumen',
+                'parent.mitra',
+                'mitra',
             ]);
 
         $selected = $this->selectedYear ?: 'all';
@@ -149,9 +151,9 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
             });
         }
 
-        $documents = $baseQuery->get(['id', 'jenis_dokumen_id', 'parent_id', 'tahun', 'tanggal_awal', 'created_at']);
+        $documents = $baseQuery->get(['id', 'jenis_dokumen_id', 'parent_id', 'mitra_id', 'tahun', 'tanggal_awal', 'created_at']);
 
-        // 2. Hitung Total Rujukan Unik Institusi (Sama Persis dengan UserCountWidget di Admin)
+        // 2. Hitung Total Rujukan Unik Mitra Institusi (Sama Persis dengan UserCountWidget di Admin)
         $totalUniqueAll = $documents
             ->groupBy(function ($cs) {
                 if (!empty($cs->tahun)) return (string) $cs->tahun;
@@ -160,8 +162,8 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
             })
             ->map(function ($itemsInYear) {
                 return $itemsInYear->map(function ($item) {
-                    $nomor = trim($item->parent?->nomor_dokumen ?? '');
-                    return !empty($nomor) ? strtolower($nomor) : 'PARENT_ID_' . $item->parent_id;
+                    $mId = $item->parent?->mitra_id ?? $item->mitra_id;
+                    return !empty($mId) ? 'MITRA_' . $mId : 'PARENT_ID_' . $item->parent_id;
                 })->unique()->count();
             })
             ->sum();
@@ -171,17 +173,17 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
 
         $stats = [];
 
-        // 3. Kartu Ringkasan Total Semua Jurusan (Total Dokumen Kerma)
+        // 3. Kartu Ringkasan Total Semua Jurusan (Total Dokumen Kerma berbasis Mitra)
         $totalTitle = $selected === 'all'
             ? 'Total Dokumen Kerma (Semua Tahun)'
             : "Total Dokumen Kerma ({$selected})";
 
         $stats[] = Stat::make(
             $totalTitle,
-            new HtmlString(number_format($totalUniqueAll) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Dokumen</span>')
+            new HtmlString(number_format($totalUniqueAll) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Mitra</span>')
         )
             ->description("Didukung {$totalCsAll} Case Study · {$totalPrAll} Press Release")
-            ->descriptionIcon('heroicon-m-document-check')
+            ->descriptionIcon('heroicon-m-building-office-2')
             ->color($totalUniqueAll > 0 ? 'primary' : 'gray');
 
         // 4. Daftar Seluruh Master Jurusan
@@ -222,8 +224,8 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
                 }
             }
 
-            $nomor = trim($doc->parent?->nomor_dokumen ?? '');
-            $uniqueKey = !empty($nomor) ? strtolower($nomor) : 'PARENT_ID_' . $doc->parent_id;
+            $mId = $doc->parent?->mitra_id ?? $doc->mitra_id;
+            $uniqueKey = !empty($mId) ? 'MITRA_' . $mId : 'PARENT_ID_' . $doc->parent_id;
 
             foreach ($matchedJurusanIds->unique() as $jid) {
                 if (isset($jurusanUniqueParents[$jid])) {
@@ -281,7 +283,7 @@ class PelaporanKegiatanJurusanOverview extends BaseWidget
 
             $stats[] = Stat::make(
                 $displayName,
-                new HtmlString(number_format($countTotal) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Dokumen</span>')
+                new HtmlString(number_format($countTotal) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Mitra</span>')
             )
                 ->description($desc)
                 ->descriptionIcon('heroicon-m-academic-cap')

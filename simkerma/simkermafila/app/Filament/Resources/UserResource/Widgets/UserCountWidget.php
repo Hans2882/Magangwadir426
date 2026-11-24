@@ -6,6 +6,7 @@ use App\Models\Kerjasama;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\HtmlString;
 
 class UserCountWidget extends BaseWidget
 {
@@ -87,7 +88,7 @@ class UserCountWidget extends BaseWidget
             ->whereNotNull('parent_id')
             ->whereHas('parent')
             ->where('status_workflow', '!=', 'Ditolak')
-            ->with(['parent.jenisDokumen']);
+            ->with(['parent.jenisDokumen', 'parent.mitra', 'mitra']);
 
         $selected = $this->selectedYear ?: (string) date('Y');
 
@@ -108,7 +109,7 @@ class UserCountWidget extends BaseWidget
 
         $caseStudies = $query->get();
 
-        // Deduplikasi: nomor dokumen MoU/PKS/IA yang sama di tahun yang sama dihitung 1
+        // Deduplikasi: Mitra yang sama di tahun yang sama dihitung 1 (berbasis Mitra)
         $uniqueCount = $caseStudies
             ->groupBy(function ($cs) {
                 if (!empty($cs->tahun)) {
@@ -121,8 +122,8 @@ class UserCountWidget extends BaseWidget
             })
             ->map(function ($itemsInYear) {
                 return $itemsInYear->map(function ($item) {
-                    $nomor = trim($item->parent?->nomor_dokumen ?? '');
-                    return !empty($nomor) ? strtolower($nomor) : 'PARENT_ID_' . $item->parent_id;
+                    $mId = $item->parent?->mitra_id ?? $item->mitra_id;
+                    return !empty($mId) ? 'MITRA_' . $mId : 'PARENT_ID_' . $item->parent_id;
                 })->unique()->count();
             })
             ->sum();
@@ -130,15 +131,18 @@ class UserCountWidget extends BaseWidget
         // Label & Deskripsi
         if ($selected === 'all') {
             $labelTitle = 'Dokumen Kerma (Semua Tahun)';
-            $desc = 'Total rujukan unik MoU/PKS/IA dari Pelaporan Kegiatan';
+            $desc = 'Total rujukan mitra unik dari Pelaporan Kegiatan';
         } else {
             $labelTitle = "Dokumen Kerma ({$selected})";
-            $desc = "Rujukan unik MoU/PKS/IA dari Pelaporan Kegiatan tahun {$selected}";
+            $desc = "Rujukan mitra unik dari Pelaporan Kegiatan tahun {$selected}";
         }
 
-        $stats[] = Stat::make($labelTitle, number_format($uniqueCount))
+        $stats[] = Stat::make(
+            $labelTitle,
+            new HtmlString(number_format($uniqueCount) . ' <span class="text-sm font-normal text-gray-500 dark:text-gray-400" style="font-size: 0.875rem; font-weight: normal;">Mitra</span>')
+        )
             ->description($desc)
-            ->descriptionIcon('heroicon-m-document-check')
+            ->descriptionIcon('heroicon-m-building-office-2')
             ->color($uniqueCount > 0 ? 'success' : 'gray');
 
         // 3. Stat Pelaporan Kegiatan (Dinamis mengikuti filter tahun / semua tahun)
