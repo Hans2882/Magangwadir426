@@ -100,12 +100,15 @@ class ListMous extends ListRecords
                 ->label('Tambah Dokumen Baru')
                 ->icon('heroicon-o-document-plus')
                 ->color('primary')
+                ->visible(fn (): bool => ! \Illuminate\Support\Facades\Auth::user()?->isKoorMagang() && static::getResource()::canCreate())
                 ->url(fn (): string => \App\Filament\Pages\TambahDokumenBaru::getUrl()),
 
             Actions\CreateAction::make()
                 ->label('Tambah Manual MoU')
                 ->color('gray')
-                ->icon('heroicon-o-plus'),
+                ->icon('heroicon-o-plus')
+                ->visible(fn (): bool => static::getResource()::canCreate())
+                ->authorize(fn (): bool => static::getResource()::canCreate()),
         ];
     }
 

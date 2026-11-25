@@ -46,16 +46,42 @@ SELECT
     p.nomor_dokumen AS nomor_dokumen_rujukan,
     p_jd.nama AS jenis_dokumen_rujukan,
     p.judul AS judul_dokumen_rujukan,
+
+    -- Kunci Deduplikasi IKU 5 (Berbasis Mitra)
+    CASE 
+        WHEN k.parent_id IS NOT NULL AND p.id IS NOT NULL THEN 
+            CASE 
+                WHEN COALESCE(p.mitra_id, k.mitra_id) IS NOT NULL THEN 
+                    CONCAT('MITRA_', COALESCE(p.mitra_id, k.mitra_id))
+                ELSE 
+                    CONCAT('PARENT_ID_', k.parent_id)
+            END
+        ELSE NULL 
+    END AS rujukan_iku_mitra,
+
+    -- Kunci Deduplikasi Dokumen Fisik Kerjasama
     CASE 
         WHEN k.parent_id IS NOT NULL AND p.id IS NOT NULL THEN 
             LOWER(TRIM(COALESCE(NULLIF(p.nomor_dokumen, ''), CONCAT('PARENT_ID_', k.parent_id))))
         ELSE NULL 
+    END AS rujukan_dokumen_iku_mitra,
+
+    -- Alias Kompatibilitas untuk Kueri Terdahulu
+    CASE 
+        WHEN k.parent_id IS NOT NULL AND p.id IS NOT NULL THEN 
+            CASE 
+                WHEN COALESCE(p.mitra_id, k.mitra_id) IS NOT NULL THEN 
+                    CONCAT('MITRA_', COALESCE(p.mitra_id, k.mitra_id))
+                ELSE 
+                    CONCAT('PARENT_ID_', k.parent_id)
+            END
+        ELSE NULL 
     END AS rujukan_deduplikasi_key,
 
     -- Mitra & Lingkup
-    COALESCE(k.mitra_id, p.mitra_id) AS id_mitra,
-    COALESCE(m.nama_mitra, p_m.nama_mitra, 'Mitra Belum Terdata') AS nama_mitra,
-    COALESCE(m_iku.kategori, p_m_iku.kategori, '-') AS kategori_mitra,
+    COALESCE(p.mitra_id, k.mitra_id) AS id_mitra,
+    COALESCE(p_m.nama_mitra, m.nama_mitra, 'Mitra Belum Terdata') AS nama_mitra,
+    COALESCE(p_m_iku.kategori, m_iku.kategori, '-') AS kategori_mitra,
     COALESCE(k.jenis, p.jenis, 'Dalam Negeri') AS jenis_kerjasama,
 
     -- Link Berita & Berkas Bukti
@@ -66,18 +92,34 @@ SELECT
     u.name AS nama_pengusul,
     u.email AS email_pengusul,
 
-    -- Agregasi Jurusan & Kode Integrasi Polinema
+    -- Agregasi Jurusan & Kode Integrasi Polinema (dengan fallback parent jika pelaporan kosong)
     (
         SELECT GROUP_CONCAT(DISTINCT mj.nama_jurusan ORDER BY mj.nama_jurusan SEPARATOR ', ')
         FROM master_jurusans mj
         WHERE EXISTS (
             SELECT 1 FROM kerjasama_jurusan kj 
-            WHERE kj.kerjasama_id = k.id AND kj.jurusan_id = mj.id
+            WHERE (
+                kj.kerjasama_id = k.id 
+                OR (
+                    k.parent_id IS NOT NULL 
+                    AND kj.kerjasama_id = p.id 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_jurusan kj2 WHERE kj2.kerjasama_id = k.id) 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_prodi kp2 WHERE kp2.kerjasama_id = k.id)
+                )
+            ) AND kj.jurusan_id = mj.id
         )
         OR EXISTS (
             SELECT 1 FROM kerjasama_prodi kp 
             JOIN master_program_studi mps ON kp.prodi_id = mps.id 
-            WHERE kp.kerjasama_id = k.id AND mps.jurusan_id = mj.id
+            WHERE (
+                kp.kerjasama_id = k.id 
+                OR (
+                    k.parent_id IS NOT NULL 
+                    AND kp.kerjasama_id = p.id 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_jurusan kj2 WHERE kj2.kerjasama_id = k.id) 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_prodi kp2 WHERE kp2.kerjasama_id = k.id)
+                )
+            ) AND mps.jurusan_id = mj.id
         )
     ) AS daftar_jurusan,
 
@@ -86,28 +128,54 @@ SELECT
         FROM master_jurusans mj
         WHERE EXISTS (
             SELECT 1 FROM kerjasama_jurusan kj 
-            WHERE kj.kerjasama_id = k.id AND kj.jurusan_id = mj.id
+            WHERE (
+                kj.kerjasama_id = k.id 
+                OR (
+                    k.parent_id IS NOT NULL 
+                    AND kj.kerjasama_id = p.id 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_jurusan kj2 WHERE kj2.kerjasama_id = k.id) 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_prodi kp2 WHERE kp2.kerjasama_id = k.id)
+                )
+            ) AND kj.jurusan_id = mj.id
         )
         OR EXISTS (
             SELECT 1 FROM kerjasama_prodi kp 
             JOIN master_program_studi mps ON kp.prodi_id = mps.id 
-            WHERE kp.kerjasama_id = k.id AND mps.jurusan_id = mj.id
+            WHERE (
+                kp.kerjasama_id = k.id 
+                OR (
+                    k.parent_id IS NOT NULL 
+                    AND kp.kerjasama_id = p.id 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_jurusan kj2 WHERE kj2.kerjasama_id = k.id) 
+                    AND NOT EXISTS (SELECT 1 FROM kerjasama_prodi kp2 WHERE kp2.kerjasama_id = k.id)
+                )
+            ) AND mps.jurusan_id = mj.id
         )
     ) AS daftar_kode_integrasi_jurusan,
 
-    -- Agregasi Prodi & Kode Integrasi Polinema
+    -- Agregasi Prodi & Kode Integrasi Polinema (dengan fallback parent jika pelaporan kosong)
     (
         SELECT GROUP_CONCAT(DISTINCT mps.nama_prodi ORDER BY mps.nama_prodi SEPARATOR ', ')
         FROM kerjasama_prodi kp
         JOIN master_program_studi mps ON kp.prodi_id = mps.id
-        WHERE kp.kerjasama_id = k.id
+        WHERE kp.kerjasama_id = k.id 
+           OR (
+               k.parent_id IS NOT NULL 
+               AND kp.kerjasama_id = p.id 
+               AND NOT EXISTS (SELECT 1 FROM kerjasama_prodi kp2 WHERE kp2.kerjasama_id = k.id)
+           )
     ) AS daftar_prodi,
 
     (
         SELECT GROUP_CONCAT(DISTINCT mps.integrasi_prodi ORDER BY mps.integrasi_prodi SEPARATOR ',')
         FROM kerjasama_prodi kp
         JOIN master_program_studi mps ON kp.prodi_id = mps.id
-        WHERE kp.kerjasama_id = k.id
+        WHERE kp.kerjasama_id = k.id 
+           OR (
+               k.parent_id IS NOT NULL 
+               AND kp.kerjasama_id = p.id 
+               AND NOT EXISTS (SELECT 1 FROM kerjasama_prodi kp2 WHERE kp2.kerjasama_id = k.id)
+           )
     ) AS daftar_kode_integrasi_prodi,
 
     k.created_at,
@@ -125,4 +193,3 @@ WHERE k.jenis_dokumen_id IN (8, 9);
 SQL;
     }
 };
-

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MitraResource\Pages;
 
+use App\Exports\MitraExport;
 use App\Filament\Resources\MitraResource;
 use App\Models\Mitra;
 use Filament\Actions;
@@ -10,6 +11,7 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListMitras extends ListRecords
 {
@@ -49,6 +51,20 @@ class ListMitras extends ListRecords
         'activeTab' => $this->activeTab ?? 'dalam_negeri',
     ]);
 }),
+
+            Actions\Action::make('export')
+                ->label('Export Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $query = $this->getFilteredTableQuery();
+                    $suffix = $this->activeTab === 'luar_negeri' ? 'Luar_Negeri' : 'Dalam_Negeri';
+
+                    return Excel::download(
+                        new MitraExport($query),
+                        "Data_Mitra_{$suffix}.xlsx"
+                    );
+                }),
 
             Actions\CreateAction::make()
                 ->label('Tambah Mitra')
@@ -363,6 +379,99 @@ class ListMitras extends ListRecords
                                 );
                             }
                         );
+                    }),
+
+                /*
+                |--------------------------------------------------------------------------
+                | JURUSAN & PROGRAM STUDI (BERDASARKAN PKS / IA / MoA / SPK / LoC)
+                |--------------------------------------------------------------------------
+                */
+                Tables\Filters\Filter::make('jurusan_prodi')
+                    ->label('Jurusan & Program Studi')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('jurusans')
+                            ->label('Jurusan')
+                            ->options(\App\Models\MasterJurusan::pluck('nama_jurusan', 'id'))
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(fn (callable $set) => $set('prodis', [])),
+
+                        \Filament\Forms\Components\Select::make('prodis')
+                            ->label('Program Studi')
+                            ->options(function (callable $get) {
+                                $jurusans = $get('jurusans');
+                                if (! empty($jurusans)) {
+                                    return \App\Models\MasterProgramStudi::whereIn('jurusan_id', $jurusans)
+                                        ->pluck('nama_prodi', 'id');
+                                }
+
+                                return \App\Models\MasterProgramStudi::pluck('nama_prodi', 'id');
+                            })
+                            ->multiple()
+                            ->searchable()
+                            ->preload(),
+
+                        \Filament\Forms\Components\Checkbox::make('sertakan_mou')
+                            ->label('Sertakan mitra yang memiliki MoU')
+                            ->helperText('MoU berlaku tingkat institusi sehingga tetap ditampilkan meskipun tidak terikat ke jurusan/prodi tertentu.')
+                            ->default(true),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $jurusans = array_values(array_filter((array) ($data['jurusans'] ?? [])));
+                        $prodis = array_values(array_filter((array) ($data['prodis'] ?? [])));
+                        $sertakanMou = (bool) ($data['sertakan_mou'] ?? true);
+
+                        if (empty($jurusans) && empty($prodis)) {
+                            return $query;
+                        }
+
+                        return $query->where(function (Builder $outer) use ($jurusans, $prodis, $sertakanMou) {
+                            $outer->whereHas('kerjasamas', function (Builder $k) use ($jurusans, $prodis) {
+                                $k->whereIn('jenis_dokumen_id', [2, 3, 4, 5, 6])
+                                    ->when(! empty($jurusans), function (Builder $jq) use ($jurusans) {
+                                        $jq->where(function (Builder $sub) use ($jurusans) {
+                                            $sub->whereHas('jurusans', fn ($q) => $q->whereIn('master_jurusans.id', $jurusans))
+                                                ->orWhereHas('prodis', fn ($q) => $q->whereIn('master_program_studi.jurusan_id', $jurusans));
+                                        });
+                                    })
+                                    ->when(! empty($prodis), function (Builder $pq) use ($prodis) {
+                                        $pq->whereHas('prodis', fn ($q) => $q->whereIn('master_program_studi.id', $prodis));
+                                    });
+                            });
+
+                            if ($sertakanMou) {
+                                $outer->orWhereHas('kerjasamas', function (Builder $mou) {
+                                    $mou->whereIn('jenis_dokumen_id', [1, 7]);
+                                });
+                            }
+                        });
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        $jurusans = array_values(array_filter((array) ($data['jurusans'] ?? [])));
+                        $prodis = array_values(array_filter((array) ($data['prodis'] ?? [])));
+
+                        if (empty($jurusans) && empty($prodis)) {
+                            return [];
+                        }
+
+                        if (! empty($jurusans)) {
+                            $names = \App\Models\MasterJurusan::whereIn('id', $jurusans)->pluck('nama_jurusan')->implode(', ');
+                            $indicators[] = 'Jurusan: ' . $names;
+                        }
+
+                        if (! empty($prodis)) {
+                            $names = \App\Models\MasterProgramStudi::whereIn('id', $prodis)->pluck('nama_prodi')->implode(', ');
+                            $indicators[] = 'Prodi: ' . $names;
+                        }
+
+                        if ($data['sertakan_mou'] ?? true) {
+                            $indicators[] = 'Termasuk Mitra ber-MoU';
+                        }
+
+                        return $indicators;
                     }),
             ])
 
