@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MitraResource\Pages;
 
+use App\Exports\MitraExport;
 use App\Filament\Resources\MitraResource;
 use App\Models\Mitra;
 use Filament\Actions;
@@ -10,6 +11,7 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListMitras extends ListRecords
 {
@@ -49,6 +51,20 @@ class ListMitras extends ListRecords
         'activeTab' => $this->activeTab ?? 'dalam_negeri',
     ]);
 }),
+
+            Actions\Action::make('export')
+                ->label('Export Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $query = $this->getFilteredTableQuery();
+                    $suffix = $this->activeTab === 'luar_negeri' ? 'Luar_Negeri' : 'Dalam_Negeri';
+
+                    return Excel::download(
+                        new MitraExport($query),
+                        "Data_Mitra_{$suffix}.xlsx"
+                    );
+                }),
 
             Actions\CreateAction::make()
                 ->label('Tambah Mitra')
