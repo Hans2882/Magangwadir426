@@ -109,10 +109,18 @@ class GeminiOcrService
         $kategoriList = \App\Models\MasterMitraIku::pluck('kategori', 'id')->toArray();
         $bidangList = \App\Models\MasterKegiatan::pluck('bidang_kerjasama', 'id')->toArray();
         $jenisDokumenList = \App\Models\JenisDokumen::pluck('nama', 'id')->toArray();
+        $jurusanList = \App\Models\MasterJurusan::pluck('nama_jurusan', 'id')
+            ->map(fn ($name) => trim((string) $name))
+            ->toArray();
+        $prodiList = \App\Models\MasterProgramStudi::pluck('nama_prodi', 'id')
+            ->map(fn ($name) => trim((string) $name))
+            ->toArray();
         
-        $kategoriString = json_encode($kategoriList);
-        $bidangString = json_encode($bidangList);
-        $jenisDokumenString = json_encode($jenisDokumenList);
+        $kategoriString = json_encode($kategoriList, JSON_UNESCAPED_UNICODE);
+        $bidangString = json_encode($bidangList, JSON_UNESCAPED_UNICODE);
+        $jenisDokumenString = json_encode($jenisDokumenList, JSON_UNESCAPED_UNICODE);
+        $jurusanString = json_encode($jurusanList, JSON_UNESCAPED_UNICODE);
+        $prodiString = json_encode($prodiList, JSON_UNESCAPED_UNICODE);
 
         $prompt = "You are a highly accurate data extraction assistant. Analyze the attached Indonesian cooperation document (MoU, MoA, IA, PKS, or Laporan Kegiatan/Case Study). Extract the following information and return it strictly as a single, valid JSON object, with no markdown formatting, no preamble, and no extra braces.\n"
                 . "Use exactly these keys:\n"
@@ -147,8 +155,10 @@ class GeminiOcrService
                 . "- detected_reason (String, 1 concise sentence in Indonesian explaining why this document type was chosen)\n"
                 . "- jenis (String, guess the scope or Cakupan (DN/LN) based on the partner's country. Must be EXACTLY 'Dalam Negeri' if the partner is from Indonesia, or 'Luar Negeri' if the partner is from outside Indonesia)\n"
                 . "- link_laporan_kegiatan (String, a URL or link mentioned in the document referring to an activity report, Google Drive, or evidence link, otherwise null)\n"
-                . "- prodis (Array of Strings, list of 'Program Studi' or 'Prodi' mentioned in the document. IMPORTANT: Extract ONLY the major name, do not include the word 'Program Studi' or 'Prodi'. Standardize degree prefixes from Roman numerals to alphanumeric, e.g., 'D-III' -> 'D3', 'S-I' -> 'S1'. For 'D-IV' or 'D4', change it to 'Sarjana Terapan'. Example: 'Program Studi D-IV Administrasi Bisnis' should be extracted strictly as 'Sarjana Terapan Administrasi Bisnis')\n"
-                . "- jurusans (Array of Strings, list of 'Jurusan' mentioned in the document)\n";
+                . "- prodi_ids (Array of Integers, match every 'Program Studi' or 'Prodi' mentioned anywhere in the document—including title, TENTANG section, or Korespondensi—strictly to keys from this exact mapping: $prodiString. Note: if the document mentions 'Kampus Kediri', 'Kampus Lumajang', or 'Kampus Pamekasan', match to the corresponding entry ending with 'Kediri', 'Lumajang', or 'Pamekasan' without the word 'Kampus'. Standardize D-III/D3 and D-IV/D4 -> 'Sarjana Terapan'. Return [] if none mentioned)\n"
+                . "- jurusan_ids (Array of Integers, match any 'Jurusan' mentioned in the document or directly implied by the matched prodis strictly to keys from this exact mapping: $jurusanString. Return [] if none)\n"
+                . "- prodis (Array of Strings, fallback list of 'Program Studi' / 'Prodi' names mentioned in the document without the word 'Program Studi'/'Prodi'/'Kampus', standardizing 'D-III' -> 'D3' and 'D-IV'/'D4' -> 'Sarjana Terapan')\n"
+                . "- jurusans (Array of Strings, fallback list of 'Jurusan' names mentioned in the document)\n";
 
         if (!empty($filename)) {
             $prompt .= "\nIMPORTANT HINT: The filename is '{$filename}'. Pay close attention to acronyms in the filename (like SMA vs SMK). Use the filename to correct or double-check the partner's name if the document scan is blurry or ambiguous.";
@@ -528,33 +538,16 @@ class GeminiOcrService
                         }
                     }
 
-                    $jurusanIds = [];
-                    if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
-                        foreach ($data['jurusans'] as $jurusanName) {
-                            $j = \App\Models\MasterJurusan::query()->where('nama_jurusan', 'like', '%' . $jurusanName . '%')->first();
-                            if ($j && !in_array($j->id, $jurusanIds)) $jurusanIds[] = $j->id;
-                        }
-                    }
+                    $resolvedUnits = $service->resolveJurusanAndProdiIds($data);
+                    $jurusanIds = $resolvedUnits['jurusan_ids'];
+                    $prodiIds = $resolvedUnits['prodi_ids'];
 
-                    if (!empty($data['prodis']) && is_array($data['prodis'])) {
-                        $prodiIds = [];
-                        foreach ($data['prodis'] as $prodiName) {
-                            $searchName = trim(str_ireplace(['Program Studi', 'Prodi'], '', $prodiName));
-                            $searchName = str_replace(['D-IV', 'D4', 'D-III', 'D-II', 'D-I', 'S-I', 'S-II', 'S-III'], ['Sarjana Terapan', 'Sarjana Terapan', 'D3', 'D2', 'D1', 'S1', 'S2', 'S3'], $searchName);
-
-                            $p = \App\Models\MasterProgramStudi::query()->where('nama_prodi', 'like', '%' . $searchName . '%')->first();
-                            if ($p) {
-                                $prodiIds[] = $p->id;
-                                if ($p->jurusan_id && !in_array($p->jurusan_id, $jurusanIds)) {
-                                    $jurusanIds[] = $p->jurusan_id;
-                                }
-                            }
-                        }
-                        if (!empty($prodiIds)) $set('prodis', $prodiIds);
-                    }
-                    
+                    // Set jurusans terlebih dahulu agar filter opsi relasi prodis sudah sinkron
                     if (!empty($jurusanIds)) {
                         $set('jurusans', $jurusanIds);
+                    }
+                    if (!empty($prodiIds)) {
+                        $set('prodis', $prodiIds);
                     }
 
                     // Tampilkan notifikasi keberhasilan atau peringatan jika Dosen/Form IA mengunggah selain IA
@@ -583,5 +576,250 @@ class GeminiOcrService
                     \Filament\Notifications\Notification::make()->title('Gagal mengekstrak data')->body($result['error'] ?? 'Terjadi kesalahan')->danger()->send();
                 }
             });
+    }
+
+    /**
+     * Resolve MasterJurusan and MasterProgramStudi IDs from Gemini extraction payload.
+     *
+     * Handles campus naming variations (e.g. "Kampus Kediri" -> "Kediri"), degree aliases
+     * (D-IV/D4 -> Sarjana Terapan, D-III -> D3), and automatically derives jurusan_id from prodis.
+     *
+     * @return array{jurusan_ids: array<int, int>, prodi_ids: array<int, int>}
+     */
+    public function resolveJurusanAndProdiIds(array $data): array
+    {
+        $allJurusans = \App\Models\MasterJurusan::all();
+        $allProdis = \App\Models\MasterProgramStudi::all();
+
+        $jurusanById = $allJurusans->keyBy('id');
+        $prodiById = $allProdis->keyBy('id');
+
+        $jurusanIds = [];
+        $prodiIds = [];
+
+        // 1. Direct prodi_ids from Gemini
+        if (!empty($data['prodi_ids']) && is_array($data['prodi_ids'])) {
+            foreach ($data['prodi_ids'] as $rawId) {
+                $id = (int) $rawId;
+                if ($prodi = $prodiById->get($id)) {
+                    $prodiIds[] = $prodi->id;
+                    if ($prodi->jurusan_id) {
+                        $jurusanIds[] = (int) $prodi->jurusan_id;
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback string matching on prodis (supports Kampus/PSDKU suffixes & degree normalization)
+        if (!empty($data['prodis']) && is_array($data['prodis'])) {
+            foreach ($data['prodis'] as $rawProdiName) {
+                $matched = $this->matchProgramStudi((string) $rawProdiName, $allProdis);
+                if ($matched) {
+                    $prodiIds[] = (int) $matched->id;
+                    if ($matched->jurusan_id) {
+                        $jurusanIds[] = (int) $matched->jurusan_id;
+                    }
+                }
+            }
+        }
+
+        // 3. Direct jurusan_ids from Gemini
+        if (!empty($data['jurusan_ids']) && is_array($data['jurusan_ids'])) {
+            foreach ($data['jurusan_ids'] as $rawId) {
+                $id = (int) $rawId;
+                if ($jurusanById->has($id)) {
+                    $jurusanIds[] = $id;
+                }
+            }
+        }
+
+        // 4. Fallback string matching on jurusans
+        if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
+            foreach ($data['jurusans'] as $rawJurusanName) {
+                $matched = $this->matchJurusan((string) $rawJurusanName, $allJurusans);
+                if ($matched) {
+                    $jurusanIds[] = (int) $matched->id;
+                }
+            }
+        }
+
+        return [
+            'jurusan_ids' => array_values(array_unique(array_map('intval', $jurusanIds))),
+            'prodi_ids' => array_values(array_unique(array_map('intval', $prodiIds))),
+        ];
+    }
+
+    /**
+     * Match an extracted study program string against MasterProgramStudi records.
+     */
+    private function matchProgramStudi(string $rawName, \Illuminate\Support\Collection $allProdis): ?\App\Models\MasterProgramStudi
+    {
+        $normInput = $this->normalizeAcademicUnitName($rawName);
+        if ($normInput === '') {
+            return null;
+        }
+
+        $inputCampus = $this->detectBranchCampus($normInput);
+        $inputDegree = $this->detectDegreePrefix($normInput);
+
+        $candidates = $allProdis->filter(function ($prodi) use ($inputCampus) {
+            $normDb = $this->normalizeAcademicUnitName((string) $prodi->nama_prodi);
+            $dbCampus = $this->detectBranchCampus($normDb);
+
+            // Prevent cross-matching main campus with branch campus (e.g. Kediri/Lumajang/Pamekasan)
+            return $inputCampus === $dbCampus;
+        });
+
+        if ($candidates->isEmpty()) {
+            $candidates = $allProdis;
+        }
+
+        // Narrow by degree prefix when both input and at least one candidate specify the same degree
+        if ($inputDegree !== null) {
+            $sameDegree = $candidates->filter(
+                fn ($p) => $this->detectDegreePrefix($this->normalizeAcademicUnitName((string) $p->nama_prodi)) === $inputDegree
+            );
+            if ($sameDegree->isNotEmpty()) {
+                $candidates = $sameDegree;
+            }
+        }
+
+        // Exact normalized match
+        foreach ($candidates as $prodi) {
+            if ($this->normalizeAcademicUnitName((string) $prodi->nama_prodi) === $normInput) {
+                return $prodi;
+            }
+        }
+
+        // Best containment or fuzzy match
+        $bestMatch = null;
+        $bestScore = 0.0;
+
+        foreach ($candidates as $prodi) {
+            $normDb = $this->normalizeAcademicUnitName((string) $prodi->nama_prodi);
+            if ($normDb === '') {
+                continue;
+            }
+
+            if (str_contains($normDb, $normInput) || str_contains($normInput, $normDb)) {
+                $score = 90.0 + (min(strlen($normInput), strlen($normDb)) / max(strlen($normInput), strlen($normDb))) * 10.0;
+            } else {
+                similar_text($normInput, $normDb, $score);
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestMatch = $prodi;
+            }
+        }
+
+        return $bestScore >= 78.0 ? $bestMatch : null;
+    }
+
+    /**
+     * Match an extracted department string against MasterJurusan records.
+     */
+    private function matchJurusan(string $rawName, \Illuminate\Support\Collection $allJurusans): ?\App\Models\MasterJurusan
+    {
+        $normInput = $this->normalizeAcademicUnitName($rawName, stripJurusanWord: true);
+        if ($normInput === '') {
+            return null;
+        }
+
+        $bestMatch = null;
+        $bestScore = 0.0;
+
+        foreach ($allJurusans as $jurusan) {
+            $normDb = $this->normalizeAcademicUnitName((string) $jurusan->nama_jurusan, stripJurusanWord: true);
+            if ($normDb === $normInput) {
+                return $jurusan;
+            }
+
+            if (str_contains($normDb, $normInput) || str_contains($normInput, $normDb)) {
+                $score = 92.0;
+            } else {
+                similar_text($normInput, $normDb, $score);
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestMatch = $jurusan;
+            }
+        }
+
+        return $bestScore >= 80.0 ? $bestMatch : null;
+    }
+
+    /**
+     * Normalize Indonesian academic unit / program names for consistent lookup.
+     */
+    private function normalizeAcademicUnitName(string $name, bool $stripJurusanWord = false): string
+    {
+        $text = strtolower(trim($name));
+
+        $noisePhrases = [
+            'program studi',
+            'prodi',
+            'kampus utama',
+            'kampus cabang',
+            'kampus',
+            'psdku',
+            'pdd',
+            'cabang',
+            'politeknik negeri malang',
+            'polinema',
+        ];
+        if ($stripJurusanWord) {
+            $noisePhrases[] = 'jurusan';
+        }
+
+        foreach ($noisePhrases as $phrase) {
+            $text = preg_replace('/\b' . preg_quote($phrase, '/') . '\b/u', ' ', $text);
+        }
+
+        $replacements = [
+            '/\bdiploma\s*(iv|4)\b/u' => 'sarjana terapan',
+            '/\bd[\s\-]*(iv|4)\b/u' => 'sarjana terapan',
+            '/\bs[\.\s]*tr\.?\b/u' => 'sarjana terapan',
+            '/\bdiploma\s*(iii|3)\b/u' => 'd3',
+            '/\bd[\s\-]*(iii|3)\b/u' => 'd3',
+            '/\bdiploma\s*(ii|2)\b/u' => 'd2',
+            '/\bd[\s\-]*(ii|2)\b/u' => 'd2',
+            '/\bdiploma\s*(i|1)\b/u' => 'd1',
+            '/\bd[\s\-]*(i|1)\b/u' => 'd1',
+            '/\bs[\s\-]*(iii|3)\b/u' => 's3',
+            '/\bs[\s\-]*(ii|2)\b/u' => 's2',
+            '/\bs[\s\-]*(i|1)\b/u' => 's1',
+            '/&/u' => ' dan ',
+        ];
+
+        foreach ($replacements as $pattern => $replacement) {
+            $text = preg_replace($pattern, $replacement, $text);
+        }
+
+        $text = preg_replace('/[^a-z0-9\s]/u', ' ', $text);
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
+    }
+
+    private function detectBranchCampus(string $normalizedName): ?string
+    {
+        foreach (['kediri', 'lumajang', 'pamekasan'] as $campus) {
+            if (preg_match('/\b' . $campus . '\b/u', $normalizedName)) {
+                return $campus;
+            }
+        }
+
+        return null;
+    }
+
+    private function detectDegreePrefix(string $normalizedName): ?string
+    {
+        foreach (['sarjana terapan', 'd3', 'd2', 'd1', 's3', 's2', 's1'] as $degree) {
+            if (preg_match('/\b' . preg_quote($degree, '/') . '\b/u', $normalizedName)) {
+                return $degree;
+            }
+        }
+
+        return null;
     }
 }
