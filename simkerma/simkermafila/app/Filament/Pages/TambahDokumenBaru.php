@@ -693,13 +693,8 @@ class TambahDokumenBaru extends Page implements HasForms
 
         $record = Kerjasama::create($recordData);
 
-        // Pasang relasi Jurusan & Prodi
-        if (!empty($data['jurusans']) && is_array($data['jurusans'])) {
-            $record->jurusans()->sync($data['jurusans']);
-        }
-        if (!empty($data['prodis']) && is_array($data['prodis'])) {
-            $record->prodis()->sync($data['prodis']);
-        }
+        // Simpan relasi BelongsToMany (jurusans, prodis) via Filament Schema saveRelationships()
+        $this->form->model($record)->saveRelationships();
 
         // Jika Dosen atau Koor Magang dan belum ada relasi terpasang, otomatis lampirkan prodi & jurusan
         if (static::isRestrictedToIa($user)) {
@@ -731,7 +726,7 @@ class TambahDokumenBaru extends Page implements HasForms
                 ->send();
 
             $isRestricted = static::isRestrictedToIa($user);
-            $this->form->fill([
+            $this->form->model(Kerjasama::class)->fill([
                 'jenis_dokumen_id' => $isRestricted ? 4 : 1,
                 'jenis' => 'Dalam Negeri',
                 'jenis_pengajuan' => 'Baru',
