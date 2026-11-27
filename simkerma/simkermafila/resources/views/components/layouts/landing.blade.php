@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 
         <title>{{ $title ?? 'SIMKERMA - Data Pelaporan Case Study' }}</title>
         
@@ -13,6 +14,17 @@
         
         <!-- Icons -->
         <script src="https://unpkg.com/lucide@latest"></script>
+
+        <script>
+            (() => {
+                const themeMode = localStorage.getItem('filament:theme:mode') ?? 'light';
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+                if (themeMode === 'dark' || (themeMode === 'system' && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                }
+            })();
+        </script>
 
         @livewireStyles
         
@@ -26,6 +38,18 @@
                 --text-muted: #64748b;
                 --card-bg: rgba(255, 255, 255, 0.85);
                 --card-border: rgba(255, 255, 255, 0.5);
+            }
+
+            html.dark {
+                color-scheme: dark;
+                --primary: #3b82f6;
+                --primary-hover: #2563eb;
+                --bg-gradient-start: #0f172a;
+                --bg-gradient-end: #020617;
+                --text-main: #e2e8f0;
+                --text-muted: #94a3b8;
+                --card-bg: rgba(15, 23, 42, 0.88);
+                --card-border: rgba(148, 163, 184, 0.2);
             }
             
             * {
@@ -61,7 +85,7 @@
             header h1 {
                 font-size: 1.5rem;
                 font-weight: 700;
-                color: black;
+                color: var(--text-main);
                 letter-spacing: -0.5px;
             }
             
@@ -77,6 +101,14 @@
             
             .login-btn:hover {
                 background: var(--primary);
+                color: white;
+            }
+
+            .dark .login-btn {
+                color: #93c5fd;
+            }
+
+            .dark .login-btn:hover {
                 color: white;
             }
             

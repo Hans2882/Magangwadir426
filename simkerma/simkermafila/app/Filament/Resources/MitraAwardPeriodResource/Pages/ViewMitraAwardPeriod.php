@@ -17,9 +17,7 @@ class ViewMitraAwardPeriod extends ViewRecord
         return [
             MitraAwardPeriodResource::configurationAction()
                 ->record(fn (): MitraAwardPeriod => $this->getRecord())
-                ->label('Edit Bobot')
-                ->icon('heroicon-o-adjustments-horizontal'),
-
+                ->label('Bobot'),
             EditAction::make(),
             DeleteAction::make(),
         ];

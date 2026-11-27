@@ -209,6 +209,9 @@
                         <th>Negara</th>
                         <th>Kategori</th>
                         <th>QS Rank</th>
+                        <th>Telepon</th>
+                        <th>Email</th>
+                        <th>Alamat</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -236,10 +239,13 @@
                         <td>
                             {{ $mitra->qs_rank ? '#' . $mitra->qs_rank : '-' }}
                         </td>
+                        <td>{{ $mitra->tampilkan_telepon && $mitra->telepon ? $mitra->telepon : '-' }}</td>
+                        <td>{{ $mitra->tampilkan_email && $mitra->email ? $mitra->email : '-' }}</td>
+                        <td>{{ $mitra->tampilkan_alamat && $mitra->alamat ? $mitra->alamat : '-' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="text-center py-8">
+                        <td colspan="7" class="text-center py-8">
                             <div class="empty-state-small">
                                 <i data-lucide="users" class="empty-icon-small"></i>
                                 <p>Belum ada data Mitra.</p>
@@ -1356,6 +1362,77 @@
         .icon-sm { width: 14px; height: 14px; }
         .icon-md { width: 20px; height: 20px; }
         .text-muted { color: var(--text-muted); }
+
+        .dark .tab-list,
+        .dark .table-toolbar {
+            background: rgba(15, 23, 42, 0.72);
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+
+        .dark .tab-button:not(.active),
+        .dark .survey-note,
+        .dark .field-note {
+            color: #cbd5e1;
+        }
+
+        .dark .field-grid label,
+        .dark .field-block {
+            background: rgba(15, 23, 42, 0.65);
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        .dark input[type="text"],
+        .dark input[type="email"],
+        .dark input[type="date"],
+        .dark select,
+        .dark textarea,
+        .dark .search-input {
+            background-color: #0f172a;
+            border-color: #475569;
+            color: var(--text-main);
+        }
+
+        .dark .cs-filter-select,
+        .dark .cs-filter-date {
+            background: #0f172a !important;
+            border-color: #475569 !important;
+            color: var(--text-main) !important;
+        }
+
+        .dark .glass-table th {
+            background: rgba(30, 41, 59, 0.9);
+        }
+
+        .dark .glass-table td {
+            border-bottom-color: rgba(71, 85, 105, 0.55);
+        }
+
+        .dark .glass-table tbody tr:hover td,
+        .dark .mitra-info,
+        .dark .pagination-container {
+            background: rgba(30, 41, 59, 0.65);
+        }
+
+        .dark .pagination-container a,
+        .dark .pagination-container span {
+            background-color: #0f172a;
+            border-color: #475569;
+            color: #cbd5e1;
+        }
+
+        .dark .pagination-container [aria-current="page"] span {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .dark .badge-kategori {
+            color: #93c5fd;
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+
+        .dark .empty-state {
+            border-color: #475569;
+        }
     </style>
     <script>
         document.addEventListener('livewire:navigated', () => {
