@@ -23,6 +23,7 @@ use App\Filament\Resources\PelaporanKegiatanResource;
 
 class IaResource extends Resource
 {
+    use \App\Filament\Resources\Traits\HasAcademicUnitTableColumns;
     use \App\Filament\Resources\Traits\HasKerjasamaLocationFormSchema;
     use HasMitraFormSchema;
     protected static ?string $model = Kerjasama::class;
@@ -101,7 +102,7 @@ class IaResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['mitra', 'provinsi', 'kota', 'prodis'])
+            ->with(['mitra', 'provinsi', 'kota', 'prodis.jurusan', 'jurusans'])
             ->where('jenis_dokumen_id', 4); // 4 = IA
     }
 
@@ -378,22 +379,9 @@ class IaResource extends Resource
                 ] : [])
                 ->default('-'),
 
-            Tables\Columns\TextColumn::make('prodis')
-    ->label('Program Studi')
-    ->badge()
-    ->getStateUsing(function ($record) {
-        return $record->prodis
-            ->pluck('nama_prodi')
-            ->unique()
-            ->implode(', ');
-    })
-    ->default('-'),
+            static::getProdisTableColumn(),
 
-            Tables\Columns\TextColumn::make('jurusans')
-                ->label('Jurusan')
-                ->badge()
-                ->getStateUsing(fn ($record) => $record->jurusans->pluck('nama_jurusan')->unique()->all())
-                ->default('-'),
+            static::getJurusansTableColumn(),
 
             Tables\Columns\TextColumn::make('nomor_dokumen')
                 ->label('Nomor Dokumen')

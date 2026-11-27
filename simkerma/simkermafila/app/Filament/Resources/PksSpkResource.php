@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Utilities\Set;
 
 class PksSpkResource extends Resource
 {
+    use \App\Filament\Resources\Traits\HasAcademicUnitTableColumns;
     use \App\Filament\Resources\Traits\HasKerjasamaLocationFormSchema;
     use HasMitraFormSchema;
 
@@ -92,7 +93,7 @@ class PksSpkResource extends Resource
     {
         // 2 = MoA, 3 = PKS, 5 = SPK, 6 = LoC
         return parent::getEloquentQuery()
-            ->with(['mitra', 'provinsi', 'kota'])
+            ->with(['mitra', 'provinsi', 'kota', 'prodis.jurusan', 'jurusans'])
             ->whereIn('jenis_dokumen_id', [2, 3, 5, 6]);
     }
 
@@ -374,17 +375,9 @@ class PksSpkResource extends Resource
                     ] : [])
                     ->default('-'),
 
-                Tables\Columns\TextColumn::make('prodis.nama_prodi')
-                    ->label('Program Studi')
-                    ->badge()
-                    ->searchable()
-                    ->default('-'),
+                static::getProdisTableColumn(),
 
-                Tables\Columns\TextColumn::make('jurusans')
-                    ->label('Jurusan')
-                    ->badge()
-                    ->getStateUsing(fn ($record) => $record->jurusans->pluck('nama_jurusan')->unique()->all())
-                    ->default('-'),
+                static::getJurusansTableColumn(),
 
                 Tables\Columns\TextColumn::make('nomor_dokumen')
                     ->label('Nomor Dokumen')
